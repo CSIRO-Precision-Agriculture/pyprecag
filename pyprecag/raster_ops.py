@@ -16,7 +16,7 @@ from rasterio.warp import calculate_default_transform, reproject
 from scipy.ndimage import generic_filter
 from . import crs as pyprecag_crs
 from .bandops import CalculateIndices
-from . import general, config, TEMPDIR
+from . import config, TEMPDIR
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
@@ -116,7 +116,7 @@ def rescale(raster, min_value, max_value, band_num=1, ignore_nodata=True):
     If ignore_nodata is used, then the selected band will be opened as a numpy masked array and the specified
     nodata values will be excluded
 
-    It returns the calcuated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
+    It returns the calculated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
 
     Args:
         raster (rasterio.io.DatasetReader): An raster file opened using rasterio.open(os.path.normpath())
@@ -146,8 +146,6 @@ def rescale(raster, min_value, max_value, band_num=1, ignore_nodata=True):
         >>> print(np.nanmin(rescaled2), np.nanmax(rescaled2))
         (0.0, 255.0)
     """
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(raster, rasterio.DatasetReader):
         raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open(os.path.normpath())")
@@ -199,8 +197,6 @@ def normalise(raster, band_num=1, ignore_nodata=True):
         >>> print(np.nanmin(norm), np.nanmax(norm))
         (-2.7588787, 3.308543)
     """
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(raster, rasterio.DatasetReader):
         raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open(os.path.normpath())")
@@ -300,9 +296,6 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
         >>> with rasterio.open(os.path.normpath(os.path.join('../test/data',name_mean + '.tif')), 'w', **meta) as dst:
         ...         dst.write_band(1,focal_mean)
     """
-
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(raster, rasterio.DatasetReader):
         raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open()")
@@ -504,8 +497,8 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
 
     Returns:
         str: the image path and name.
-
     """
+
     if not isinstance(memory_raster, rasterio.io.MemoryFile):
         raise TypeError('Input raster is not a raster.io.MemoryFile')
 

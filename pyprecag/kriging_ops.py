@@ -14,7 +14,7 @@ import rasterio
 from rasterio import features
 from unidecode import unidecode
 
-from . import general, config
+from . import config
 from .convert import addPointGeometryToDataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
 from .raster_ops import RasterSnapExtent
@@ -48,9 +48,6 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
         *_SE_*.tif      The kriged column standard error (SE) tif
 
     """
-    # Add Function + arguments to Log
-    if LOGGER.isEnabledFor(logging.DEBUG):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(control_textfile):
         raise IOError("Invalid path: {}".format(control_textfile))
@@ -136,7 +133,6 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
     return out_PredTif, out_SETif, out_CITxt
 
 
-# noinspection PyStringFormat
 def prepareForVesperKrig(in_dataframe, krig_column, grid_filename, out_folder, control_textfile='',
                          block_size=10, coord_columns=[], epsg=0, display_graphics=False):
     """Prepare data for vesper kriging and create a windows batch file to run outside the python/pyprecag environment.
@@ -166,10 +162,6 @@ def prepareForVesperKrig(in_dataframe, krig_column, grid_filename, out_folder, c
     Returns:
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
-
-    # Add Function + arguments to Log
-    if LOGGER.isEnabledFor(logging.DEBUG):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')

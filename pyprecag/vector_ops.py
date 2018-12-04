@@ -20,7 +20,7 @@ from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 
 from . import crs as pyprecag_crs
-from . import general, TEMPDIR, config
+from . import TEMPDIR, config
 from .describe import VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 
@@ -48,10 +48,6 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
           In depth testing required.
     """
 
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
-
-    # Add Function + arguments to Log
     for argCheck in [('thinDist_m', thin_distance_metres)]:
         if not isinstance(argCheck[1], (int, long, float)):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
@@ -189,9 +185,6 @@ def MoveCopyVectorFile(in_filename, out_filename, keepInput=True, overwrite=True
 
        """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_filename):
         raise IOError("Invalid path: {}".format(in_filename))
@@ -225,9 +218,6 @@ def ExplodeMultiPartFeatures(in_shapefilename, out_shapefilename):
 
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_shapefilename):
         raise IOError("Invalid path: {}".format(in_shapefilename))
@@ -277,9 +267,6 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
         list[area,length]: The Total Area and Length
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_filename):
         raise IOError("Invalid path: {}".format(in_filename))

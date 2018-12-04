@@ -31,7 +31,7 @@ from rasterio.warp import calculate_default_transform, reproject, Resampling
 from shapely.geometry import LineString, Point, Polygon, shape, mapping
 
 from . import crs as pyprecag_crs
-from . import TEMPDIR, general, describe, config
+from . import TEMPDIR, describe, config
 from .convert import convertPolyToGrid, convertGridToVesper, numeric_pixelsize_to_string, convertPolygonFeatureToRaster
 from .bandops import BandMapping, CalculateIndices
 from .describe import save_geopandas_tofile, VectorDescribe
@@ -67,10 +67,6 @@ def BlockGrid(in_shapefilename, pixel_size, out_rasterfilename,
             https://gis.stackexchange.com/questions/139336/gdal-rasterizelayer-gives-different-extent-to-arcpy-polygontoraster
 
     """
-
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(pixel_size, (int, long, float)):
         raise TypeError('Pixel size must be an integer or floating number.')
@@ -134,10 +130,6 @@ def createPolygonFromPointTrail(points_geodataframe, points_crs, out_filename, t
         shrink_dist_m (int): The shrink distance in metres. Typically this is about 7 less than the buffer distance.
 
     """
-
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
@@ -308,9 +300,6 @@ def cleanTrimPoints(points_geodataframe, points_crs, process_column, output_csvf
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
 
     """
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
@@ -570,9 +559,6 @@ def randomPixelSelection(raster, raster_crs, num_points, out_shapefile=None):
         50
     """
 
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
-
     if not isinstance(raster, rasterio.DatasetReader):
         raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open(os.path.normpath())")
 
@@ -660,8 +646,7 @@ def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles
         geopandas.geodataframe.GeoDataFrame:  A dataframe containing the points and calculated statistics
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
     """
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
+
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')

@@ -20,7 +20,7 @@ from rasterio import features
 from shapely.geometry import Point, mapping, shape, LineString
 
 from . import crs as pyprecag_crs
-from . import general, describe, TEMPDIR, config
+from . import describe, TEMPDIR, config
 from describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 from .raster_ops import RasterSnapExtent, create_raster_transform
@@ -53,6 +53,7 @@ def numeric_pixelsize_to_string(pixelsize_metres):
         result = '{}mm'.format(int(pixelsize_metres * 1000))
     return result
 
+
 def convertPolyToGrid(in_shapefilename,
                       out_rasterfilename,
                       pixel_size,
@@ -76,9 +77,6 @@ def convertPolyToGrid(in_shapefilename,
     """
 
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_shapefilename):
         raise IOError("Invalid path: {}".format(in_shapefilename))
@@ -164,9 +162,6 @@ def convertGridToVesper(in_rasterfilename, out_vesperfilename):
 
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_rasterfilename):
         raise IOError("Invalid path: {}".format(in_rasterfilename))
@@ -211,9 +206,6 @@ def convertPtToLines_fiona(in_filename, out_filename, thin_dist_m=1.0, aggregate
 
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m)]:
         if not isinstance(argCheck[1], (int, long, float)):
@@ -324,9 +316,6 @@ def addPointGeometryToDataframe(in_dataframe, coord_columns=None, coord_columns_
 
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not isinstance(in_dataframe, (geopandas.GeoDataFrame, pd.DataFrame)):
         raise TypeError("Input points should be a geopandas dataframe")
@@ -409,9 +398,6 @@ def convertCsvToPoints(in_csvfilename, out_shapefilename=None, coord_columns=Non
 
     """
     start_time = time.time()
-    # Add Function + arguments to Log
-    if config.get_config_key('debug_mode'):
-        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
 
     if not os.path.exists(in_csvfilename):
         raise IOError("Invalid path: {}".format(in_csvfilename))
