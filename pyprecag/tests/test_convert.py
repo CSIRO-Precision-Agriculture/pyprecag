@@ -1,7 +1,7 @@
 import shutil
 import unittest
 from geopandas import GeoDataFrame
-from pyprecag.convert import convertCsvToPoints, numeric_pixelsize_to_string
+from pyprecag.convert import convert_csv_to_points, numeric_pixelsize_to_string
 import time
 import os
 import tempfile
@@ -47,40 +47,44 @@ class test_convert(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed=True
 
-    def test_convertCsvToPoints_EastingNorthings(self):
+    def test_convert_csv_to_points_EastingNorthings(self):
         file = os.path.realpath(this_dir + "/data/area1_yield_file_ascii_wgs84.csv")
         epsg = 28354
         out_file = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(epsg)))
 
-        gdfData, gdfCRS = convertCsvToPoints(file, out_file, coord_columns=['Easting', 'Northing'],
-                                             coord_columns_EPSG=epsg)
+        gdfData, gdfCRS = convert_csv_to_points(file, out_file, coord_columns=['Easting', 'Northing'],
+                                                coord_columns_epsg=epsg)
 
         self.assertIsInstance(gdfData, GeoDataFrame)
         self.assertEqual(len(gdfData), 34309)
         self.assertEqual(gdfCRS.epsg_number, epsg)
         self.assertTrue(os.path.exists(out_file))
 
-    def test_convertCsvToPoints_WGS84(self):
+    def test_convert_csv_to_points_WGS84(self):
         file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
         out_epsg = 28354
         out_file = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(out_epsg)))
 
-        gdfData, gdfCRS = convertCsvToPoints(file, out_file, coord_columns_EPSG=4326, out_EPSG=out_epsg)
+        gdfData, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
 
         self.assertTrue(os.path.exists(out_file))
         self.assertIsInstance(gdfData, GeoDataFrame)
         self.assertEqual(len(gdfData), 10000)
         self.assertEqual(list(set(gdfData.geom_type)), ['Point'])
 
+        import numpy as np
+        np.testing.assert_almost_equal(list(gdfData.total_bounds),
+                               [598603.84418501, 6053251.95026914, 599822.96368475, 6054429.82552078], 4)
+
         self.assertEqual(gdfCRS.epsg_number, out_epsg)
         self.assertEqual(gdfCRS.crs_wkt,
                           'PROJCS["GDA94 / MGA zone 54",GEOGCS["GDA94",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6283"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4283"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","28354"]]')
 
-    def test_convertCsvToPoints_WGS84_GuessEPGS(self):
+    def test_convert_csv_to_points_WGS84_GuessEPSG(self):
         file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
 
         out_file = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_guessepsg.shp'))
-        gdfData, gdfCRS = convertCsvToPoints(file, out_file, coord_columns_EPSG=4326, out_EPSG=-1)
+        gdfData, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=-1)
         self.assertTrue(os.path.exists(out_file))
         self.assertIsInstance(gdfData, GeoDataFrame)
         self.assertEqual(len(gdfData), 10000)

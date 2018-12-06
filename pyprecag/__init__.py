@@ -15,8 +15,6 @@ __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
 __version__ = '0.0.4'
 
-# Consider using tempfile.mkdtemp('PrecisionAg_') which will create a unique
-# name and create the folder
 TEMPDIR = os.path.join(tempfile.gettempdir(), 'PrecisionAg')
 
 if not os.path.exists(TEMPDIR):
@@ -84,30 +82,4 @@ if vesper_exe is None or vesper_exe == '' or not os.path.exists(vesper_exe):
         else:
             LOGGER.warning(
                 'Vesper*.exe not found. Please install and configure to allow for kriging to occur')
-#else:
-    #LOGGER.info('Found Vesper*.exe at {}'.format(vesper_exe))
-
-# Other applications ie QGIS can be used to set this value so force retrival from file by delete the variable.
 del vesper_exe
-
-# __gdal_version__ = get_gdal_release_name().decode('utf-8')    #from Fiona
-# __gdal_version__ = gdal_version()    #From RasterIO
-
-#
-# # Set default logging handler to avoid "No handler found" warnings.
-# try:  # Python 2.7+
-#     from logging import NullHandler
-# except ImportError:
-#     class NullHandler(logging.Handler):
-#         def emit(self, record):
-#             pass
-#
-# def excepthook(*args):
-#     """Catch any uncaught exception gets logged when assert/raise is used, not just AssertionError:
-#     source: http: // code.activestate.com / recipes / 577074 - logging - asserts /
-#       Args:
-#           *args (): The stack trace, message to log
-#       """
-#     logging.error('', exc_info=args)
-#
-# sys.excepthook = excepthook

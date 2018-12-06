@@ -15,9 +15,9 @@ from osgeo import gdal
 from pyprecag import convert, config, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import VectorDescribe, CsvDescribe, predictCoordinateColumnNames
-from pyprecag.kriging_ops import prepareForVesperKrig, vesperTextToRaster, run_vesper
-from pyprecag.processing import cleanTrimPoints, createPolygonFromPointTrail, BlockGrid, randomPixelSelection, \
-    calc_indices_for_block, resample_bands_to_block, extractPixelStatisticsForPoints
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
+from pyprecag.processing import clean_trim_points, create_polygon_from_point_trail, block_grid, random_pixel_selection, \
+    calc_indices_for_block, resample_bands_to_block, extract_pixel_statistics_for_points
 from pyprecag.raster_ops import rescale, normalise
 
 pyFile = os.path.basename(__file__)
@@ -84,13 +84,13 @@ class test_end2end(unittest.TestCase):
         filePoly = os.path.join(TmpDir, os.path.splitext(os.path.basename(fileCSV))[0] + '_poly.shp')
 
         if not os.path.exists(filePoly):
-            gdfPts, gdfCrs = convert.convertCsvToPoints(fileCSV, filePoints, coord_columns_EPSG=4326, out_EPSG=epsg)
+            gdfPts, gdfCrs = convert.convert_csv_to_points(fileCSV, filePoints, coord_columns_epsg=4326, out_epsg=epsg)
 
-            createPolygonFromPointTrail(gdfPts, gdfCrs, filePoly,
-                                        thin_dist_m=2.5,
-                                        aggregate_dist_m=25,
-                                    buffer_dist_m=7,
-                                    shrink_dist_m=3)
+            create_polygon_from_point_trail(gdfPts, gdfCrs, filePoly,
+                                            thin_dist_m=2.5,
+                                            aggregate_dist_m=25,
+                                            buffer_dist_m=7,
+                                            shrink_dist_m=3)
 
         self.assertTrue(os.path.exists(filePoly), True)
 
@@ -117,12 +117,12 @@ class test_end2end(unittest.TestCase):
         fileBlockTxt = os.path.join(TmpDir, os.path.splitext(os.path.basename(fileCSV))[0] + '_block_v.txt')
 
         if not os.path.exists(fileBlockTif):
-            BlockGrid(in_shapefilename=fileBox,
-                         pixel_size=2.5,
-                         out_rasterfilename=fileBlockTif,
-                         out_vesperfilename=fileBlockTxt,
-                         snap=True,
-                         overwrite=True)
+            block_grid(in_shapefilename=fileBox,
+                       pixel_size=2.5,
+                       out_rasterfilename=fileBlockTif,
+                       out_vesperfilename=fileBlockTxt,
+                       snap=True,
+                       overwrite=True)
 
         vDesc = VectorDescribe(fileBox)
 
@@ -148,10 +148,10 @@ class test_end2end(unittest.TestCase):
 
         data_col = r'Yield'
 
-        gdfPoints, gdfPtsCrs = convert.convertCsvToPoints(fileCSV, coord_columns_EPSG=4326, out_EPSG=epsg)
-        gdfOut, crsOut = cleanTrimPoints(gdfPoints, gdfPtsCrs, data_col, fileTrimmed, out_keep_shapefile=file_shp,
-                                         out_removed_shapefile=file_removed, boundary_polyfile=fileBox,
-                                         thin_dist_m=2.5)
+        gdfPoints, gdfPtsCrs = convert.convert_csv_to_points(fileCSV, coord_columns_epsg=4326, out_epsg=epsg)
+        gdfOut, crsOut = clean_trim_points(gdfPoints, gdfPtsCrs, data_col, fileTrimmed, out_keep_shapefile=file_shp,
+                                           out_removed_shapefile=file_removed, boundary_polyfile=fileBox,
+                                           thin_dist_m=2.5)
 
         self.assertTrue(os.path.exists(fileTrimmed))
         self.assertTrue(os.path.exists(file_shp))
@@ -177,8 +177,8 @@ class test_end2end(unittest.TestCase):
         fileControl = subFile + '_control_' + data_col + '.txt'
 
         if not os.path.exists(fileControl):
-            bat_file, fileControl = prepareForVesperKrig(dfCSV, data_col,fileBlockTxt, TmpDir,block_size=30,
-                                                         control_textfile=fileControl, coord_columns=[], epsg=epsg)
+            bat_file, fileControl = prepare_for_vesper_krige(dfCSV, data_col, fileBlockTxt, TmpDir, block_size=30,
+                                                             control_textfile=fileControl, coord_columns=[], epsg=epsg)
 
             self.assertTrue(os.path.exists(bat_file))
             self.assertTrue(os.path.exists(fileControl))
@@ -200,7 +200,7 @@ class test_end2end(unittest.TestCase):
     )
     def test07_vesperTextToRaster(self):
         global out_PredTif
-        out_PredTif, out_SETif, out_CITxt = vesperTextToRaster(fileControl, epsg)
+        out_PredTif, out_SETif, out_CITxt = vesper_text_to_raster(fileControl, epsg)
         for eaFile in [out_PredTif, out_SETif, out_CITxt]:
             self.assertTrue(os.path.exists(eaFile))
 
@@ -273,7 +273,7 @@ class test_end2end(unittest.TestCase):
         rast_crs = crs.getCRSfromRasterFile(out_PredTif)
 
         with rasterio.open(os.path.normpath(out_PredTif)) as raster:
-            rand_gdf, rand_crs = randomPixelSelection(raster, rast_crs, 50, out_shapefile=out_randompts)
+            rand_gdf, rand_crs = random_pixel_selection(raster, rast_crs, 50, out_shapefile=out_randompts)
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_randompts))
         self.assertEqual(rast_crs.epsg, rand_gdf.crs)
@@ -323,8 +323,8 @@ class test_end2end(unittest.TestCase):
         out_fold = os.path.join(TmpDir, 'gridextract')
         if not os.path.exists(out_fold): os.mkdir(out_fold)
         global rand_gdf, rand_crs
-        stats_gdf, stats_crs = extractPixelStatisticsForPoints(rand_gdf, rand_crs, self.gridextract_files, function_list=[np.nanmean, np.nanstd],
-                                            size_list=[1, 3], output_csvfile=os.path.join(out_fold, 'grid_extract.csv'))
+        stats_gdf, stats_crs = extract_pixel_statistics_for_points(rand_gdf, rand_crs, self.gridextract_files, function_list=[np.nanmean, np.nanstd],
+                                                                   size_list=[1, 3], output_csvfile=os.path.join(out_fold, 'grid_extract.csv'))
 
         self.assertEqual(len(stats_gdf.columns), 20)
         self.assertEqual(stats_gdf['std3x3_Band6_250cm'].isna().sum(), 0)

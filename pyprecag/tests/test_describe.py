@@ -5,6 +5,7 @@ from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe, VectorD
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
+
 class general_describe(TestCase):
     def setUp(self):
         self.startTime = time.time()
@@ -14,23 +15,23 @@ class general_describe(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_predictCoordinateFieldnames(self):
-        self.assertEquals(
+        self.assertEqual(
             predictCoordinateColumnNames(['longitude', 'latitude', 'area', 'weight', 'tonnes/ha', 'Air Temp(degC)']),
             ['longitude', 'latitude'])
-        self.assertEquals(predictCoordinateColumnNames(['northing', 'name', 'easting', ' test type']),
+        self.assertEqual(predictCoordinateColumnNames(['northing', 'name', 'easting', ' test type']),
                           ['easting', 'northing'])
-        self.assertEquals(predictCoordinateColumnNames(['name', 'lon_dms', 'lat_dms', ' test type']),
+        self.assertEqual(predictCoordinateColumnNames(['name', 'lon_dms', 'lat_dms', ' test type']),
                           ['lon_dms', 'lat_dms'])
-        self.assertEquals(predictCoordinateColumnNames(['row', 'column', 'name', ' test type']), [None, None])
+        self.assertEqual(predictCoordinateColumnNames(['row', 'column', 'name', ' test type']), [None, None])
 
-        self.assertEquals(
+        self.assertEqual(
             predictCoordinateColumnNames(['northing', 'easting', 'name', ' test type', 'longitude', 'latitude']),
             ['longitude', 'latitude'])
 
     def test_from_ISO_8859_1_csv(self):
         file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
         descCSV = CsvDescribe(file)
-        self.assertEquals(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
+        self.assertEqual(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
 
 
 class TestVectorDescribe_QGIS(TestCase):
@@ -45,13 +46,13 @@ class TestVectorDescribe_QGIS(TestCase):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/LineMZ_wgs84_MixedPartFieldsTypes_exportedqgis.shp"))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
-        self.assertEquals(vDesc.geometry_type, 'MultiLineString')
+        self.assertEqual(vDesc.geometry_type, 'MultiLineString')
 
     def test_mga_singlePartPoly_qgisprj(self):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/Poly_mga54_SinglePartFieldsTypes_qgis-prj.shp"))
         self.assertEqual(vDesc.crs.epsg_number, 28354)
         self.assertFalse(vDesc.is_mz_aware)
-        self.assertEquals(vDesc.geometry_type, 'Polygon')
+        self.assertEqual(vDesc.geometry_type, 'Polygon')
 
 
 class TestVectorDescribe_ESRI(TestCase):
@@ -66,19 +67,22 @@ class TestVectorDescribe_ESRI(TestCase):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/PointMZ_mga54_MixedPartFieldsTypes_noPrj.shp"))
         self.assertIsNone(vDesc.crs.srs)
         self.assertIsNone(vDesc.crs.epsg_number)
-        self.assertEquals(vDesc.geometry_type, 'MultiPoint')
+        self.assertEqual(vDesc.geometry_type, 'MultiPoint')
 
     def test_wgs84_mixedPartLine_MZ_esriprj(self):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/LineMZ_wgs84_MixedPartFieldsTypes_esri.shp"))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
-        self.assertEquals(vDesc.geometry_type, 'MultiLineString')
+        self.assertEqual(vDesc.geometry_type, 'MultiLineString')
+        self.assertEqual(vDesc.feature_count,8)
+        from collections import OrderedDict
+        self.assertDictEqual(vDesc.column_properties,OrderedDict([(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}), (u'float_3dLe', {'shapefile': u'float_3dLe', 'alias': 'float_3dLe', 'type': 'float', 'dtype': 'float64'}), (u'double_Len', {'shapefile': u'double_Len', 'alias': 'double_Len', 'type': 'float', 'dtype': 'float64'}), (u'short_id', {'shapefile': u'short_id', 'alias': 'short_id', 'type': 'int', 'dtype': 'int64'}), (u'Long_vert', {'shapefile': u'Long_vert', 'alias': 'Long_vert', 'type': 'int', 'dtype': 'int64'}), (u'Date_Creat', {'shapefile': u'Date_Creat', 'alias': 'Date_Creat', 'type': 'str', 'dtype': 'object'}), (u'part_type', {'shapefile': u'part_type', 'alias': 'part_type', 'type': 'str', 'dtype': 'object'}), ('geometry', {'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'object'})]))
 
     def test_wgs84_mixedPartPoly_MZ_esriprj(self):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
-        self.assertEquals(vDesc.geometry_type, 'MultiPolygon')
+        self.assertEqual(vDesc.geometry_type, 'MultiPolygon')
 
 
 class TestCsvDescribe(TestCase):
@@ -92,19 +96,18 @@ class TestCsvDescribe(TestCase):
     def test_csvfile_UTF8(self):
         csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv"))
 
-        self.assertEquals(csvDesc.file_encoding, 'ISO-8859-1')
-        self.assertEquals(csvDesc.row_count, 10000)
-        self.assertEquals(csvDesc.column_count, 18)
-        self.assertEquals(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Longitude', 'Latitude'])
+        self.assertEqual(csvDesc.file_encoding, 'ISO-8859-1')
+        self.assertEqual(csvDesc.row_count, 10000)
+        self.assertEqual(csvDesc.column_count, 18)
+        self.assertEqual(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Longitude', 'Latitude'])
         self.assertTrue(csvDesc.has_column_header)
 
     def test_csvfile_ascii(self):
         csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area1_yield_file_ascii_wgs84.csv"))
 
-        self.assertEquals(csvDesc.file_encoding, 'ascii')
-        self.assertEquals(csvDesc.row_count, 34309)
-        self.assertEquals(csvDesc.column_count, 24)
-
-        # see: https://jira.csiro.au/browse/PA-42
-        # self.assertEquals(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Long', 'Lat'])
+        self.assertEqual(csvDesc.file_encoding, 'ascii')
+        self.assertEqual(csvDesc.row_count, 34309)
+        self.assertEqual(csvDesc.column_count, 24)
         self.assertTrue(csvDesc.has_column_header)
+
+

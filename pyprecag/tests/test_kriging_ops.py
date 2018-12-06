@@ -9,8 +9,8 @@ import rasterio
 import time
 from pyprecag import convert, processing, config
 from pyprecag.describe import VectorDescribe, predictCoordinateColumnNames
-from pyprecag.kriging_ops import prepareForVesperKrig, vesperTextToRaster, run_vesper
-from pyprecag.processing import cleanTrimPoints
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
+from pyprecag.processing import clean_trim_points
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
@@ -64,25 +64,25 @@ class test_krigingOps(unittest.TestCase):
     )
     def test1_prepareForVesperKrig_filesExist(self):
 
-        gdfPoints, gdfPtsCrs = convert.convertCsvToPoints(file, coord_columns_EPSG=4326, out_EPSG=28354)
-        outGDF, outCRS = cleanTrimPoints(gdfPoints, gdfPtsCrs, data_col, fileSubName + '_trimmed.csv',
-                                 poly, thin_dist_m=2.5)
+        gdfPoints, gdfPtsCrs = convert.convert_csv_to_points(file, coord_columns_epsg=4326, out_epsg=28354)
+        outGDF, outCRS = clean_trim_points(gdfPoints, gdfPtsCrs, data_col, fileSubName + '_trimmed.csv',
+                                           poly, thin_dist_m=2.5)
 
         self.assertTrue(os.path.exists(fileSubName + '_trimmed.csv'))
         self.assertEqual(outGDF.crs, {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(outGDF), 554)
 
-        processing.BlockGrid(in_shapefilename=poly,
-                             pixel_size=5,
-                             out_rasterfilename=block_tif,
-                             out_vesperfilename=fileSubName + '_block_v.txt',
-                             snap=True,
-                             overwrite=True)
+        processing.block_grid(in_shapefilename=poly,
+                              pixel_size=5,
+                              out_rasterfilename=block_tif,
+                              out_vesperfilename=fileSubName + '_block_v.txt',
+                              snap=True,
+                              overwrite=True)
         global file_ctrl
-        file_bat, file_ctrl = prepareForVesperKrig(outGDF, data_col,
-                                                   fileSubName + '_block_v.txt', TmpDir,
-                                                   control_textfile=os.path.basename(fileSubName) + '_control.txt',
-                                                   block_size=30, coord_columns=[], epsg=28354)
+        file_bat, file_ctrl = prepare_for_vesper_krige(outGDF, data_col,
+                                                       fileSubName + '_block_v.txt', TmpDir,
+                                                       control_textfile=os.path.basename(fileSubName) + '_control.txt',
+                                                       block_size=30, coord_columns=[], epsg=28354)
 
         self.assertTrue(os.path.exists(os.path.join(TmpDir, r'Vesper\Do_Vesper.bat')))
         self.assertTrue(
@@ -113,7 +113,7 @@ class test_krigingOps(unittest.TestCase):
             print('Running Vesper, Please wait....')
             run_vesper(file_ctrl)
 
-        out_PredTif, out_SETif, out_CITxt = vesperTextToRaster(file_ctrl, 28354)
+        out_PredTif, out_SETif, out_CITxt = vesper_text_to_raster(file_ctrl, 28354)
         for eaFile in [out_PredTif, out_SETif, out_CITxt]:
             self.assertTrue(os.path.exists(eaFile))
 

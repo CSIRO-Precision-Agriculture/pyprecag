@@ -4,20 +4,17 @@ import rasterio
 
 
 def make_dummy_tif_files(out_dir):
-    """ Create fake tifs to be used as test datasets for other components of pyprecag
+    """ Create fake TIFF to be used as test datasets for other components of pyprecag
 
-    A single band tif and multi band tif will be created. The single band  and Band 1 of the multiband contains the
+    A single band tif and multi band tif will be created. The single band  and Band 1 of the multi-band contains the
     same data. Bands 2 and 3 are created by applying a formula to band 1. They are both for demonstration purposes
     only and represent no specific data and/or location in real life.
-
-    TODO: backwards engineer a yield csv file using this data by adding wavy lines, adding random pts and assign random
-    yield values
 
     Args:
         out_dir (str): The folder to save the output files too.
 
     Returns:
-        List[str]: A list of Tif's , the first being a single band tif, and the second a multi band tif.
+        List[str]: A list of TIFF's , the first being a single band tif, and the second a multi band tif.
     """
 
     # create and apply a transform based on epsg_number:28354
@@ -34,7 +31,7 @@ def make_dummy_tif_files(out_dir):
     Z2 = np.exp(-3 * np.log(2) * ((X + 0.5) ** 2 + (Y + 0.5) ** 2) / 2.5 ** 2)
     Z = 10.0 * (Z2 - Z1)
 
-    # Create a square of nodata indicies - https://stackoverflow.com/a/10840019
+    # Create a square of nodata values - https://stackoverflow.com/a/10840019
     tr1 = np.triu_indices(min(Z.shape) / 3, -min(Z.shape) / 3)
 
     # assign nodata to UL Square and set it no np.nan so calculations will exclude it

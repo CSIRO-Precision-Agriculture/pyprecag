@@ -31,6 +31,9 @@ class crs:
         """Given an integer code, set the epsg_number and the EPSG-like mapping.
 
          Note: the input code is not validated against an EPSG database.
+         Args:
+            code (int): An integer representing the EPSG code
+
          """
         if code is None:
             warnings.warn('EPSG Code is None and cant be set.')
@@ -54,27 +57,15 @@ class crs:
         """ Get crs attributes via a coordinate systems WKT.
             Used for gathering coordinate system attributes from fiona.crs.crs_wkt.
             If the EPSG number can be determined, bUpdateByEPSG provides the option to update the proj4, crs_wkt and
-            SRS attributes to match the official EPGS database attributes
+            SRS attributes to match the official EPSG database attributes
         Args:
             crs_wkt (unicode):    A string representing the coordinate system well known text
             bUpdateByEPSG (bool): If True and the epsg_number is predicted, overwrite crs attributes with those from
                                   official epsg_number database.
-        Examples:
-            >>> coordSys = crs()
-            >>> coordSys.getFromWKT('PROJCS["GDA_1994_MGA_Zone_54",GEOGCS["GCS_GDA_1994",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],PARAMETER["Central_Meridian",141.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]')
-            >>> coordSys.crs_wkt
-            'PROJCS["GDA_1994_MGA_Zone_54",GEOGCS["GCS_GDA_1994",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],PARAMETER["Central_Meridian",141.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]'
-            >>> coordSys.epsg_number
-            28354
-            >>> coordSys.epsg_predicted
-            False
-            >>> coordSys.proj4
-            '+proj=utm +zone=54 +south +ellps=GRS80 +units=m +no_defs '
 
         """
         if crs_wkt == '':
             warnings.warn('crs_wkt is blank. No coordinate information set')
-            # LOGGER.warning('WARNING: crs_wkt is blank. No Coordinate Information Set')
             return
 
         source = osr.SpatialReference()
@@ -96,25 +87,15 @@ class crs:
             if code is not None:
                 self.set_epsg(code)
 
-
     def getFromEPSG(self, epsg):
-        # noinspection PyPep8
         """Create OGR Spatial Reference Object for an epsg_number number
-                        Args:
-                            epsg (int):    A Valid EPSG Number
+        Args:
+            epsg (int):    A Valid EPSG Number
 
-                        Returns:
-                            osgeo.osr.SpatialReference: The Spatial Reference Object for the input EPSG
+        Returns:
+            osgeo.osr.SpatialReference: The Spatial Reference Object for the input EPSG
 
-                        Examples:
-                            >>> coordSys = crs()
-                            >>> coordSys.getFromEPSG(28354)
-                            >>> coordSys.crs_wkt
-                            'PROJCS["GDA94 / MGA zone 54",GEOGCS["GDA94",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6283"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4283"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","28354"]]'
-                            >>> coordSys.proj4
-                            '+proj=utm +zone=54 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs '
-
-                        """
+        """
         if isinstance(epsg, (str, unicode)):
             try:
                 epsg = int(epsg.replace('EPSG:', ''))
@@ -137,7 +118,6 @@ class crs:
             self.set_epsg(epsg)
             self.epsg_predicted = False
 
-    # noinspection SpellCheckingInspection
     def getEPSGFromSRS(self, osr_srs, bOnlineLookup=False, bUpdateToCorrectDefn=False):
         """Get the EPSG number for a Spatial Reference System.
 
@@ -151,7 +131,7 @@ class crs:
            spatial reference system by looping through the list and attempting a proj4 string match if this still fails,
            then it will attempt a match to australian projected coordinate system
 
-            # adapated from : https://gis.stackexchange.com/a/8888
+           adapted from : https://gis.stackexchange.com/a/8888
 
         Args:
             osr_srs (osgeo.osr.SpatialReference):
@@ -183,11 +163,6 @@ class crs:
 
         # reset back to original to undo MorphFromESRI
         osr_srs = orig_srs.Clone()
-
-        # if osr_srs.IsProjected():
-        #     epsg_number = osr_srs.GetAttrValue("PROJCS|AUTHORITY", 1)
-        # else:
-        #     epsg_number = osr_srs.GetAttrValue("PRIMEM|AUTHORITY", 1)
 
         # Then through a lookup
         if epsg is None and bOnlineLookup:
@@ -289,15 +264,6 @@ def getCRSfromRasterFile(raster_file):
     Returns:
         pyprecag.crs.crs: An object representing the raster file's coordinate system.
 
-    Example:
-        >>> rast_crs = getCRSfromRasterFile(r'../test/data/test_singleband_94mga54.tif')
-        >>> rast_crs.epsg_number
-        28354
-        >>> rast_crs.epsg_predicted
-        False
-        >>> rast_crs.crs_wkt
-        'PROJCS["GDA94 / MGA zone 54",GEOGCS["GDA94",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6283"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4283"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","28354"]]'
-
     """
 
     gdalRaster = gdal.Open(os.path.normpath(raster_file))
@@ -305,30 +271,6 @@ def getCRSfromRasterFile(raster_file):
     rast_crs.getFromWKT(gdalRaster.GetProjectionRef())
     del gdalRaster
     return rast_crs
-
-
-# def getEPSGForLongitude(longitude):
-#     """Given a longitude, return the EPSG code of the MGA/GDA94 Zone
-#
-#     Args:
-#         longitude (float):  A Longitude value
-#
-#     Returns:
-#         zone: the MGA Zone
-#         int: EPSG Number
-#     Example:
-#         >>> getEPSGForLongitude(138.679870)
-#         (54, 28354)
-#     """
-#
-#     Zone = 50 + math.trunc((longitude - 114) / 6)
-#     # if debugPrint: print('getLongGDASpatRef: Derived UTM zone: {}'.format(str(Zone))
-#
-#     # EPSG Codes for GDA UTM zones
-#     # 28300 + Zone number. i.e. 28350 = GDA94 / MGA zone 50
-#     EPSGCode = 28300 + Zone
-#     # if debugPrint: print('GDA EPSG: {}'.format(EPSGCode))
-#     return Zone, EPSGCode
 
 
 def getCoordTransformation(inSR, outSR):
@@ -340,7 +282,6 @@ def getCoordTransformation(inSR, outSR):
         osgeo.osr.CoordinateTransformation:  The Coordinate Transformation object
     """
     return osr.CoordinateTransformation(inSR, outSR)
-
 
 
 def getUTMfromWGS84(longitude, latitude):
@@ -359,17 +300,7 @@ def getUTMfromWGS84(longitude, latitude):
     Returns:
         Tuple[int, osgeo.osr.SpatialReference, osgeo.osr.SpatialReference]: UTM Zone, utm SRS, WGS84 SRS
 
-    Examples:
-        >>> result = getUTMfromWGS84(138.679870, -34.037740)
-        >>> result[0]
-        54
-        >>> result[1].ExportToWkt()
-        'PROJCS["UTM Zone 54, Southern Hemisphere",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["Meter",1]]'
     """
-
-    # Add Function + arguments to Log
-    # [logger.info(ea) for ea in general.print_functions_string(inspect.currentframe(), self.__class__.__name__)]
-    # print('\n'.join(general.print_functions_string(inspect.currentframe())))
 
     # Based On :https://stackoverflow.com/a/10239676
     def get_utm_zone(longitude):
@@ -417,22 +348,9 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
         Returns:
             pyprecag.crs : A pyprecag.crs object defining the WGS84 Zone Projected Coordinate System
 
-        Examples:
-            >>> result = getProjectedCRSForXY(143.95231,-37.79412,4326)    # wgs84 edge of z54-55
-            >>> result.srs.ExportToWkt()
-            'PROJCS["GDA94 / MGA zone 54",GEOGCS["GDA94",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6283"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4283"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","28354"]]'
-            >>> result = getProjectedCRSForXY(143.95099,-37.79561,4202)    # Same point as above but in AGD66
-            >>> result.crs_wkt
-            'PROJCS["GDA94 / MGA zone 54",GEOGCS["GDA94",DATUM["Geocentric_Datum_of_Australia_1994",SPHEROID["GRS 1980",6378137,298.257222101,AUTHORITY["EPSG","7019"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY["EPSG","6283"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4283"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",141],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","28354"]]'
-
         """
 
-    # Add Function + arguments to Log
-    # [logger.info(ea) for ea in general.print_functions_string(inspect.currentframe(), self.__class__.__name__)]
-    # print('\n'.join(general.print_functions_string(inspect.currentframe())))
-
     # Based On :https://stackoverflow.com/a/10239676
-
     from pyproj import Proj, transform
 
     # Coordinates need to be in wgs84 so project them
@@ -452,16 +370,17 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
     utm_crs.srs = osr.SpatialReference()
 
     # if in australia use GDA94 MGA zones otherwise use UTM system
-    if (111.927 < longitude < 154.047) and (-44.5362 < latitude < -8.69876):
+    if (108.0 <= longitude <= 155.0) and (-45.0 <= latitude <= -10.0):
         utm_crs.srs.ImportFromEPSG(int('283{}'.format(utm_zone)))
+    elif (166.33 <= longitude <= 178.6) and (-47.4 <= latitude <= -34.0):
+        utm_crs.srs.ImportFromEPSG(2193)
     else:
-        utm_crs.srs.SetWellKnownGeogCS("WGS84")  # Set geographic coordinate system to handle latitude/longitude
+        # Set geographic coordinate system to handle latitude/longitude
+        utm_crs.srs.SetWellKnownGeogCS("WGS84")
         utm_crs.srs.SetUTM(utm_zone, is_northern)
         utm_crs.srs.AutoIdentifyEPSG()
 
     utm_crs.set_epsg(utm_crs.srs.GetAuthorityCode(None))
-
-    # wgs84_crs = utm_crs.CloneGeogCS()  # Clone ONLY the geographic coordinate system
 
     utm_crs.epsg_predicted = False
     utm_crs.crs_wkt = utm_crs.srs.ExportToWkt()
@@ -489,15 +408,7 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
     Returns:
         float: the distance in decimal degrees.
 
-    Examples:
-        >>> dist = distance_metres_to_dd (138.822027994089, -34.4842175261199, 500)
-        >>> round(dist,8)
-        0.00544233
     """
-
-    # Add Function + arguments to Log
-    # [logger.info(ea) for ea in general.print_functions_string(inspect.currentframe(), self.__class__.__name__)]
-    # print('\n'.join(general.print_functions_string(inspect.currentframe())))
 
     for argCheck in [('longitude', longitude), ('latitude', latitude)]:
         if not isinstance(argCheck[1], float):
@@ -529,40 +440,8 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
     # Calculate Distance
     distance_dd = origPoint.distance(adjPoint)
 
-    # if the input was negative then keep output aggregateDist_m
+    # if the input was negative make sure the output is too
     if distance_metres < 0:
         distance_dd = -distance_dd
-    # print('Decimal Degrees Distance for {} m is {:f}'.format(distance_metres,distance_dd))
 
     return distance_dd
-
-#
-# def distanceBetween_wgs84_Points_in_metres(point1, point2):
-#     """Calculate the distance in metres between two WGS84 points
-#     It assumes the input points are in WGS84
-#
-#     Args:
-#         point1 (shapely.geometry.Point):
-#         point2 (shapely.geometry.Point):
-#
-#     Returns:
-#         float: Distance in metres
-#     """
-#
-#     # Add Function + arguments to Log
-#     # [logger.info(ea) for ea in general.print_functions_string(inspect.currentframe(), self.__class__.__name__)]
-#     # print('\n'.join(general.print_functions_string(inspect.currentframe())))
-#
-#     zone, utmSRS, wgs84SRS = getUTMfromWGS84(*point1['geometry']['coordinates'])
-#
-#     # create transform component
-#     easting, northing, alt = osr.CoordinateTransformation(wgs84SRS, utmSRS).TransformPoint(
-#         *point1['geometry']['coordinates'])
-#     easting2, northing2, alt2 = osr.CoordinateTransformation(wgs84SRS, utmSRS).TransformPoint(
-#         *point2['geometry']['coordinates'])
-#
-#     origPoint = geometry.Point(easting, northing)
-#     adjPoint = geometry.Point(easting2, northing2)
-#
-#     distance_dd = origPoint.distance(adjPoint)
-#     return distance_dd

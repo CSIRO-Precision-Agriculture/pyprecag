@@ -4,7 +4,7 @@ import tempfile
 import time
 import unittest
 
-from pyprecag.convert import convertCsvToPoints
+from pyprecag.convert import convert_csv_to_points
 from pyprecag.vector_ops import thin_point_by_distance
 
 pyFile = os.path.basename(__file__)
@@ -49,9 +49,9 @@ class test_vectorOps(unittest.TestCase):
         file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
         out_epsg = 28354
         out_file = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(out_epsg)))
-        gdf, gdfCRS = convertCsvToPoints(file, out_file, coord_columns_EPSG=4326, out_EPSG=out_epsg)
+        gdf, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
 
         result = thin_point_by_distance(gdf, gdfCRS, 2.5)
-        self.assertEquals(len(result), len(gdf))
-        self.assertEquals(len(result[result['filter'].isnull()]), 8406)
-        self.assertEquals(result.crs, gdf.crs)
+        self.assertEqual(len(result), len(gdf))
+        self.assertEqual(len(result[result['filter'].isnull()]), 8406)
+        self.assertEqual(result.crs, gdf.crs)

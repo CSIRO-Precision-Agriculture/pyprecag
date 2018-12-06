@@ -12,8 +12,8 @@ from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.tests import make_dummy_data
 from pyprecag import convert, raster_ops, crs
 from pyprecag.describe import VectorDescribe
-from pyprecag.processing import cleanTrimPoints, createPolygonFromPointTrail, BlockGrid, randomPixelSelection, \
-    extractPixelStatisticsForPoints, calc_indices_for_block, resample_bands_to_block
+from pyprecag.processing import clean_trim_points, create_polygon_from_point_trail, block_grid, random_pixel_selection, \
+    extract_pixel_statistics_for_points, calc_indices_for_block, resample_bands_to_block
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
@@ -59,12 +59,12 @@ class test_processing(unittest.TestCase):
 
         fileSubName = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
 
-        BlockGrid(in_shapefilename=poly,
-                  pixel_size=5,
-                  out_rasterfilename=fileSubName + '_block.tif',
-                  out_vesperfilename=fileSubName + '_block_v.txt',
-                  snap=True,
-                  overwrite=True)
+        block_grid(in_shapefilename=poly,
+                   pixel_size=5,
+                   out_rasterfilename=fileSubName + '_block.tif',
+                   out_vesperfilename=fileSubName + '_block_v.txt',
+                   snap=True,
+                   overwrite=True)
         vDesc = VectorDescribe(poly)
         self.assertTrue(os.path.exists(fileSubName + '_block.tif'))
         self.assertTrue(os.path.exists(fileSubName + '_block_v.txt', ))
@@ -83,10 +83,10 @@ class test_processing(unittest.TestCase):
         out_shp = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_remove.shp'))
 
-        gdfPoints, gdfPtsCrs = convert.convertCsvToPoints(file, coord_columns_EPSG=4326, out_EPSG=28354)
-        outGDF, outCRS = cleanTrimPoints(gdfPoints, gdfPtsCrs, 'Yld Mass(Dry)(tonne/ha)', out_CSV,
-                                         out_keep_shapefile=out_shp, out_removed_shapefile=out_rm_shp,
-                                         boundary_polyfile=poly, thin_dist_m=2.5)
+        gdfPoints, gdfPtsCrs = convert.convert_csv_to_points(file, coord_columns_epsg=4326, out_epsg=28354)
+        outGDF, outCRS = clean_trim_points(gdfPoints, gdfPtsCrs, 'Yld Mass(Dry)(tonne/ha)', out_CSV,
+                                           out_keep_shapefile=out_shp, out_removed_shapefile=out_rm_shp,
+                                           boundary_polyfile=poly, thin_dist_m=2.5)
 
         self.assertTrue(os.path.exists(out_CSV))
         self.assertTrue(gdfPtsCrs, outCRS)
@@ -99,13 +99,13 @@ class test_processing(unittest.TestCase):
         outPtsFile = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0] + '_points.shp')
         outPolyFile = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0] + '_poly.shp')
 
-        gdfPts, gdfCrs = convert.convertCsvToPoints(file, None, coord_columns_EPSG=4326, out_EPSG=28354)
+        gdfPts, gdfCrs = convert.convert_csv_to_points(file, None, coord_columns_epsg=4326, out_epsg=28354)
 
-        createPolygonFromPointTrail(gdfPts, gdfCrs, outPolyFile,
-                                    thin_dist_m=2.5,
-                                    aggregate_dist_m=25,
-                                    buffer_dist_m=10,
-                                    shrink_dist_m=3)
+        create_polygon_from_point_trail(gdfPts, gdfCrs, outPolyFile,
+                                        thin_dist_m=2.5,
+                                        aggregate_dist_m=25,
+                                        buffer_dist_m=10,
+                                        shrink_dist_m=3)
 
         self.assertTrue(os.path.exists(outPolyFile), True)
 
@@ -120,7 +120,7 @@ class test_processing(unittest.TestCase):
         rast_crs = crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            rand_gdf, rand_crs = randomPixelSelection(raster, rast_crs, 50, out_shapefile=out_shp)
+            rand_gdf, rand_crs = random_pixel_selection(raster, rast_crs, 50, out_shapefile=out_shp)
 
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_shp))
@@ -163,11 +163,11 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
         rast_crs = crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            ptsGDF, ptsCRS = randomPixelSelection(raster, rast_crs, 50)
+            ptsGDF, ptsCRS = random_pixel_selection(raster, rast_crs, 50)
 
-        outGDF, outCRS = extractPixelStatisticsForPoints(ptsGDF, ptsCRS, [raster_file],
-                                                         function_list=[np.nanmean, raster_ops.nancv],
-                                                         size_list=[1, 3, 7], output_csvfile=out_csv)
+        outGDF, outCRS = extract_pixel_statistics_for_points(ptsGDF, ptsCRS, [raster_file],
+                                                             function_list=[np.nanmean, raster_ops.nancv],
+                                                             size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(len(outGDF), len(ptsGDF))
@@ -183,14 +183,14 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
         rast_crs = crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            ptsGDF, ptsCRS = randomPixelSelection(raster, rast_crs, 50)
+            ptsGDF, ptsCRS = random_pixel_selection(raster, rast_crs, 50)
 
         ptsCRS.getFromEPSG(4326)
         ptsGDF.to_crs(epsg=4326, inplace=True)
 
-        outGDF, outCRS = extractPixelStatisticsForPoints(ptsGDF, ptsCRS, [raster_file],
-                                                         function_list=[np.nanmean, raster_ops.nancv],
-                                                         size_list=[1, 3, 7], output_csvfile=out_csv)
+        outGDF, outCRS = extract_pixel_statistics_for_points(ptsGDF, ptsCRS, [raster_file],
+                                                             function_list=[np.nanmean, raster_ops.nancv],
+                                                             size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(len(outGDF), len(ptsGDF))

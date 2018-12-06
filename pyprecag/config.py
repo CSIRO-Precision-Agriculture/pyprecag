@@ -11,14 +11,6 @@ def read_config():
     Reads the JSON Configuration return and returns a dictionary of values
     Returns:
         collections.OrderedDict : Dictionary of configuration settings.
-
-    Examples:
-    >>> config = read_config()
-    >>> isinstance(config,OrderedDict)
-    True
-    >>> config['crsLookupURL']
-    u'http://prj2epsg.org/search.json'
-
     """
 
     if not os.path.exists(CONFIG_FILE):
@@ -42,9 +34,6 @@ def write_config(json_dict):
      Args:
         json_dict (Dict): The configuration dictionary to write to file
 
-     Examples:
-        >>> config_dict = read_config()
-        >>> write_config(config_dict)
     """
 
     with open(CONFIG_FILE, 'w') as f:
@@ -59,12 +48,7 @@ def get_config_key(key):
 
     Args:
         key (str): The configuration key to extract value for
-    Returns:
-         The value of the Key
-
-    Examples:
-        >>> get_config_key('vesperEXE')
-        u'C:/Program Files (x86)/Vesper/Vesper1.6.exe'
+    Returns: The value of the Key
     """
     config_dict = read_config()
 
@@ -89,8 +73,7 @@ def set_config_key(key, new_value):
         new_value (str): The new value for the required key
     Returns:
         config_dict: The updated configuration dictionary
-    Examples:
-        >>> set_config_key('vesperEXE','C:/Program Files (x86)/Vesper/Vesper1.6.exe')
+
     """
     config_dict = read_config()
 

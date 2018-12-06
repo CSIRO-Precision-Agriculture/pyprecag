@@ -15,16 +15,16 @@ from rasterio import features
 from unidecode import unidecode
 
 from . import config
-from .convert import addPointGeometryToDataframe, numeric_pixelsize_to_string
+from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
-from .raster_ops import RasterSnapExtent
+from .raster_ops import raster_snap_extent
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
+LOGGER.addHandler(logging.NullHandler())
 DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 
 
-def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
+def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     """Convert an vesper kriged text file output to a prediction and a standard error (SE) tif raster, and create a
     confidence interval (CI) metadata file. If the output files already exists, they will be overwritten.
 
@@ -55,7 +55,9 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
     for argCheck in [('krig_epsg', krig_epsg), ('nodata_value', nodata_value)]:
         if not isinstance(argCheck[1], (int, long)):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
+
     start_time = time.time()
+
     # There is a 100 character file path limitation set for the kriged and report outputs from vesper. By using the
     # control filename we can find these truncated files and correct their names.
     if len(control_textfile) > 100:
@@ -84,7 +86,7 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
                  "\t95% Confidence Interval : {:.5f}".format(median_val, 2 * 1.96 * median_val))
 
     x_field, y_field = predictCoordinateColumnNames(dfKrige.columns.tolist())
-    gdfKrig, gdfCRS = addPointGeometryToDataframe(dfKrige, [x_field, y_field], krig_epsg)
+    gdfKrig, gdfCRS = add_point_geometry_to_dataframe(dfKrige, [x_field, y_field], krig_epsg)
 
     cellsize_x = float(dfKrige[x_field].sort_values().drop_duplicates().diff(1).mode())
     cellsize_y = float(dfKrige[y_field].sort_values().drop_duplicates().diff(1).mode())
@@ -95,9 +97,8 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
     LOGGER.debug("Cellsize: {}  X: {}  Y: {}".format(pixel_size, cellsize_x, cellsize_y))
     out_SETif = control_textfile.replace('control', 'SE_{}'.format(pixel_size_str)).replace('.txt', '.tif')
     out_PredTif = control_textfile.replace('control', 'PRED_{}'.format(pixel_size_str)).replace('.txt', '.tif')
-    
 
-    x_min, y_min, x_max, y_max = RasterSnapExtent(*gdfKrig.total_bounds, pixel_size=pixel_size)
+    x_min, y_min, x_max, y_max = raster_snap_extent(*gdfKrig.total_bounds, pixel_size=pixel_size)
 
     # get the number of rows/cols
     x_cols = int((x_max - x_min) / pixel_size) + 1
@@ -127,14 +128,13 @@ def vesperTextToRaster(control_textfile, krig_epsg=0, nodata_value=-9999):
         burned = features.rasterize(shapes=shapes, out_shape=(y_rows,x_cols), transform=outSE.transform, fill=nodata_value)
         outSE.write(burned, indexes=1)
 
-    # noinspection PyStringFormat
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(seconds=time.time() - start_time)))
     return out_PredTif, out_SETif, out_CITxt
 
 
-def prepareForVesperKrig(in_dataframe, krig_column, grid_filename, out_folder, control_textfile='',
-                         block_size=10, coord_columns=[], epsg=0, display_graphics=False):
+def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folder, control_textfile='',
+                             block_size=10, coord_columns=[], epsg=0, display_graphics=False):
     """Prepare data for vesper kriging and create a windows batch file to run outside the python/pyprecag environment.
 
     Outputs:  The following files will be added to the vesper sub-folder in the output folder.
@@ -238,11 +238,11 @@ def prepareForVesperKrig(in_dataframe, krig_column, grid_filename, out_folder, c
     # in use either by vesper or another app.
 
     # Start always start with the control file. this is what gets used within QGIS
-    filesList = glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(outSubName, krig_col_file)))
-    if vesper_ctrlfile in filesList:
-        filesList.insert(0, filesList.pop(filesList.index(vesper_ctrlfile)))
+    files_list = glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(outSubName, krig_col_file)))
+    if vesper_ctrlfile in files_list:
+        files_list.insert(0, files_list.pop(files_list.index(vesper_ctrlfile)))
 
-    for eaFile in filesList:
+    for eaFile in files_list:
         try:
             with open(eaFile, "a") as f:
                 pass
@@ -386,12 +386,9 @@ def run_vesper(ctrl_file, bMinimiseWindow=True):
     info = subprocess.STARTUPINFO()
     if bMinimiseWindow:
         # run vesper minimised.
-
         info.dwFlags = subprocess.STARTF_USESHOWWINDOW
         info.wShowWindow = 6  # SW_MINIMIZE
 
-
-    # need to change to the path of the control file so use cwd=
     process = subprocess.Popen([vesper_exe, ctrl_file], cwd=os.path.dirname(ctrl_file), startupinfo=info)
     process.wait()
     logging.info('{:<30}\t{dur:<15}'.format('Vesper Kriging', dur=datetime.timedelta(seconds=time.time() - task_time)))

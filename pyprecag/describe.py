@@ -35,26 +35,11 @@ DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG
 
 class VectorDescribe:
     def __init__(self, input_data):
-        # noinspection PyPep8
         """Get a description for a vector file
-                Args:
-                    input_data (str):The input file
-                Examples:
-                >>> vDesc = VectorDescribe(r'../test/data/LineMZ_wgs84_MixedPartFieldsTypes_esri.shp')
-                >>> vDesc.feature_count
-                8
-                >>> vDesc.geometry_type
-                'MultiLineString'
-                >>> vDesc.is_mz_aware
-                True
-                >>> vDesc.column_properties
-                OrderedDict([(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}), (u'float_3dLe', {'shapefile': u'float_3dLe', 'alias': 'float_3dLe', 'type': 'float', 'dtype': 'float64'}), (u'double_Len', {'shapefile': u'double_Len', 'alias': 'double_Len', 'type': 'float', 'dtype': 'float64'}), (u'short_id', {'shapefile': u'short_id', 'alias': 'short_id', 'type': 'int', 'dtype': 'int64'}), (u'Long_vert', {'shapefile': u'Long_vert', 'alias': 'Long_vert', 'type': 'int', 'dtype': 'int64'}), (u'Date_Creat', {'shapefile': u'Date_Creat', 'alias': 'Date_Creat', 'type': 'str', 'dtype': 'object'}), (u'part_type', {'shapefile': u'part_type', 'alias': 'part_type', 'type': 'str', 'dtype': 'object'}), ('geometry', {'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'object'})])
-                >>> vDesc.extent
-                [138.82666121921631, -34.488742874094768, 138.83177521689669, -34.487421824319263]
-                >>> vDesc.crs.epsg_number
-                4326
 
-                """
+        Args:
+            input_data (str):The input file
+        """
         self.source = None
         self.file_encoding = None
         self.column_properties = None
@@ -76,7 +61,8 @@ class VectorDescribe:
         return GeoDataFrame.from_file(self.source, encoding=self.file_encoding)
 
     def describeFile(self):
-        """Describe a vector File and set class properties
+        """
+        Describe a vector File and set class properties
         """
 
         # Use this open so as to not hold open and use up memory
@@ -122,28 +108,12 @@ class CsvDescribe:
         Args:
             csv_filename (str): a comma or tab delimited text
 
-        Examples:
-            >>> csvDesc = CsvDescribe(r'../test/data/area1_yield_file_ascii_wgs84.csv')
-            >>> csvDesc.file_encoding
-            'ascii'
-            >>> csvDesc.row_count
-            34310
-            >>> csvDesc.column_count
-            25
-            >>> csvDesc.has_column_header
-            True
-            >>> csvDesc = CsvDescribe(r'../test/data/area2_yield_file_ISO-8859-1.csv')
-            >>> csvDesc.file_encoding
-            'ISO-8859-1'
-
-
         """
         if not os.path.exists(csv_filename):
             raise IOError("Invalid path: {}".format(csv_filename))
 
         self.source = csv_filename
         self.dataframe = None
-        # setting defaults. updated or populated by describe_file
         self.file_encoding = 'ascii'
         self.dialect = None
         self.has_column_header = True
@@ -190,15 +160,6 @@ class CsvDescribe:
 
     def describe_file(self):
         """Describe a CSV File and set class properties
-        Sources:
-            https://chrisalbon.com/python/pandas_dataframe_importing_csv.html
-            https://pandas.pydata.org/pandas-docs/stable/generated/pandas.read_csv.html
-            https://www.nesono.com/node/414
-
-            Use sniffer to determine csv delimiters, quote characters etc.
-                   see: http://www.programcreek.com/python/example/4089/csv.Sniffer
-            Sniffer requires a string, not a list of lines. so find the length of first line *100 to get multiple lines
-            and use that.
         """
         with open(self.source, 'r') as f:
             # sniff into 10KB of the file to check its dialect
@@ -283,15 +244,14 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
     step_time = time.time()
     driver = 'ESRI Shapefile'
     if driver == 'ESRI Shapefile':
-        # first make a copy
-        inputGeoDataFrame = inputGeoDataFrame.copy()
 
-        # get the new list of column names
+        inputGeoDataFrame = inputGeoDataFrame.copy()
         fldProp = get_column_properties(inputGeoDataFrame)
 
         # get a list of either bool or list columns and convert to string.
         fix_cols = [(key, val['type']) for key, val in fldProp.items() if val['type'] in ['bool', 'list']]
         fix_cols += [(key, val['dtype']) for key, val in fldProp.items() if 'datetime' in val['dtype'].lower()]
+
         # Convert them to Strings
         for col, col_type in fix_cols:
             LOGGER.info('Converting column {} datatype from {} to str'.format(col, col_type))
@@ -313,7 +273,7 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
         gdal.UseExceptions()
         gdal.PushErrorHandler('CPLQuietErrorHandler')
         if file_encoding == 'ascii':
-            inputGeoDataFrame.to_file(output_filename, driver=driver)  # ,encoding=file_encoding)
+            inputGeoDataFrame.to_file(output_filename, driver=driver)
         else:
             inputGeoDataFrame.to_file(output_filename, driver=driver, encoding=file_encoding)
 
@@ -386,15 +346,7 @@ def predictCoordinateColumnNames(column_names):
 
     Returns:
         List[str]: [xColumn,yColumn]   Best matched column names
-    Examples:
-        >>> predictCoordinateColumnNames( ['longitude','latitude','area','weight','tonnes/ha','Air Temp(degC)'])
-        ['longitude', 'latitude']
-        >>> predictCoordinateColumnNames( ['northing', 'easting', 'name',' test type'])
-        ['easting', 'northing']
-        >>> predictCoordinateColumnNames( ['lon_dms','lat_dms','name',' test type'])
-        ['lon_dms', 'lat_dms']
-        >>> predictCoordinateColumnNames( ['row','column','name',' test type'])
-        [None, None]
+
     """
     x_column = None
     y_column = None
@@ -402,13 +354,11 @@ def predictCoordinateColumnNames(column_names):
 
         valList = []
         for eaFld in config.get_config_key('geoCSV')['{}Coordinate_ColumnName'.format(eaVal)]:
-            # throws a unicode error [s for s in column_names if eaFld.upper() == s.upper()]
-
-            # this seems to handle unicodes quite well
             seqMatchDict = defaultdict(dict)
+
             # get a list of close matches by comparing known values to column_names
-            closematches = difflib.get_close_matches(eaFld.upper(), map(lambda x: x.upper(), column_names))
-            if len(closematches) > 0:
+            close_matches = difflib.get_close_matches(eaFld.upper(), map(lambda x: x.upper(), column_names))
+            if len(close_matches) > 0:
                 # For each close match, calculate the match ratio and select the largest value
                 for guess in column_names:
                     '''save the results to a dictionary, key is columnname and value is the match ratio. the ratio is
@@ -416,17 +366,13 @@ def predictCoordinateColumnNames(column_names):
                      ie matching HEADING to EASTING has a ration of 0.714 because there are multiple similar matches'''
                     seqMatchDict[guess] = difflib.SequenceMatcher(None, eaFld.upper(), guess.upper(), True).ratio()
 
-                # find the largest value for ea
-                # key, value = max(seqMatchDict.iteritems(), key=lambda x: x[1])
-
                 # create short list of matches and ratios
                 valList.append(max(seqMatchDict.iteritems(), key=lambda x: x[1]))
-                # print('{} {:<25} close:{:<25}   seqmat: {:<25} {}'.format(eaVal,eaFld, closematches, key, value))
 
         # select the largest ratio as the best match
         if len(valList) > 0:
-            bestmatch = max(valList, key=itemgetter(1))[0]
-            exec ('{}_column = "{}"'.format(eaVal, bestmatch))
+            best_match = max(valList, key=itemgetter(1))[0]
+            exec ('{}_column = "{}"'.format(eaVal, best_match))
 
     LOGGER.debug('GeoCSV Columns:     x = {}, y = {}'.format(x_column, y_column))
     return [x_column, y_column]

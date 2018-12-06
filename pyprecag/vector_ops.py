@@ -170,7 +170,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     return point_geodataframe
 
 
-def MoveCopyVectorFile(in_filename, out_filename, keepInput=True, overwrite=True):
+def move_or_copy_vector_file(in_filename, out_filename, keepInput=True, overwrite=True):
     """ Move, Rename or Copy a vector file from one name/location to another.
 
        This uses the GDAL CopyDataSource and DeleteDataSource methods.
@@ -190,10 +190,10 @@ def MoveCopyVectorFile(in_filename, out_filename, keepInput=True, overwrite=True
         raise IOError("Invalid path: {}".format(in_filename))
 
     if os.path.splitext(in_filename)[-1] != os.path.splitext(out_filename)[-1]:
-        raise TypeError("Input and output should be the same filetype, ie both shapefiles")
+        raise TypeError("Input and output should be the same file type, ie both shapefiles")
 
     if in_filename == out_filename:
-        raise TypeError("Input and output should have different filenames")
+        raise TypeError("Input and output should have different file names")
 
     if os.path.exists(out_filename) and not overwrite:
         raise IOError("Output Exists and overwrite is false: {}".format(in_filename))
@@ -202,12 +202,12 @@ def MoveCopyVectorFile(in_filename, out_filename, keepInput=True, overwrite=True
     geoDF = vectDesc.open_geo_dataframe()
     geoDF.to_file(out_filename, crs_wkt=vectDesc.crs.crs_wkt)
 
-    LOGGER.debug('Succesfully renamed from \n   {} \n    to    \n   {}'.format(in_filename, out_filename))
+    LOGGER.debug('Successfully renamed from \n   {} \n    to    \n   {}'.format(in_filename, out_filename))
     LOGGER.info('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
                                                               dur=datetime.timedelta(seconds=time.time() - start_time)))
 
 
-def ExplodeMultiPartFeatures(in_shapefilename, out_shapefilename):
+def explode_multi_part_features(in_shapefilename, out_shapefilename):
     """ Convert Multipart Vector Features to Single Part Features.
 
     Args:
@@ -227,8 +227,6 @@ def ExplodeMultiPartFeatures(in_shapefilename, out_shapefilename):
 
     if os.path.basename(in_shapefilename) == os.path.basename(out_shapefilename):
         raise TypeError("Input and output should have different file names")
-
-    # TODO: NOT TESTED
 
     vectDesc = VectorDescribe(in_shapefilename)
 
@@ -252,7 +250,7 @@ def ExplodeMultiPartFeatures(in_shapefilename, out_shapefilename):
                                                              dur=datetime.timedelta(seconds=time.time() - start_time)))
 
 
-def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
+def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
     """Calculate the total Area and Length in metres for an input polygon file.
 
     If the input file is geographic, then the feature will be 'projected' into wgs84 utm system
@@ -261,7 +259,7 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
 
     Args:
         in_filename (str): Input polygon file.
-        dissolveOverlap (bool): Return values after Dissolve ALL geometries.
+        dissolve_overlap (bool): Return values after Dissolve ALL geometries.
 
     Returns:
         list[area,length]: The Total Area and Length
@@ -274,8 +272,6 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
     with fiona.open(in_filename, 'r') as source:
         inSRS = osr.SpatialReference()
         inSRS.ImportFromProj4(to_string(source.crs))
-
-        # TODO: DEAL WITH NON-WGS84 GEOS'S
 
         if not inSRS.IsProjected():
             zone, utmSRS, wgs84SRS = pyprecag_crs.getUTMfromWGS84(*source.bounds[:2])
@@ -314,10 +310,10 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
             resultsDict['Length_m'] += eaGeom.length
 
             # If overlaps are to be dissolved we need a projected geometry collection
-            if dissolveOverlap:
+            if dissolve_overlap:
                 polygonsGeom.append(eaGeom)
 
-        if dissolveOverlap:
+        if dissolve_overlap:
             # Run the dissolve.
             polygondis = shapely.ops.unary_union(polygonsGeom)
             resultsDict['Area_m_NoOverlap'] += polygondis.area
@@ -327,7 +323,7 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
     area = resultsDict['Area_m']
     length = resultsDict['Length_m']
 
-    if dissolveOverlap:
+    if dissolve_overlap:
         area = resultsDict['Area_m_NoOverlap']
         length = resultsDict['Length_m_NoOverlap']
 
@@ -341,11 +337,11 @@ def calculateAreaLength_metres(in_filename, dissolveOverlap=True):
     LOGGER.debug('\t{:<25} Area (m) : {:>20.5f}   Length (m) : {:>20.5f}'.format('Total with Overlap-',
                                                                                  resultsDict['Area_m'],
                                                                                  resultsDict['Length_m']))
-    if dissolveOverlap:
+    if dissolve_overlap:
         LOGGER.debug('\t{:<25} Area (m) : {:>20.5f}   Length (m) : {:>20.5f}'.format('Total with No Overlap-',
                                                                                      resultsDict['Area_m_NoOverlap'],
                                                                                      resultsDict['Length_m_NoOverlap']))
 
     LOGGER.debug('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                               dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                            dur=datetime.timedelta(seconds=time.time() - start_time)))
     return area, length

@@ -1,15 +1,14 @@
 import datetime
 import inspect
 import re
-import sys
-import traceback
+
 from itertools import izip
 import logging
 import os
-import gc
+
 import random
 import time
-from math import ceil
+
 from tempfile import NamedTemporaryFile
 
 import numpy as np
@@ -17,40 +16,35 @@ import pandas as pd
 import rasterio
 
 from fiona.crs import from_epsg
-from geopandas import GeoDataFrame, GeoSeries
-from osgeo import gdal
+from geopandas import GeoDataFrame
 
 from rasterio import features
 from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
-from rasterio.transform import from_origin
-from rasterio.warp import calculate_default_transform, reproject, Resampling
+from rasterio.warp import reproject, Resampling
 # from rasterio.warp import aligned_target
 
-from shapely.geometry import LineString, Point, Polygon, shape, mapping
+from shapely.geometry import LineString, Point, mapping
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, describe, config
-from .convert import convertPolyToGrid, convertGridToVesper, numeric_pixelsize_to_string, convertPolygonFeatureToRaster
-from .bandops import BandMapping, CalculateIndices
+from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
 from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
-from .raster_ops import focal_statistics, save_in_memory_raster_to_file, create_raster_transform, reproject_image, \
+from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
     calculate_image_indices
-
-# DEBUG = common.get_config_key('debug_mode')     #LOGGER.isEnabledFor(logging.DEBUG)
-# LOGGER.setLevel(logging.DEBUG)
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
 
 
-def BlockGrid(in_shapefilename, pixel_size, out_rasterfilename,
-              out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
+def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
+               out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
+
     """Convert a polygon boundary to a 0,1 raster and generate a VESPER compatible list of coordinates for kriging.
-            in_shapefilename (str): Input Polygon Shapefile
+            in_shapefilename (str): Input polygon shapefile
             pixel_size (float):  The required output pixel size
             out_rasterfilename (str): Filename of the raster Tiff that will be created
             out_vesperfilename (str):  The output vesper file
@@ -63,7 +57,7 @@ def BlockGrid(in_shapefilename, pixel_size, out_rasterfilename,
             see http://stackoverflow.com/questions/2220749/rasterizing-a-gdal-layer
             http://gis.stackexchange.com/questions/31568/gdal-rasterizelayer-doesnt-burn-all-polygons-to-raster
 
-            This works, but the extent of the output differs from that of an arcpy generated raster. See my post:
+            This works, but the extent of the output differs from that of an arcpy generated raster. See post:
             https://gis.stackexchange.com/questions/139336/gdal-rasterizelayer-gives-different-extent-to-arcpy-polygontoraster
 
     """
@@ -83,22 +77,22 @@ def BlockGrid(in_shapefilename, pixel_size, out_rasterfilename,
         raise GeometryError('Invalid Geometry. Input shapefile should be polygon or multipolygon')
 
     start_time = time.time()
-    convertPolyToGrid(in_shapefilename=in_shapefilename,
-                      out_rasterfilename=out_rasterfilename,
-                      pixel_size=pixel_size,
-                      snap_extent_to_pixel=snap,
-                      nodata_val=nodata_val,
-                      overwrite=overwrite)
+    convert_polygon_to_grid(in_shapefilename=in_shapefilename,
+                            out_rasterfilename=out_rasterfilename,
+                            pixel_size=pixel_size,
+                            snap_extent_to_pixel=snap,
+                            nodata_val=nodata_val,
+                            overwrite=overwrite)
 
-    convertGridToVesper(in_rasterfilename=out_rasterfilename,
-                        out_vesperfilename=out_vesperfilename)
+    convert_grid_to_vesper(in_rasterfilename=out_rasterfilename,
+                           out_vesperfilename=out_vesperfilename)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(seconds=time.time() - start_time)))
 
 
-def createPolygonFromPointTrail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0, aggregate_dist_m=25,
-                                buffer_dist_m=10, shrink_dist_m=3):
+def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0, aggregate_dist_m=25,
+                                    buffer_dist_m=10, shrink_dist_m=3):
     """Create a polygon from a Point Trail created from a file containing GPS coordinates.
 
     The point order should be sorted by increasing time sequence to ensure the 'dot-to-dot' occurs correctly.
@@ -195,7 +189,6 @@ def createPolygonFromPointTrail(points_geodataframe, points_crs, out_filename, t
 
     # convert to lines
     # source https://gis.stackexchange.com/a/202274
-
     try:
         # Aggregate these points with the GroupBy - for shapely 1.3.2+ use
         dfLine = gdfThin.groupby(['lineID'])['geometry'].apply(lambda x: LineString(x.tolist()))
@@ -248,23 +241,23 @@ def createPolygonFromPointTrail(points_geodataframe, points_crs, out_filename, t
                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
 
     save_geopandas_tofile(gdfFinal, out_filename, overwrite=True)
-    # noinspection PyStringFormat
+
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(seconds=time.time() - start_time)))
 
-    thinRatio = (4 * 3.14 * gdfFinal['Area'].sum() / (gdfFinal['Perimeter'].sum() * gdfFinal['Perimeter'].sum()))
-    LOGGER.debug('{:<25} {:.5f}'.format('Thin Ratio : ', thinRatio))
+    thin_ratio = (4 * 3.14 * gdfFinal['Area'].sum() / (gdfFinal['Perimeter'].sum() * gdfFinal['Perimeter'].sum()))
+    LOGGER.debug('{:<25} {:.5f}'.format('Thin Ratio : ', thin_ratio))
 
-    if thinRatio < 0.01:
+    if thin_ratio < 0.01:
         LOGGER.warning('For an improved result, increase the buffer width and shrink distance and try again.')
         return 'For an improved result, increase the buffer width and shrink distance and try again.'
     else:
         return
 
 
-def cleanTrimPoints(points_geodataframe, points_crs, process_column, output_csvfile, boundary_polyfile=None,
-                    out_keep_shapefile=None, out_removed_shapefile=None, remove_zeros=True, stdevs=3, iterative=True,
-                    thin_dist_m=1.0):
+def clean_trim_points(points_geodataframe, points_crs, process_column, output_csvfile, boundary_polyfile=None,
+                      out_keep_shapefile=None, out_removed_shapefile=None, remove_zeros=True, stdevs=3, iterative=True,
+                      thin_dist_m=1.0):
     """ Clean and/or Trim a points dataframe.
 
         Preparation includes:
@@ -348,7 +341,7 @@ def cleanTrimPoints(points_geodataframe, points_crs, process_column, output_csvf
     start_time = time.time()
 
     # set a UniqueID Field which ISNT the FID for use through out the proccessing
-    id_col = 'CT_UID'  # IE clean/trim fid
+    id_col = 'PT_UID'  # IE clean/trim fid
     points_geodataframe[id_col] = points_geodataframe.index
     gdfPoints = points_geodataframe.copy()
 
@@ -464,7 +457,7 @@ def cleanTrimPoints(points_geodataframe, points_crs, process_column, output_csvf
     # Add this to results table
     results_table = results_table.append(total_row)
 
-    # Clean up filtered results by removing all columns except those newones which have to be copied back to original
+    # Clean up filtered results by removing all columns except those new ones which have to be copied back to original
     dropcols = [ea for ea in gdfPoints.columns.tolist() if ea not in ['geometry', norm_column, 'filter', id_col]]
     gdfPoints.drop(dropcols, axis=1, inplace=True)
 
@@ -524,14 +517,14 @@ def cleanTrimPoints(points_geodataframe, points_crs, process_column, output_csvf
 
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
-    # noinspection PyStringFormat
+
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(seconds=time.time() - start_time)))
 
     return gdfFinal[gdfFinal['filter'].isnull()], points_crs
 
 
-def randomPixelSelection(raster, raster_crs, num_points, out_shapefile=None):
+def random_pixel_selection(raster, raster_crs, num_points, out_shapefile=None):
     """Select randomly distributed valid data pixels from a raster file and convert to points representing the center
     of the pixel. There is an option to save to shapefile if required.
 
@@ -549,14 +542,6 @@ def randomPixelSelection(raster, raster_crs, num_points, out_shapefile=None):
         geopandas.geodataframe.GeoDataFrame: A dataframe containing the select pixels as points
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
 
-    Example:
-        >>> from osgeo import gdal
-        >>> import rasterio
-        >>> raster_file = r'../test/data/test_singleband_94mga54.tif'
-        >>> with rasterio.open(os.path.normpath(raster_file)) as src:
-        ...     rand_pts_gdf = randomPixelSelection(src, crs.getCRSfromRasterFile(raster_file), 50)
-        >>> len(rand_pts_gdf)
-        50
     """
 
     if not isinstance(raster, rasterio.DatasetReader):
@@ -590,22 +575,15 @@ def randomPixelSelection(raster, raster_crs, num_points, out_shapefile=None):
     # np.ndenumerate(image_read)   returns ((row,col),val) which can be unpacked using ((r,c),v) and converted to a list
     # using (int(r),int(c),v)
 
-    # Usefor python 2 & 3 implementation
-    # try:
-    #    from itertools import izip
-    # except:
-    #   izip = zip
-
     band1_index = [(int(r), int(c), v) for ((r, c), v), m in izip(np.ndenumerate(band1), mask) if m]
 
     # get a fixes random sample
     rand_samp = random.sample(band1_index, num_points)
 
     # add coordinates for each sample point
-    # rand_samp_xy =  [(idx,) + pt + raster.xy(*list(pt[0])) for idx, pt in enumerate(rand_samp)]
     rand_samp_xy = [pt + raster.xy(pt[0], pt[1]) for pt in rand_samp]
 
-    # convert to geopandas dataframe. Drop the data value from the output. # 'val': i[2] 'row': pt[0], 'col': pt[1],
+    # convert to geopandas dataframe. Drop the data value from the output.
     random_pts_gdf = GeoDataFrame([{'geometry': Point(pt[3], pt[4]), 'PtID': i, 'X': pt[3], 'Y': pt[4]}
                                    for i, pt in enumerate(rand_samp_xy)], crs=raster_crs.epsg)
 
@@ -615,8 +593,8 @@ def randomPixelSelection(raster, raster_crs, num_points, out_shapefile=None):
     return random_pts_gdf, raster_crs
 
 
-def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles, output_csvfile,
-                                    function_list=[np.nanmean], size_list=[3]):
+def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterfiles, output_csvfile,
+                                        function_list=[np.nanmean], size_list=[3]):
     """Extract statistics from a list of rasters at set locations.
 
     All raster files in the list should be of the same pixel size. While multi-bands raster files are supported as an
@@ -634,9 +612,9 @@ def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles
 
     Args:
         points_geodataframe (geopandas.geodataframe.GeoDataFrame): The input points geodataframe of locations to extract
-                            statatistics for.
+                            statistics.
         points_crs (pyprecag_crs.crs): The Spatial Reference System of the point_geodataframe
-        rasterfiles (List[str]): the list of paths & filenames for the input rasters
+        rasterfiles (List[str]): the list of paths & file names for the input rasters
         output_csvfile (str): the path and filename of the output CSV.
         function_list (List[function]): A list of statistical functions to apply to the raster. These can include numpy
                                         functions like np.nanmean or custom ones like pixel_count
@@ -646,7 +624,6 @@ def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles
         geopandas.geodataframe.GeoDataFrame:  A dataframe containing the points and calculated statistics
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
     """
-
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
@@ -754,20 +731,20 @@ def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles
             # open the file for reading
             with memfile.open() as dest:
                 # using rasterio sample, extract values from each band at each point
-                rasterVals = [list(val) for val in dest.sample(pt_shapes)]
+                raster_vals = [list(val) for val in dest.sample(pt_shapes)]
 
                 # extract the statistic type from the band tag name element
                 col_names = [dest.tags(i_band)['name'] for i_band in range(1, dest.count + 1)]
 
             del pt_shapes
 
-        # Convert rasterVals numpy array to dataframe using tags as column names
-        dfRasterVals = pd.DataFrame(rasterVals, columns=col_names)
+        # Convert raster_vals numpy array to dataframe using tags as column names
+        dfRasterVals = pd.DataFrame(raster_vals, columns=col_names)
 
         # replace values for points outside the raster extent with np.nan values
         dfRasterVals.replace(meta['nodata'], np.nan, inplace=True)
 
-        del rasterVals
+        del raster_vals
 
         # Add the point geometry back in by joining by row index
         # If Rounding's required do this.
@@ -784,10 +761,9 @@ def extractPixelStatisticsForPoints(points_geodataframe, points_crs, rasterfiles
         # Save to CSV only points to KEEP using appropriate file encoding
         points_geodataframe.drop(['geometry'], axis=1).to_csv(output_csvfile, index=False)  # na_rep=rast_nodata
 
-        # noinspection PyStringFormat
         LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format('Saved CSV', '', os.path.basename(output_csvfile),
                                                            dur=datetime.timedelta(seconds=time.time() - step_time)))
-    # noinspection PyStringFormat
+
     LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(inspect.currentframe().f_code.co_name, '', '',
                                                       dur=datetime.timedelta(seconds=time.time() - start_time)))
 
@@ -799,12 +775,12 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     """Derive multiple resampled image bands matching the specified pixel size and block grid extent for each shapefile
     polygon.
 
-    Use this tool create individual band images for each polygon within a shapefile. A groupby column may be used to
+    Use this tool create individual band images for each polygon within a shapefile. A group-by column may be used to
     dissolve multiple polygons belonging to an individual block. The fitting of rasters to a base Block (grid) ensures
     for easier, more accurate multi-layered analysis required by in Precision Agriculture.
 
-    The processing steps to acheive this are:
-        - Dissolve polygons optionally using the groupby column
+    The processing steps to achieve this are:
+        - Dissolve polygons optionally using the group-by column
 
         Loop through each polygon feature and......
           - Create Block Grid
@@ -902,7 +878,6 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
     if polygon_shapefile is None or polygon_shapefile.strip() == '':
         # create a polygon from the image. hopefully by now the nodata val is correct.
-        # with reproj_memfile.open() as src:
         with rasterio.open(image_file) as src:
             # source: https://gis.stackexchange.com/questions/187877/how-to-polygonize-raster-to-shapely-polygons
             # Read the dataset's valid data mask as a ndarray and extract from all bands (dataset_mask).
@@ -963,7 +938,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         # From shapes create a blockgrid mask. ---------------------------------------------------------------------
         blockgrid_memfile = MemoryFile()
         meta_block = rasterio.open(image_file).meta.copy()
-        blockgrid, new_blockmeta = convertPolygonFeatureToRaster(feat, pixel_size)
+        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size)
         meta_block.update(count=1, **new_blockmeta)
 
         with blockgrid_memfile.open(**meta_block) as dest:
@@ -972,7 +947,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         del blockgrid
 
         if config.get_config_key('debug_mode'):
-            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to BlockGrid',
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to block_grid',
                                                               '{} of {}'.format(index + 1, len(gdfPoly)),
                                                               feat_name,
                                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
@@ -1019,7 +994,6 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             meta.update(
                 {'height': meta_block['height'], 'width': meta_block['width'], 'transform': meta_block['transform']})
 
-            # print('  {:10} {}'.format('tags  :', {it: src.tags(it) for it in src.indexes}))
             # Resample all bands and write to file
             resamp_memfile = MemoryFile()
             with resamp_memfile.open(**meta) as dest:
@@ -1048,13 +1022,12 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
         del clip_memfile
 
-        fillholes_memfile = MemoryFile()
         # get a count of holes to see if fill is required.
+        fillholes_memfile = MemoryFile()
         with resamp_memfile.open() as src:
             with blockgrid_memfile.open() as src_bg:
                 # find holes where blockgrid has data and resample is nodata - this can be used as the mask
                 # in the fillnodata at a later stage if required.
-                # holes = np.where((src_bg.read(1, masked=True).mask == 0) & (src.read(1, masked=True).mask == 1), 0,1)
                 hole_count = np.logical_and((src_bg.read(1, masked=True).mask == 0),
                                             (src.read(1, masked=True).mask == 1)).sum()
 
@@ -1182,11 +1155,12 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
 def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices=[], image_epsg=0,
                            image_nodata=None, polygon_shapefile=None, groupby=None, out_epsg=0):
+
     """Calculate indices for a multi band image then resample to a specified pixel size and block grid extent for each
       shapefile polygon.
 
       Use this tool to create single band images, one for each index and shapefile polygon combination.
-      A groupby column may be used to dissolve multiple polygons belonging to an individual block.
+      A group-by column may be used to dissolve multiple polygons belonging to an individual block.
 
       If a polygon shapefile is not specified, polygons will be created from the images' mask
 
@@ -1199,15 +1173,15 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
 
       The output filename will consist of the selected feature and calculated index.
 
-    The processing steps to acheive this are:
+    The processing steps to achieve this are:
         - Reproject image to new coordinate system if required.
         - Calculate indices
-        - Dissolve polygons optionally using the groupby column
+        - Dissolve polygons optionally using the group-by column
 
         Loop through each polygon feature and......
           - Create Block Grid
           - Clip image to polygon
-          - Resample and fit to block grid using a nominated pixel size and an Average resampling technique
+          - Resample and fit to block grid using a nominated pixel size and an average resampling technique
           - Identify holes and fill if necessary
           - smooth image using a 5x5 pixel moving average (focal_statistics)
 
@@ -1294,11 +1268,11 @@ def resample_bands_to_block(image_file, pixel_size, out_folder, band_nums=[], im
     """Derive multiple resampled image bands matching the specified pixel size and block grid extent for each shapefile
     polygon.
 
-    Use this tool create individual band images for each polygon within a shapefile. A groupby column may be used to
+    Use this tool create individual band images for each polygon within a shapefile. A group-by column may be used to
     dissolve multiple polygons belonging to an individual block. The fitting of rasters to a base Block (grid) ensures
     for easier, more accurate multi-layered analysis required by in Precision Agriculture.
 
-    The processing steps to acheive this are:
+    The processing steps to achieve this are:
         - Reproject image to nominated coordinate system
         - Dissolve polygons optionally using the groupby column
 

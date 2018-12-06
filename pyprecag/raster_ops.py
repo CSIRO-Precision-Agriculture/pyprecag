@@ -1,5 +1,4 @@
 import datetime
-import inspect
 import logging
 
 import os
@@ -54,7 +53,7 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
 
     # We may want to snap the output grids to a multiple of the grid size, allowing adjacent blocks to align nicely.
     if snap_extent_to_pixel:
-        x_min, y_min, x_max, y_max = RasterSnapExtent(*bounds, pixel_size=pixel_size)
+        x_min, y_min, x_max, y_max = raster_snap_extent(*bounds, pixel_size=pixel_size)
     else:
         x_min, y_min, x_max, y_max = bounds
 
@@ -68,7 +67,7 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
     return transform, width, height, (x_min, y_min, x_max, y_max)
 
 
-def RasterSnapExtent(x_min, y_min, x_max, y_max, pixel_size):
+def raster_snap_extent(x_min, y_min, x_max, y_max, pixel_size):
     """Calculate a new raster extent where the bounding coordinates are a divisible of the pixel size.
 
    The LL will be rounded down, and the UR will be rounded up.
@@ -85,15 +84,7 @@ def RasterSnapExtent(x_min, y_min, x_max, y_max, pixel_size):
         pixel_size (float): The pixel size representing the divisor
 
     Returns:
-        List[float]]: Representing the Bounding box (xmin,ymin,xmax,ymax)
-
-    Examples:
-        >>> xmin, ymin = 350127.023547, 6059756.84652457
-        >>> xmax, ymax = xmin + 3.142 * 200, ymin + 3.142 * 550
-        >>> RasterSnapExtent(xmin, ymin, xmax, ymax, 5)
-        [350125.0, 6059755.0, 350760.0, 6061485.0]
-        >>> RasterSnapExtent(xmin, ymin, xmax, ymax, 0.5)
-        [350127.0, 6059756.5, 350755.5, 6061485.0]
+        List[float]]: Representing the Bounding box (xmin, ymin, xmax, ymax)
 
     """
 
@@ -131,20 +122,6 @@ def rescale(raster, min_value, max_value, band_num=1, ignore_nodata=True):
         numpy.ndarray: A single band as a numpy array.
         or
         numpy.ma.core.MaskedArray:    A single band as a numpy array with nodata being stored in the mask
-
-    Examples:
-        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
-        ...     meta = src.meta.copy()
-        ...     meta['count'] = 2
-        ...     rescaled = rescale(src,min_value=0,max_value=1,ignore_nodata=True)
-        ...     rescaled2 = rescale(src,min_value=0,max_value=255,ignore_nodata=True)
-        ...     with rasterio.open(os.path.normpath('../test/data/rescale.tif'), 'w', **meta) as dst:
-        ...         dst.write_band(1,rescaled)
-        ...         dst.write_band(2,rescaled2)
-        >>> print(np.nanmin(rescaled), np.nanmax(rescaled))
-        (0.0, 1.0)
-        >>> print(np.nanmin(rescaled2), np.nanmax(rescaled2))
-        (0.0, 255.0)
     """
 
     if not isinstance(raster, rasterio.DatasetReader):
@@ -174,7 +151,7 @@ def normalise(raster, band_num=1, ignore_nodata=True):
     If ignore_nodata is used, then the selected band will be opened as a numpy masked array and the specified
     nodata values will be excluded from calculations
 
-    It returns the calcuated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
+    It returns the calculated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
 
     Args:
         raster (rasterio.io.DatasetReader): An raster file opened using rasterio.open(os.path.normpath())
@@ -186,16 +163,6 @@ def normalise(raster, band_num=1, ignore_nodata=True):
         numpy.ndarray: A single band as a numpy array.
         or
         numpy.ma.core.MaskedArray:    A single band as a numpy array with nodata being stored in the mask
-
-    Example:
-        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
-        ...     meta = src.meta.copy()
-        ...     norm = normalise(src,ignore_nodata=True)
-        ...     meta['dtype'] = norm.dtype
-        ...     with rasterio.open(os.path.normpath('../test/data/normalise.tif'), 'w', **meta) as dst:
-        ...         dst.write_band(1,norm)
-        >>> print(np.nanmin(norm), np.nanmax(norm))
-        (-2.7588787, 3.308543)
     """
 
     if not isinstance(raster, rasterio.DatasetReader):
@@ -206,22 +173,15 @@ def normalise(raster, band_num=1, ignore_nodata=True):
     # convert to float64 for accuracy
     band = band.astype(np.float64)
 
-    # Use ddof=0 for population std or ddof=1 for sample std      source: https://gis.stackexchange.com/a/267833/117453
-    # for more accurate results use .astype(np.float64)
-    #          see Notes: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.std.html
-    #                     https://github.com/numpy/numpy/issues/9071
-    # use np.nanXXX to create consistent results.
-
     normalised = (band - np.nanmean(band)) / np.nanstd(band)
 
-    # pick and assign the most appriate dtype for the result
     normalised = normalised.astype(np.dtype(rasterio.dtypes.get_minimum_dtype(normalised)))
 
     return normalised
 
 
 def nancv(x):
-    """ A function used with scipy.ndimage.generic_filter to calculate the coeficent variant of pixels/values
+    """ A function used with scipy.ndimage.generic_filter to calculate the coefficient variant of pixels/values
     excluding nan (nodata) values. It can be used in conjunction with focal_statistics.
 
     example using a 3x3: generic_filter(band,nancv, mode='constant', cval=np.nan, size=3)
@@ -235,8 +195,7 @@ def pixelcount(x):
     """ A function used with scipy.ndimage.generic_filter to count the number of real values/pixels (ie not nan)
         when applying a NxN filter.
 
-        A Count of 0 will be replace by np.nan. It can be used in conjunction with
-        focal statistics.
+        A Count of 0 will be replace by np.nan. It can be used in conjunction with focal statistics.
         A variation of https://stackoverflow.com/a/14060024"""
     val = sum(~np.isnan(x))
     if val == 0:
@@ -261,11 +220,11 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
 
     An string out_colname is returned and can be used as a filename or column name during future analysis. If None, it
     is derived from the input raster, size and statistical function used.
-          For single band inputs   <stat><size>x<size>_<rastername>
-             Example:   mean3x3_area1_yield    apply a mean 3x3 filter for raster area1_yield
+          For single band inputs   <stat><size>x<size>_<raster name>
+             eg.   mean3x3_area1_yield    apply a mean 3x3 filter for raster area1_yield
 
-          For multi band inputs   <function><size>x<size>bd<band_num>_<rastername>
-             Example:   mean3x3b3_area2       apply a mean 3x3 filter for band 3 of the raster area2
+          For multi band inputs   <function><size>x<size>bd<band_num>_<raster name>
+             eg.   mean3x3b3_area2       apply a mean 3x3 filter for band 3 of the raster area2
 
     Source: https://stackoverflow.com/a/30853116/9567306
     https://stackoverflow.com/questions/46953448/local-mean-filter-of-a-numpy-array-with-missing-data/47052791#47052791
@@ -286,15 +245,6 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
         numpy.ndarray:        A 1D numpy array of double (float32) values
         str:                  a string representation of the inputs
 
-    Example:
-        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
-        ...     meta = src.meta.copy()
-        ...     focal_mean, name_mean = focal_statistics(src,ignore_nodata=True,size=5,function=np.nanmean)
-        >>> print(np.nanmin(focal_mean), np.nanmax(focal_mean))
-        (0.036385194063186646, 6.991053695678711)
-        >>> meta['dtype'] = np.float32
-        >>> with rasterio.open(os.path.normpath(os.path.join('../test/data',name_mean + '.tif')), 'w', **meta) as dst:
-        ...         dst.write_band(1,focal_mean)
     """
 
     if not isinstance(raster, rasterio.DatasetReader):
