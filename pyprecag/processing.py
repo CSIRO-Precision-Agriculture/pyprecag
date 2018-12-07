@@ -153,7 +153,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     # don't need any attribution so drop it all except fid and geometry
     dropcols = [ea for ea in points_geodataframe.columns.tolist() if ea not in ['geometry', 'FID']]
     points_geodataframe.drop(dropcols, axis=1, inplace=True)
-    ptsgdf_crs = points_geodataframe.crs
+    ptsgdf_crs = points_crs.epsg
 
     gdfThin = thin_point_by_distance(points_geodataframe, points_crs, thin_dist_m)
     gdfThin = gdfThin[gdfThin['filter'].isnull()].copy()
@@ -219,7 +219,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     if shrink_dist_m != 0:
         step_time = time.time()
-        gdfFinal = GeoDataFrame(geometry=gdfFinal.buffer(shrink_dist_m))
+        gdfFinal = GeoDataFrame(geometry=gdfFinal.buffer(-abs(shrink_dist_m)))
         gdfFinal.crs = ptsgdf_crs
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
                                                  dur=datetime.timedelta(seconds=time.time() - step_time)))
