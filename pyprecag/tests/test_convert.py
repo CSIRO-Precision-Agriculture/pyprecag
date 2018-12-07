@@ -10,7 +10,6 @@ import logging
 pyFile = os.path.basename(__file__)
 
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
@@ -18,11 +17,12 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-class test_convert(unittest.TestCase):
+
+class test_Convert(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_convert, cls).setUpClass()
+        super(test_Convert, cls).setUpClass()
         if not os.path.exists(TmpDir): os.mkdir(TmpDir)
 
         global testFailed

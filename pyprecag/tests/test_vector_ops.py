@@ -10,10 +10,10 @@ from pyprecag.vector_ops import thin_point_by_distance
 pyFile = os.path.basename(__file__)
 
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
+
 
 class test_vectorOps(unittest.TestCase):
     @classmethod
@@ -44,7 +44,7 @@ class test_vectorOps(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed=True
 
-    def test_thin_point_by_distance_mga54(self):
+    def test_thinPointByDistance_mga54(self):
 
         file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
         out_epsg = 28354

@@ -3,17 +3,15 @@ import shutil
 import tempfile
 import time
 import unittest
-import rasterio
 
 from pyprecag.bandops import CalculateIndices, BandMapping
-from pyprecag import raster_ops
-import numpy as np
 
 pyFile = os.path.basename(__file__)
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
 TmpDir = tempfile.gettempdir()
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+
 
 class test_BandOps(unittest.TestCase):
     @classmethod

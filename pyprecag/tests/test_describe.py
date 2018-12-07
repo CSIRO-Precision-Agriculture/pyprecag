@@ -6,7 +6,7 @@ from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe, VectorD
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
 
-class general_describe(TestCase):
+class test_GeneralDescribe(TestCase):
     def setUp(self):
         self.startTime = time.time()
 
@@ -34,7 +34,7 @@ class general_describe(TestCase):
         self.assertEqual(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
 
 
-class TestVectorDescribe_QGIS(TestCase):
+class test_VectorDescribe_QGIS(TestCase):
     def setUp(self):
         self.startTime = time.time()
 
@@ -55,7 +55,7 @@ class TestVectorDescribe_QGIS(TestCase):
         self.assertEqual(vDesc.geometry_type, 'Polygon')
 
 
-class TestVectorDescribe_ESRI(TestCase):
+class test_VectorDescribe_ESRI(TestCase):
     def setUp(self):
         self.startTime = time.time()
 
@@ -85,7 +85,7 @@ class TestVectorDescribe_ESRI(TestCase):
         self.assertEqual(vDesc.geometry_type, 'MultiPolygon')
 
 
-class TestCsvDescribe(TestCase):
+class test_CsvDescribe(TestCase):
     def setUp(self):
         self.startTime = time.time()
 

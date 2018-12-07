@@ -8,13 +8,12 @@ import pandas as pd
 import rasterio
 import time
 from pyprecag import convert, processing, config
-from pyprecag.describe import VectorDescribe, predictCoordinateColumnNames
+from pyprecag.describe import predictCoordinateColumnNames
 from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
 from pyprecag.processing import clean_trim_points
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
@@ -29,11 +28,11 @@ fileSubName = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0])
 block_tif = fileSubName + '_block.tif'
 
 
-class test_krigingOps(unittest.TestCase):
+class test_KrigingOps(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_krigingOps, cls).setUpClass()
+        super(test_KrigingOps, cls).setUpClass()
         if not os.path.exists(TmpDir): os.mkdir(TmpDir)
 
         global testFailed
@@ -133,5 +132,3 @@ class test_krigingOps(unittest.TestCase):
             self.assertEqual(dataset.dtypes, ('float32',))
 
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
-
-            #self.assertEqual(str(dataset.crs), "CRS({'init': u'epsg:28354'})")

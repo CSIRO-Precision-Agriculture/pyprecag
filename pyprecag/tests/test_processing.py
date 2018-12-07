@@ -6,7 +6,6 @@ import unittest
 import time
 import numpy as np
 import rasterio
-from osgeo import gdal
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.tests import make_dummy_data
@@ -17,7 +16,6 @@ from pyprecag.processing import clean_trim_points, create_polygon_from_point_tra
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
@@ -25,11 +23,12 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-class test_processing(unittest.TestCase):
+
+class test_Processing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_processing, cls).setUpClass()
+        super(test_Processing, cls).setUpClass()
         if not os.path.exists(TmpDir): os.mkdir(TmpDir)
         cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
         global testFailed
@@ -76,7 +75,7 @@ class test_processing(unittest.TestCase):
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
-    def test_clean_trim_points(self):
+    def test_cleanTrimPoints(self):
         file = os.path.join(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
         poly = os.path.join(this_dir + "/data/area2_blocklayout_94mga54.shp")
         out_CSV = os.path.join(TmpDir, os.path.basename(file))
@@ -199,6 +198,7 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
         self.assertTrue(ptsCRS, outCRS)
         self.assertEqual(outGDF['mean7x7_test_singleband_94mga54'].isnull().sum(), 0)
 
+
 class test_CalculateImageIndices(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -228,7 +228,7 @@ class test_CalculateImageIndices(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed = True
 
-    def test_all_options(self):
+    def test_allOptions(self):
 
         """ All Options includes:
             Use a non-vine mask.
@@ -263,7 +263,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             # coords (300647.0, 6181561.0)
             self.assertAlmostEqual(src.read(1)[52, 23], 0.22253361, 4)
 
-    def test_dont_apply_nonvine_mask(self):
+    def test_dontApplyNonVineMask(self):
         out_dir = os.path.join(TmpDir,'test_CalculateImageIndices', 'no-nonvine')
         if not os.path.exists(out_dir): os.makedirs(out_dir)
 
@@ -290,8 +290,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             # coords (300647.0, 6181561.0)
             self.assertAlmostEqual(src.read(1)[52, 23], 0.02232674, 4)
 
-
-    def test_no_shapefile(self):
+    def test_noShapefile(self):
 
         """ Use Full Image......
             No Shapfile,
@@ -326,8 +325,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             row,col = src.index(300881.342 , 6181439.444)
             self.assertEqual(src.read(1)[int(row), int(col)], -9999)
 
-
-    def test_no_groupby(self):
+    def test_noGroupby(self):
         out_dir = os.path.join(TmpDir, 'test_CalculateImageIndices', 'no-groupby')
         if not os.path.exists(out_dir): os.makedirs(out_dir)
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
@@ -381,8 +379,7 @@ class test_ResampleToBlock(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed = True
 
-
-    def test_all_options(self):
+    def test_allOptions(self):
 
         """ All Options includes:
             Use a non-vine mask.
@@ -415,8 +412,7 @@ class test_ResampleToBlock(unittest.TestCase):
             # coords (300647.0, 6181561.0)
             self.assertAlmostEqual(src.read(1)[52, 23], 917.34998, 4)
 
-
-    def test_no_shapefile(self):
+    def test_noShapefile(self):
 
         """ Use Full Image......
             No Shapfile,
@@ -447,7 +443,7 @@ class test_ResampleToBlock(unittest.TestCase):
             row,col = src.index(300881.342, 6181439.444)
             self.assertEqual(src.read(1)[int(row), int(col)], 0)
 
-    def test_no_groupby(self):
+    def test_noGroupby(self):
         out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'no-groupby')
         if not os.path.exists(out_dir): os.makedirs(out_dir)
 
@@ -467,9 +463,8 @@ class test_ResampleToBlock(unittest.TestCase):
             self.assertEqual(src.res, (2.0, 2.0))
             self.assertEqual(src.count, 1)
 
-    def test_nonstandard_nodata_notset(self):
-
-        # change nodata to 7777 in the image but leave the nodata as none.
+    def test_nonStandardNoDataNotSet(self):
+        """ change input image nodata to 7777 in the image but leave the nodata as none."""
 
         out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'nonstandard-nodata-notset')
         if not os.path.exists(out_dir): os.makedirs(out_dir)

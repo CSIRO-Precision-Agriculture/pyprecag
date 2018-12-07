@@ -10,9 +10,7 @@ import numpy as np
 import rasterio
 import time
 
-from osgeo import gdal
-
-from pyprecag import convert, config, crs
+from pyprecag import convert, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import VectorDescribe, CsvDescribe, predictCoordinateColumnNames
 from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
@@ -23,7 +21,6 @@ from pyprecag.raster_ops import rescale, normalise
 pyFile = os.path.basename(__file__)
 
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
@@ -37,14 +34,14 @@ fileBoxes = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes
 fileImage = os.path.realpath(this_dir + "/data/area1_rgbi_jan_50cm_84sutm54.tif")
 
 epsg = 28354
-#https://stackoverflow.com/a/32228499
 
-class test_end2end(unittest.TestCase):
+
+class test_End2End(unittest.TestCase):
     gridextract_files=[]
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_end2end, cls).setUpClass()
+        super(test_End2End, cls).setUpClass()
         if not os.path.exists(TmpDir): os.mkdir(TmpDir)
 
         global testFailed
@@ -69,7 +66,7 @@ class test_end2end(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed = True
 
-    def test01_CSVDescribe_ASCII(self):
+    def test01_csvDescribe_ASCII(self):
         csvDesc = CsvDescribe(fileCSV)
 
         self.assertEqual(csvDesc.file_encoding, 'ascii')
@@ -94,7 +91,7 @@ class test_end2end(unittest.TestCase):
 
         self.assertTrue(os.path.exists(filePoly), True)
 
-    def test03_VectorDescribe(self):
+    def test03_vectorDescribe(self):
         vDesc = VectorDescribe(filePoly)
         self.assertEqual(vDesc.crs.epsg_number, epsg)
         self.assertFalse(vDesc.is_mz_aware)
@@ -110,7 +107,7 @@ class test_end2end(unittest.TestCase):
         self.assertFalse(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'Polygon')
 
-    def test04_BlockGrid(self):
+    def test04_blockGrid(self):
 
         global fileBlockTif,fileBlockTxt
         fileBlockTif = os.path.join(TmpDir, os.path.splitext(os.path.basename(fileCSV))[0] + '_block.tif')
@@ -140,7 +137,7 @@ class test_end2end(unittest.TestCase):
             print('SRS:\t{}'.format(dataset.crs))
         print('Temp Files in {}'.format(TmpDir))
 
-    def test05_clean_trim_points(self):
+    def test05_cleanTrimPoints(self):
         global fileTrimmed,data_col
         fileTrimmed = os.path.join(TmpDir, os.path.splitext(os.path.basename(fileCSV))[0] + '_normtrimmed.csv')
         file_shp = os.path.join(TmpDir, os.path.splitext(os.path.basename(fileCSV))[0] + '_normtrimmed.shp')
@@ -297,7 +294,7 @@ class test_end2end(unittest.TestCase):
             self.assertEqual(src.res, (2.5,2.5))
             self.assertEqual(src.count,1)
 
-    def test11_ResampleBands2Block_allopts(self):
+    def test11_resampleBands2Block_allopts(self):
         out_fold = os.path.join(TmpDir,'resamp2block_allopts')
         if not os.path.exists(out_fold): os.mkdir(out_fold)
 
@@ -319,7 +316,7 @@ class test_end2end(unittest.TestCase):
         ('Requires rand_gdf which is defined in test09_randomPixelSelection'
         'which in turn requires vesper.exe')
     )
-    def test99_gridextract(self):
+    def test99_gridExtract(self):
         out_fold = os.path.join(TmpDir, 'gridextract')
         if not os.path.exists(out_fold): os.mkdir(out_fold)
         global rand_gdf, rand_crs

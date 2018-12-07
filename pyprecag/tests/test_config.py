@@ -1,5 +1,3 @@
-import os
-import shutil
 import tempfile
 import time
 import unittest
@@ -10,6 +8,7 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 
 TmpDir = tempfile.gettempdir()
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+
 
 class TestConfig(unittest.TestCase):
     @classmethod

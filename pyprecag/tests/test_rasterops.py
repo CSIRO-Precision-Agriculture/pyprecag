@@ -12,8 +12,8 @@ import numpy as np
 pyFile = os.path.basename(__file__)
 
 TmpDir = tempfile.gettempdir()
-# TmpDir = r'C:\data\temp'
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+
 
 class test_rasterOps(unittest.TestCase):
     @classmethod
@@ -38,16 +38,14 @@ class test_rasterOps(unittest.TestCase):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
-    def test_RasterSnapExtent(self):
+    def test_rasterSnapExtent(self):
         xmin, ymin = 350127.023547, 6059756.84652457
         xmax, ymax = xmin + 3.142 * 200, ymin + 3.142 * 550
-
-        # print(xmin, ymin, xmax, ymax)
 
         self.assertItemsEqual([350125.0, 6059755.0, 350760.0, 6061485.0], raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 5))
         self.assertItemsEqual([350127.0, 6059756.5, 350755.5, 6061485.0], raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 0.5))
 
-    def test_rescale_singleband(self):
+    def test_rescaleSingleBand(self):
         with rasterio.open(os.path.normpath(self.singletif)) as src:
             rescaled = raster_ops.rescale(src, 0, 255)
             rescaled2 = raster_ops.rescale(src, 0, 5)
@@ -59,7 +57,7 @@ class test_rasterOps(unittest.TestCase):
         self.assertEqual(np.nanmin(rescaled2), 0)
         self.assertEqual(np.nanmax(rescaled2), 5)
 
-    def test_rescale_multiband(self):
+    def test_rescaleMultiBand(self):
         with rasterio.open(os.path.normpath(self.multitif)) as src:
             rescaled = raster_ops.rescale(src, 0, 255, band_num=3)
             rescaled2 = raster_ops.rescale(src, 0, 5, band_num=3)
@@ -77,7 +75,7 @@ class test_rasterOps(unittest.TestCase):
         self.assertEqual(float(np.nanmax(norm)), 3.3085429668426514)
         self.assertEqual(float(np.nanmin(norm)), -2.758878707885742)
 
-    def test_SingleBand_focalstatistics(self):
+    def test_focalStatisticsSingleBand(self):
         with rasterio.open(os.path.normpath(self.singletif)) as src:
             arr,col = raster_ops.focal_statistics(src, size=5, function=np.nanmean)
             arr = arr.astype(np.float32)
@@ -97,7 +95,7 @@ class test_rasterOps(unittest.TestCase):
             self.assertEqual(float(np.nanmax(arr)), 81.0)
             self.assertEqual(col, 'pixelcount9x9_test_singleband_94mga54')
 
-    def test_MultiBand_focalstatistics(self):
+    def test_focalStatisticsMultiBand(self):
         with rasterio.open(os.path.normpath(self.multitif)) as src:
             arr,col = raster_ops.focal_statistics(src, size=5, function=np.nanstd)
             arr = arr.astype(np.float32)

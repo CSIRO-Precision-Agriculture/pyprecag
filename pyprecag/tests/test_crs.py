@@ -8,18 +8,18 @@ from pyprecag.tests import make_dummy_data
 from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, distance_metres_to_dd
 from fiona.crs import from_epsg
 
-
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
-class TestCrsClass(TestCase):
+
+class test_CrsClass(TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestCrsClass, cls).setUpClass()
+        super(test_CrsClass, cls).setUpClass()
         if not os.path.exists(TmpDir): os.mkdir(TmpDir)
         cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
         global testFailed
