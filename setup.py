@@ -98,11 +98,10 @@ setup(
             'sphinx',
             'sphinx_rtd_theme',
             'wheel',
+            'twine',
         ],
         'test': [
-
             'pylint',
-
             'tox',
         ],
     },
