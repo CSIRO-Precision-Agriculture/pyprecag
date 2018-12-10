@@ -361,6 +361,19 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         gdfPoints.loc[~gdfPoints.index.isin(subset.index), 'filter_inc'] = len(gdfPoints['filter'].value_counts())
 
     subset = gdfPoints[gdfPoints['filter'].isnull()].copy()
+
+    # Remove duplicated geometries
+    # https://github.com/geopandas/geopandas/issues/521#issuecomment-382806444
+    G = subset["geometry"].apply(lambda geom: geom.wkb)
+    subset = subset.loc[G.drop_duplicates().index]
+    gdfPoints.loc[~gdfPoints.index.isin(subset.index), 'filter'] = 'Duplicate XY'
+    gdfPoints.loc[~gdfPoints.index.isin(subset.index), 'filter_inc'] = len(gdfPoints['filter'].value_counts())
+
+    LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format('Remove Duplicate XYs',len(G) - len(subset) ,'',
+                                                        dur=datetime.timedelta(seconds=time.time() - step_time)))
+
+    subset = gdfPoints[gdfPoints['filter'].isnull()].copy()
+
     if boundary_polyfile is not None:
         gdfPoly = plyDesc.open_geo_dataframe()
 
