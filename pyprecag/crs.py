@@ -369,13 +369,15 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
     utm_crs = crs()
     utm_crs.srs = osr.SpatialReference()
 
-    # if in australia use GDA94 MGA zones otherwise use UTM system
+    # Use Australian or New Zealand local systems otherwise use global wgs84 UTM zones.
     if (108.0 <= longitude <= 155.0) and (-45.0 <= latitude <= -10.0):
+        # set to Australian GDA94 MGA Zone XX
         utm_crs.srs.ImportFromEPSG(int('283{}'.format(utm_zone)))
     elif (166.33 <= longitude <= 178.6) and (-47.4 <= latitude <= -34.0):
+        # set to NZGD2000 / New Zealand Transverse Mercator 2000
         utm_crs.srs.ImportFromEPSG(2193)
     else:
-        # Set geographic coordinate system to handle latitude/longitude
+        # Set to Global WGS84 Utm Zone.
         utm_crs.srs.SetWellKnownGeogCS("WGS84")
         utm_crs.srs.SetUTM(utm_zone, is_northern)
         utm_crs.srs.AutoIdentifyEPSG()
