@@ -26,6 +26,7 @@ help:
 	echo '  * sdist: builds a source distribution.'
 	echo '  * bdist_wheel: builds a universal wheel distribution.'
 	echo '  * upload: uploads the source distribution and wheels to PyPI'
+	echo '  * upload-test: uploads a test version to https://test.pypi.org/project/pyprecag'
 
 .PHONY: test
 test:
@@ -97,3 +98,9 @@ upload: clean
 	rm -rf dist/
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
+
+.PHONY: upload-test
+upload-test: clean
+		rm -rf dist/
+		python setup.py sdist bdist_wheel
+		twine upload --repository-url https://test.pypi.org/legacy/ dist/*
