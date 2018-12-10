@@ -25,6 +25,7 @@ help:
 	echo '  * alldocs: builds all documentation formats.'
 	echo '  * sdist: builds a source distribution.'
 	echo '  * bdist_wheel: builds a universal wheel distribution.'
+	echo '  * upload: uploads the source distribution and wheels to PyPI'
 
 .PHONY: test
 test:
@@ -90,3 +91,9 @@ pdf: latex
 	mv build/docs/latex/*.pdf build/docs/pdf/
 
 alldocs: html latex pdf
+
+.PHONY: upload
+upload: clean
+	rm -rf dist/
+	python setup.py sdist bdist_wheel
+	twine upload dist/*
