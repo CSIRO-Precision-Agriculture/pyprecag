@@ -1,9 +1,11 @@
 import json
 import logging
-import math
+
 import os
+import socket
 import warnings
-from urllib import urlencode, urlopen
+from urllib import urlencode
+import urllib2
 
 from fiona.crs import from_string, from_epsg
 from osgeo import osr, gdal
@@ -176,8 +178,15 @@ class crs:
             try:
                 webres = None
                 crsURL = config.get_config_key('crsLookupURL')
-                LOGGER.debug('Checking against OpenGeo service ({})'.format(crsURL))
-                webres = urlopen(crsURL, query)
+                LOGGER.info('Checking against OpenGeo service ({})'.format(crsURL))
+
+                webres = urllib2.urlopen(crsURL, query,timeout=10)
+                LOGGER.info('Connection to {} Successful'.format(crsURL))
+
+            except socket.timeout, e:
+                LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
+                warnings.warn('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
+
             except:
                 LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. '.format(crsURL))
 
