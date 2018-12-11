@@ -283,7 +283,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
 
     gdfCSV, gdfCRS = add_point_geometry_to_dataframe(pdfCSV, coord_columns, coord_columns_epsg, out_epsg)
 
-    if config.get_config_key('debug_mode') or out_shapefilename is not None:
+    if DEBUG or out_shapefilename is not None:
         if out_shapefilename is None:
             out_shapefilename = '{}_{}.shp'.format(os.path.splitext(os.path.basename(in_csvfilename))[0],
                                                    inspect.getframeinfo(inspect.currentframe())[2])

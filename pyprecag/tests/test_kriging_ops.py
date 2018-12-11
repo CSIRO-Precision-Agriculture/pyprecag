@@ -62,7 +62,7 @@ class test_KrigingOps(unittest.TestCase):
         'Vesper not present on Linux'
     )
     def test1_prepareForVesperKrig_filesExist(self):
-
+        
         gdfPoints, gdfPtsCrs = convert.convert_csv_to_points(file, coord_columns_epsg=4326, out_epsg=28354)
         outGDF, outCRS = clean_trim_points(gdfPoints, gdfPtsCrs, data_col, fileSubName + '_trimmed.csv',
                                            poly, thin_dist_m=2.5)

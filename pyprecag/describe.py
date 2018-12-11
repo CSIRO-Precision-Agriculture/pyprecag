@@ -278,7 +278,7 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
         else:
             inputGeoDataFrame.to_file(output_filename, driver=driver, encoding=file_encoding)
 
-    if config.get_config_key('debug_mode'):
+    if DEBUG:
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file',output_filename,
                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
 

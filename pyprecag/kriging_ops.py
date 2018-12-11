@@ -168,6 +168,9 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
 
+    if not os.path.exists(vesper_exe):
+        raise IOError("Vesper not found at: {}".format(vesper_exe))
+
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')
 
@@ -383,6 +386,9 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
         bMinimiseWindow (bool):  Option to automatically minimise the VESPER window on launch.
         vesper_exe (str): The path for the location of the Vesper executable
     """
+
+    if not os.path.exists(vesper_exe):
+        raise IOError("Vesper not found at: {}".format(vesper_exe))
 
     task_time = time.time()
     # vesper_exe = config.get_config_key('vesperEXE')
