@@ -70,17 +70,17 @@ if not os.environ.get('PROJ_LIB', None):
     )
     os.environ['PROJ_LIB'] = proj_lib
 
-vesper_exe = config.get_config_key('vesperEXE')
-if vesper_exe is None or vesper_exe == '' or not os.path.exists(vesper_exe):
-    # Update if Vesper is installed.
-    if os.path.exists(r'C:/Program Files (x86)/Vesper/Vesper1.6.exe'):
-        config.set_config_key('vesperEXE', r'C:/Program Files (x86)/Vesper/Vesper1.6.exe')
-    else:  # Otherwise report it.
-        if not os.path.exists(vesper_exe):
-            LOGGER.warning(
-                'Vesper*.exe at "{}" does not exist. Please install and configure to allow for kriging to occur'.format(
-                    vesper_exe))
-        else:
-            LOGGER.warning(
-                'Vesper*.exe not found. Please install and configure to allow for kriging to occur')
-del vesper_exe
+# vesper_exe = config.get_config_key('vesperEXE')
+# if vesper_exe is None or vesper_exe == '' or not os.path.exists(vesper_exe):
+#     # Update if Vesper is installed.
+#     if os.path.exists(r'C:/Program Files (x86)/Vesper/Vesper1.6.exe'):
+#         config.set_config_key('vesperEXE', r'C:/Program Files (x86)/Vesper/Vesper1.6.exe')
+#     else:  # Otherwise report it.
+#         if not os.path.exists(vesper_exe):
+#             LOGGER.warning(
+#                 'Vesper*.exe at "{}" does not exist. Please install and configure to allow for kriging to occur'.format(
+#                     vesper_exe))
+#         else:
+#             LOGGER.warning(
+#                 'Vesper*.exe not found. Please install and configure to allow for kriging to occur')
+# del vesper_exe

@@ -27,7 +27,7 @@ class TestConfig(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_get_config_key(self):
-        self.assertEqual(get_config_key('vesperEXE'),u'C:/Program Files (x86)/Vesper/Vesper1.6.exe')
+        self.assertEqual(get_config_key('crsLookupURL'),u'http://prj2epsg.org/search.json')
 
     def test_readconfig(self):
         config = read_config()

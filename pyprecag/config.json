@@ -1,6 +1,5 @@
 {
-    "crsLookupURL": "http://prj2epsg.org/search.json", 
-    "vesperEXE": "C:/Program Files (x86)/Vesper/Vesper1.6.exe",
+    "crsLookupURL": "http://prj2epsg.org/search.json",
     "geoCSV": {
         "xCoordinate_ColumnName": [
             "LONGITUDE",

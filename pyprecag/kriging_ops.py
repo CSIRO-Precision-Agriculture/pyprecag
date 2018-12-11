@@ -24,6 +24,8 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 # DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 
+# Set default value for vesper_exe
+vesper_exe = "C:/Program Files (x86)/Vesper/Vesper1.6.exe"
 
 def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     """Convert an vesper kriged text file output to a prediction and a standard error (SE) tif raster, and create a
@@ -135,7 +137,8 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
 
 def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folder, control_textfile='',
-                             block_size=10, coord_columns=[], epsg=0, display_graphics=False):
+                             block_size=10, coord_columns=[], epsg=0, display_graphics=False,
+                             vesper_exe=vesper_exe):
     """Prepare data for vesper kriging and create a windows batch file to run outside the python/pyprecag environment.
 
     Outputs:  The following files will be added to the vesper sub-folder in the output folder.
@@ -159,6 +162,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         coord_columns (List): The columns representing the X and Y coordinates.
         epsg (int) : The epsg_number number for the data. If 0 the en_epsg or enepsg column (if exists) will be used.
         display_graphics (bool): Option to display graphics while running vesper kriging.
+        vesper_exe (str): The path for the location of the Vesper executable
 
     Returns:
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
@@ -181,8 +185,6 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     if not isinstance(coord_columns, list):
         raise TypeError('Coordinate columns should be a list.'.format(coord_columns))
-
-    vesper_exe = config.get_config_key('vesperEXE')
 
     if len(coord_columns) == 0:
         coord_columns = predictCoordinateColumnNames(in_dataframe.columns)
@@ -369,7 +371,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     return vesper_batfile, vesper_ctrlfile
 
 
-def run_vesper(ctrl_file, bMinimiseWindow=True):
+def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     """
     Run VESPER for selected control file.
 
@@ -379,10 +381,11 @@ def run_vesper(ctrl_file, bMinimiseWindow=True):
     Args:
         ctrl_file (str):  the control file to run as VESPER argument.
         bMinimiseWindow (bool):  Option to automatically minimise the VESPER window on launch.
+        vesper_exe (str): The path for the location of the Vesper executable
     """
 
     task_time = time.time()
-    vesper_exe = config.get_config_key('vesperEXE')
+    # vesper_exe = config.get_config_key('vesperEXE')
 
     info = subprocess.STARTUPINFO()
     if bMinimiseWindow:
