@@ -16,10 +16,11 @@ from scipy.ndimage import generic_filter
 from . import crs as pyprecag_crs
 from .bandops import CalculateIndices
 from . import config, TEMPDIR
+from .config import DEBUG
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG))
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG))
 
 
 def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):

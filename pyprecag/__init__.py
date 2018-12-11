@@ -10,6 +10,7 @@ import sys
 import subprocess
 import tempfile
 from . import config
+from .config import DEBUG
 
 __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
@@ -22,7 +23,7 @@ if not os.path.exists(TEMPDIR):
 
 LOGGER = logging.getLogger('pyprecag')
 LOGGER.addHandler(logging.NullHandler())
-DEBUG = config.get_config_key('debug_mode') # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_config_key('debug_mode') # LOGGER.isEnabledFor(logging.DEBUG)
 
 # check to see if GDAL_DATA is defined
 if not os.environ.get('GDAL_DATA', None):

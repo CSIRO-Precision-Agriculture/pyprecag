@@ -10,12 +10,13 @@ from osgeo import osr, gdal
 from shapely import geometry
 
 from . import config
+from .config import DEBUG
 from .errors import SpatialReferenceError
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
 # LOGGER.setLevel("DEBUG")
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 
 
 class crs:

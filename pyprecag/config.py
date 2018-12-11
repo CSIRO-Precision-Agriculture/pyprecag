@@ -5,6 +5,17 @@ from collections import OrderedDict
 # Read in Config File and use as module constant
 CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json')
 
+# Set DEBUG as a module wide variable
+DEBUG = False
+
+def set_debug_mode(debug_mode=True):
+    """
+    Sets the value of DEBUG for the module constant
+     Args:
+        debug_mode (bool): True or False value, set to module constant: DEBUG
+    """
+    global DEBUG
+    DEBUG = debug_mode
 
 def read_config():
     """

@@ -15,13 +15,14 @@ from rasterio import features
 from unidecode import unidecode
 
 from . import config
+from .config import DEBUG
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
 from .raster_ops import raster_snap_extent
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 
 
 def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
@@ -91,9 +92,9 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     cellsize_x = float(dfKrige[x_field].sort_values().drop_duplicates().diff(1).mode())
     cellsize_y = float(dfKrige[y_field].sort_values().drop_duplicates().diff(1).mode())
     pixel_size = min(cellsize_x, cellsize_y)
-    
+
     pixel_size_str = numeric_pixelsize_to_string(pixel_size)
-    
+
     LOGGER.debug("Cellsize: {}  X: {}  Y: {}".format(pixel_size, cellsize_x, cellsize_y))
     out_SETif = control_textfile.replace('control', 'SE_{}'.format(pixel_size_str)).replace('.txt', '.tif')
     out_PredTif = control_textfile.replace('control', 'PRED_{}'.format(pixel_size_str)).replace('.txt', '.tif')

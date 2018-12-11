@@ -21,13 +21,14 @@ from shapely.geometry import Point, mapping, shape, LineString
 
 from . import crs as pyprecag_crs
 from . import describe, TEMPDIR, config
+from .config import DEBUG
 from describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 from .raster_ops import raster_snap_extent, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 # LOGGER.setLevel("DEBUG")
 
 

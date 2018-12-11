@@ -21,13 +21,14 @@ from shapely.ops import unary_union
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, config
+from .config import DEBUG
 from .describe import VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
 # LOGGER.setLevel(logging.DEBUG)
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG))
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG))
 
 
 def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1.0, out_filename=None):

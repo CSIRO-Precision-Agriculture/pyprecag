@@ -19,6 +19,7 @@ from osgeo import gdal
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, config
+from .config import DEBUG
 
 try:
     from pandas.errors import ParserWarning  # 0.20+
@@ -29,7 +30,7 @@ from unidecode import unidecode
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 # LOGGER.setLevel("DEBUG")
 
 

@@ -29,6 +29,7 @@ from shapely.geometry import LineString, Point, mapping
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, describe, config
+from .config import DEBUG
 from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
 from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
