@@ -4,6 +4,7 @@ import time
 import shutil
 import tempfile
 import rasterio
+import logging
 from pyprecag.tests import make_dummy_data
 from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, distance_metres_to_dd
 from fiona.crs import from_epsg
@@ -14,6 +15,8 @@ pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
+logging.captureWarnings(True)
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 class test_CrsClass(TestCase):
     @classmethod

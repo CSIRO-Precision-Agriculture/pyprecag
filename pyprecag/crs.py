@@ -178,10 +178,10 @@ class crs:
             try:
                 webres = None
                 crsURL = config.get_config_key('crsLookupURL')
-                LOGGER.info('Checking against OpenGeo service ({})'.format(crsURL))
+                LOGGER.debug('Checking against OpenGeo service ({})'.format(crsURL))
 
                 webres = urllib2.urlopen(crsURL, query,timeout=10)
-                LOGGER.info('Connection to {} Successful'.format(crsURL))
+                LOGGER.debug('Connection to {} Successful'.format(crsURL))
 
             except socket.timeout, e:
                 LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
