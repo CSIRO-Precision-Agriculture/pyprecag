@@ -162,8 +162,8 @@ class test_End2End(unittest.TestCase):
 
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
-        'Vesper not present on Linux'
+        platform.system() != 'Windows',
+        'Vesper only present on Windows'
     )
     def test06_prepareForVesperKrig(self):
         descCSV = CsvDescribe(fileTrimmed)
@@ -192,8 +192,8 @@ class test_End2End(unittest.TestCase):
 
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
-        'Vesper not present on Linux'
+        platform.system() != 'Windows',
+        'Vesper only present on Windows'
     )
     def test07_vesperTextToRaster(self):
         global out_PredTif
@@ -219,7 +219,7 @@ class test_End2End(unittest.TestCase):
 
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
+        platform.system() != 'Windows',
         ('Requires out_PredTif which is defined in test07_vesperTextToRaster'
         'which in turn requires vesper.exe')
     )
@@ -260,7 +260,7 @@ class test_End2End(unittest.TestCase):
 
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
+        platform.system() != 'Windows',
         ('Requires out_PredTif which is defined in test07_vesperTextToRaster'
         'which in turn requires vesper.exe')
     )
@@ -312,7 +312,7 @@ class test_End2End(unittest.TestCase):
             self.assertEqual(src.count,1)
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
+        platform.system() != 'Windows',
         ('Requires rand_gdf which is defined in test09_randomPixelSelection'
         'which in turn requires vesper.exe')
     )

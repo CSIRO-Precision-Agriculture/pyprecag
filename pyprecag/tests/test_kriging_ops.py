@@ -58,8 +58,8 @@ class test_KrigingOps(unittest.TestCase):
             testFailed=True
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
-        'Vesper not present on Linux'
+        platform.system() != 'Windows',
+        'Vesper only present on Windows'
     )
     def test1_prepareForVesperKrig_filesExist(self):
 
@@ -95,8 +95,8 @@ class test_KrigingOps(unittest.TestCase):
         self.assertEqual(y_column.upper(), 'NORTHING')
 
     @unittest.skipIf(
-        platform.system() == 'Linux',
-        'Vesper not present on Linux'
+        platform.system() != 'Windows',
+        'Vesper only present on Windows'
     )
     def test2_vesperTextToRaster(self):
         file_ctrl = os.path.join(TmpDir, r'Vesper', os.path.basename(fileSubName) + '_control.txt')
