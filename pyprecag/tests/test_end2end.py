@@ -13,10 +13,14 @@ import time
 from pyprecag import convert, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import VectorDescribe, CsvDescribe, predictCoordinateColumnNames
-from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
 from pyprecag.processing import clean_trim_points, create_polygon_from_point_trail, block_grid, random_pixel_selection, \
     calc_indices_for_block, resample_bands_to_block, extract_pixel_statistics_for_points
 from pyprecag.raster_ops import rescale, normalise
+try:
+    from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
+except ImportError as e:
+    if "Vesper" not in e.message:
+        raise e
 
 pyFile = os.path.basename(__file__)
 
