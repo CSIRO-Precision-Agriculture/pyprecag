@@ -3,6 +3,7 @@ import glob
 import inspect
 import logging
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -24,8 +25,11 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 # DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
 
-# Set default value for vesper_exe
-vesper_exe = "C:/Program Files (x86)/Vesper/Vesper1.6.exe"
+# Set default value for vesper_exe if using Windows
+if platform.system() == 'Windows':
+    vesper_exe = r"C:\Program Files (x86)\Vesper\Vesper1.6.exe"
+else:
+    raise ImportError("Kriging currently only available on Windows with Vesper installed")
 
 def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     """Convert an vesper kriged text file output to a prediction and a standard error (SE) tif raster, and create a
@@ -169,7 +173,8 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     """
 
     if not os.path.exists(vesper_exe):
-        raise IOError("Vesper not found at: {}".format(vesper_exe))
+        raise FileNotFoundError('Vesper*.exe at "{}"'.format(vesper_exe)
+            + ' does not exist. Please install and configure for kriging to occur')
 
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')
@@ -388,10 +393,10 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     """
 
     if not os.path.exists(vesper_exe):
-        raise IOError("Vesper not found at: {}".format(vesper_exe))
+        raise FileNotFoundError('Vesper*.exe at "{}"'.format(vesper_exe)
+            + ' does not exist. Please install and configure for kriging to occur')
 
     task_time = time.time()
-    # vesper_exe = config.get_config_key('vesperEXE')
 
     info = subprocess.STARTUPINFO()
     if bMinimiseWindow:

@@ -7,7 +7,7 @@ import unittest
 import pandas as pd
 import rasterio
 import time
-from pyprecag import convert, processing, config
+from pyprecag import convert, processing, config, kriging_ops
 from pyprecag.describe import predictCoordinateColumnNames
 from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
 from pyprecag.processing import clean_trim_points
@@ -62,7 +62,7 @@ class test_KrigingOps(unittest.TestCase):
         'Vesper not present on Linux'
     )
     def test1_prepareForVesperKrig_filesExist(self):
-        
+
         gdfPoints, gdfPtsCrs = convert.convert_csv_to_points(file, coord_columns_epsg=4326, out_epsg=28354)
         outGDF, outCRS = clean_trim_points(gdfPoints, gdfPtsCrs, data_col, fileSubName + '_trimmed.csv',
                                            poly, thin_dist_m=2.5)
@@ -105,7 +105,7 @@ class test_KrigingOps(unittest.TestCase):
         self.assertTrue(os.path.exists(file_ctrl))
         self.assertTrue(os.path.exists(block_tif))
 
-        vesper_exe = config.get_config_key('vesperEXE')
+        vesper_exe = kriging_ops.vesper_exe
         self.assertTrue(os.path.exists(vesper_exe))
         os.path.join(TmpDir, r'Vesper', os.path.basename(fileSubName) + '_kriged.tif')
         if not os.path.exists(os.path.join(TmpDir, r'Vesper', os.path.basename(fileSubName) + '_kriged.tif')):
