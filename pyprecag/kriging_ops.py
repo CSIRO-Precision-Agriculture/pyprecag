@@ -173,7 +173,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     """
 
     if not os.path.exists(vesper_exe):
-        raise FileNotFoundError('Vesper*.exe at "{}"'.format(vesper_exe)
+        raise IOError('Vesper*.exe at "{}"'.format(vesper_exe)
             + ' does not exist. Please install and configure for kriging to occur')
 
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
@@ -393,7 +393,7 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     """
 
     if not os.path.exists(vesper_exe):
-        raise FileNotFoundError('Vesper*.exe at "{}"'.format(vesper_exe)
+        raise IOError('Vesper*.exe at "{}"'.format(vesper_exe)
             + ' does not exist. Please install and configure for kriging to occur')
 
     task_time = time.time()
