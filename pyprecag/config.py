@@ -5,17 +5,27 @@ from collections import OrderedDict
 # Read in Config File and use as module constant
 CONFIG_FILE = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'config.json')
 
-# Set DEBUG as a module wide variable
-DEBUG = False
+def get_debug_mode():
+    """
+    Gets the value of debug_mode for the module
+    """
+    try:
+        return debug_mode
+    except:
+        set_debug_mode(False)
+        return debug_mode
 
-def set_debug_mode(debug_mode=True):
+def set_debug_mode(debug):
     """
-    Sets the value of DEBUG for the module constant
+    Sets the value of debug_mode for the module constant
      Args:
-        debug_mode (bool): True or False value, set to module constant: DEBUG
+        debug (bool): True or False value, determines if pyprecag is in debug mode
     """
-    global DEBUG
-    DEBUG = debug_mode
+    if not isinstance(debug, bool):
+        raise TypeError
+
+    global debug_mode
+    debug_mode = debug
 
 def read_config():
     """

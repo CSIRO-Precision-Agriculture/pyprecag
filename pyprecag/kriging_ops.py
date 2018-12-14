@@ -16,14 +16,13 @@ from rasterio import features
 from unidecode import unidecode
 
 from . import config
-from .config import DEBUG
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
 from .raster_ops import raster_snap_extent
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
-# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
 
 # Set default value for vesper_exe if using Windows
 if platform.system() == 'Windows':

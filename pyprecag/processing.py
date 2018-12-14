@@ -29,7 +29,6 @@ from shapely.geometry import LineString, Point, mapping
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, describe, config
-from .config import DEBUG
 from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
 from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
@@ -176,7 +175,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         '{:<30} {:<15} {dur}'.format('Assign lineID', '', dur=datetime.timedelta(seconds=time.time() - step_time)))
 
     tempFileList = []
-    if DEBUG:
+    if config.get_debug_mode():
         tempFileList = [os.path.join(TEMPDIR, os.path.basename(out_filename.replace('.shp', '_0thnpts.shp')))]
         save_geopandas_tofile(gdfThin, tempFileList[-1], overwrite=True)
 
@@ -202,7 +201,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     LOGGER.info(
         '{:<30} {:<15} {dur}'.format('Convert to lines', '', dur=datetime.timedelta(seconds=time.time() - step_time)))
 
-    if DEBUG:
+    if config.get_debug_mode():
         tempFileList.append(os.path.join(TEMPDIR, os.path.basename(out_filename.replace('.shp', '_1line.shp'))))
         save_geopandas_tofile(gdfFinal, tempFileList[-1], overwrite=True)
 
@@ -214,7 +213,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
 
-    if DEBUG:
+    if config.get_debug_mode():
         tempFileList.append(os.path.join(TEMPDIR, os.path.basename(out_filename.replace('.shp', '_2buf.shp'))))
         save_geopandas_tofile(gdfFinal, tempFileList[-1], overwrite=True)
 
@@ -224,7 +223,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         gdfFinal.crs = ptsgdf_crs
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
                                                  dur=datetime.timedelta(seconds=time.time() - step_time)))
-        if DEBUG:
+        if config.get_debug_mode():
             tempFileList.append(
                 os.path.join(TEMPDIR, os.path.basename(out_filename.replace('.shp', '_3bufshrink.shp'))))
             save_geopandas_tofile(gdfFinal, tempFileList[-1], overwrite=True)
@@ -570,7 +569,7 @@ def random_pixel_selection(raster, raster_crs, num_points, out_shapefile=None):
     if out_shapefile is not None:
         if not os.path.exists(os.path.dirname(out_shapefile)):
             raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_shapefile)))
-    elif DEBUG:
+    elif config.get_debug_mode():
         out_shapefile = '{}_randompts.shp'.format(inspect.getframeinfo(inspect.currentframe())[2])
 
     band1 = raster.read(1, masked=True)
@@ -904,7 +903,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                              enumerate(rast_shapes)]
             gdfPoly = GeoDataFrame.from_features(list(geoms_geojson), crs=from_epsg(image_epsg))
 
-            if DEBUG:
+            if config.get_debug_mode():
                 tempFileList += [os.path.join(TEMPDIR,
                                               '{}_{}BlockBoundary_{}.shp'.format(filename, len(tempFileList) + 1,
                                                                                  image_epsg))]
@@ -960,7 +959,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
         del blockgrid
 
-        if DEBUG:
+        if config.get_debug_mode():
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to block_grid',
                                                               '{} of {}'.format(index + 1, len(gdfPoly)),
                                                               feat_name,
@@ -990,7 +989,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         [(key, val) for key, val in src.tags(iband).iteritems() if not key.upper().startswith('STATISTIC')])
                     if len(cleaned_tags) > 0:  dest.update_tags(iband, **cleaned_tags)
 
-        if DEBUG:
+        if config.get_debug_mode():
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Clipped Image to Feature',
                                                               '{} of {}'.format(index + 1, len(gdfPoly)), feat_name,
                                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
@@ -1023,7 +1022,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         [(key, val) for key, val in src.tags(iband).iteritems() if not key.upper().startswith('STATISTIC')])
                     if len(cleaned_tags) > 0:  dest.update_tags(iband, **cleaned_tags)
 
-        if DEBUG:
+        if config.get_debug_mode():
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Resampled to {}m'.format(pixel_size),
                                                               '{} of {}'.format(index + 1, len(gdfPoly)), feat_name,
                                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
@@ -1085,7 +1084,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                         del fill_nd, filled
 
-            if DEBUG:
+            if config.get_debug_mode():
                 LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Filled {} holes'.format(hole_count),
                                                                   '{} of {}'.format(index + 1, len(gdfPoly)), feat_name,
                                                                   dur=datetime.timedelta(
@@ -1102,7 +1101,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         with fillholes_memfile.open() as src:
             meta = src.meta.copy()
 
-            if DEBUG:
+            if config.get_debug_mode():
                 tempFileList += [os.path.join(TEMPDIR, '{}_{}smoothed_{}_{}.tif'.format(filename, len(tempFileList) + 1,
                                                                                   pixel_size_str, feat_name))]
 
@@ -1113,7 +1112,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 smooth[np.isnan(smooth)] = src.nodata
                 meta.update(dtype=rasterio.dtypes.get_minimum_dtype(smooth))
 
-                if DEBUG:
+                if config.get_debug_mode():
                     meta.update(count=len(band_nums))
                     with rasterio.open(tempFileList[-1],'w+',**meta) as dest:
                         dest.write(smooth, i)
@@ -1149,7 +1148,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                 del smooth
 
-            if DEBUG:
+            if config.get_debug_mode():
                 LOGGER.info(
                     '{:<30} {:>10}   {:<15} {dur}'.format('Smoothed and saved to {} file(s)'.format(len(band_nums)),
                                                           '{} of {}'.format(index + 1, len(gdfPoly)), feat_name,
@@ -1269,7 +1268,7 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
     out_files = multi_block_bands_processing(indices_image, pixel_size, out_folder, polygon_shapefile=polygon_shapefile,
                                              groupby=groupby)
 
-    if not DEBUG:
+    if not config.get_debug_mode():
         if TEMPDIR in indices_image: os.remove(indices_image)
         if TEMPDIR in reproj_image: os.remove(reproj_image)
         if TEMPDIR in polygon_shapefile: os.remove(polygon_shapefile)
@@ -1346,7 +1345,7 @@ def resample_bands_to_block(image_file, pixel_size, out_folder, band_nums=[], im
     out_files = multi_block_bands_processing(reproj_image, pixel_size, out_folder, band_nums=band_nums,
                                              polygon_shapefile=polygon_shapefile, groupby=groupby)
 
-    if TEMPDIR in reproj_image and not DEBUG:
+    if TEMPDIR in reproj_image and not config.get_debug_mode():
         os.remove(reproj_image)
 
     return out_files

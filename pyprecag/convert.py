@@ -21,14 +21,13 @@ from shapely.geometry import Point, mapping, shape, LineString
 
 from . import crs as pyprecag_crs
 from . import describe, TEMPDIR, config
-from .config import DEBUG
 from describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 from .raster_ops import raster_snap_extent, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
 # LOGGER.setLevel("DEBUG")
 
 
@@ -283,7 +282,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
 
     gdfCSV, gdfCRS = add_point_geometry_to_dataframe(pdfCSV, coord_columns, coord_columns_epsg, out_epsg)
 
-    if DEBUG or out_shapefilename is not None:
+    if config.get_debug_mode() or out_shapefilename is not None:
         if out_shapefilename is None:
             out_shapefilename = '{}_{}.shp'.format(os.path.splitext(os.path.basename(in_csvfilename))[0],
                                                    inspect.getframeinfo(inspect.currentframe())[2])

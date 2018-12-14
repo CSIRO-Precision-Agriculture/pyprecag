@@ -19,7 +19,6 @@ from osgeo import gdal
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, config
-from .config import DEBUG
 
 try:
     from pandas.errors import ParserWarning  # 0.20+
@@ -30,7 +29,7 @@ from unidecode import unidecode
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-# DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG)
+# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
 # LOGGER.setLevel("DEBUG")
 
 
@@ -278,7 +277,7 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
         else:
             inputGeoDataFrame.to_file(output_filename, driver=driver, encoding=file_encoding)
 
-    if DEBUG:
+    if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file',output_filename,
                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
 

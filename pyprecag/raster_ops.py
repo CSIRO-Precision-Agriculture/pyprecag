@@ -16,11 +16,10 @@ from scipy.ndimage import generic_filter
 from . import crs as pyprecag_crs
 from .bandops import CalculateIndices
 from . import config, TEMPDIR
-from .config import DEBUG
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-# DEBUG = DEBUG  # LOGGER.isEnabledFor(logging.DEBUG))
+# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG))
 
 
 def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
@@ -289,7 +288,7 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if out_colname is None or out_colname == '':
         out_colname = '{}_{}'.format(''.join(col_name), title)
 
-    if DEBUG:
+    if config.get_debug_mode():
         LOGGER.info('{:50}  {dur:17} min: {:>.4f} max: {:>.4f}'.format(out_colname, np.nanmin(filtered), np.nanmax(filtered),
                                                                  dur=timedelta(seconds=time.time() - start_time)))
 
@@ -472,7 +471,7 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
 
                 if len(cleaned_tags) > 0: dest.update_tags(i, **cleaned_tags)
 
-    if DEBUG:
+    if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file', out_image,
                                                  dur=datetime.timedelta(seconds=time.time() - start_time)))
 

@@ -21,14 +21,13 @@ from shapely.ops import unary_union
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, config
-from .config import DEBUG
 from .describe import VectorDescribe, save_geopandas_tofile
 from .errors import GeometryError
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
 # LOGGER.setLevel(logging.DEBUG)
-# DEBUG = DEBUG  # LOGGER.isEnabledFor(logging.DEBUG))
+# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG))
 
 
 def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1.0, out_filename=None):
@@ -69,7 +68,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
         if not os.path.exists(os.path.dirname(out_filename)):
             raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_filename)))
 
-    if out_filename is None or DEBUG:
+    if out_filename is None or config.get_debug_mode():
         # get a unique name, it will create, open the file and delete when done after saving the variable
         with NamedTemporaryFile(prefix='{}_'.format(inspect.getframeinfo(inspect.currentframe())[2]),
                                 suffix='.shp', dir=TEMPDIR) as new_file:
@@ -163,7 +162,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)
 
     filterTime = time.time()
-    if DEBUG:  # save with filter column.
+    if config.get_debug_mode():  # save with filter column.
         save_geopandas_tofile(point_geodataframe, out_filename, overwrite=True)
     elif out_filename is not None:
         save_geopandas_tofile(point_geodataframe.drop('filter', axis=1), out_filename, overwrite=True)
