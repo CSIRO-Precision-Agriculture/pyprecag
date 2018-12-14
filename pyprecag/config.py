@@ -11,7 +11,7 @@ def get_debug_mode():
     """
     try:
         return debug_mode
-    except:
+    except NameError:
         set_debug_mode(False)
         return debug_mode
 
@@ -22,7 +22,7 @@ def set_debug_mode(debug):
         debug (bool): True or False value, determines if pyprecag is in debug mode
     """
     if not isinstance(debug, bool):
-        raise TypeError
+        raise TypeError("debug must be a boolean")
 
     global debug_mode
     debug_mode = debug
