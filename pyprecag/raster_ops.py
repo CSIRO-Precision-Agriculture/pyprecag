@@ -47,18 +47,14 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
     if not isinstance(snap_extent_to_pixel,(int,bool)):
         raise TypeError('snap_extent_to_pixel must be boolean.')
 
-    # adjust values to an area slightly larger than the bounds
-    bounds = (bounds[0] - (pixel_size * 5), bounds[1] - (pixel_size * 5),
-              bounds[2] + (pixel_size * 5), bounds[3] + (pixel_size * 5))
-
     # We may want to snap the output grids to a multiple of the grid size, allowing adjacent blocks to align nicely.
     if snap_extent_to_pixel:
         x_min, y_min, x_max, y_max = raster_snap_extent(*bounds, pixel_size=pixel_size)
     else:
         x_min, y_min, x_max, y_max = bounds
 
-    width = int((x_max - x_min) / pixel_size) - 1       # columns
-    height = int((y_max - y_min) / pixel_size) - 1      # rows
+    width = int((x_max - x_min) / pixel_size)   # columns
+    height = int((y_max - y_min) / pixel_size)  # rows
 
     # create an affine transformation matrix to associate the array to the coordinates.
     from rasterio.transform import from_origin

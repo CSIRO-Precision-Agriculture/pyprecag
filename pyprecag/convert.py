@@ -96,9 +96,8 @@ def convert_polygon_to_grid(in_shapefilename,
         LOGGER.info('\t           LL:{} {}'.format(xMin, yMin))
         LOGGER.info('\t           UR:{} {}'.format(xMax, yMax))
 
-    # This '+1' is not a standard approach, but gives compatible rows and cols with arcpy
-    xCols = int((xMax - xMin) / pixel_size) + 1
-    yRows = int((yMax - yMin) / pixel_size) + 1
+    xCols = int((xMax - xMin) / pixel_size) 
+    yRows = int((yMax - yMin) / pixel_size) 
     LOGGER.info('\t           Cols: {}'.format(xCols))
     LOGGER.info('\t           Rows: {}'.format(yRows))
 

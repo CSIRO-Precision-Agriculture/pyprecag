@@ -124,7 +124,7 @@ class test_KrigingOps(unittest.TestCase):
         with rasterio.open(os.path.normpath(out_PredTif)) as dataset:
             self.assertEqual(dataset.count, 1)
             self.assertEqual(dataset.width, 48)
-            self.assertEqual(dataset.height, 26)
+            self.assertEqual(dataset.height, 25)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
@@ -132,7 +132,7 @@ class test_KrigingOps(unittest.TestCase):
         with rasterio.open(os.path.normpath(out_SETif)) as dataset:
             self.assertEqual(dataset.count, 1)
             self.assertEqual(dataset.width, 48)
-            self.assertEqual(dataset.height, 26)
+            self.assertEqual(dataset.height, 25)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
 

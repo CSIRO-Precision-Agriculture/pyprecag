@@ -69,9 +69,9 @@ class test_Processing(unittest.TestCase):
         self.assertTrue(os.path.exists(fileSubName + '_block_v.txt', ))
 
         with rasterio.open(os.path.normpath(fileSubName + '_block.tif')) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 126)
-            self.assertEqual(dataset.height, 205)
+            self.assertEqual(dataset.count,    1)
+            self.assertEqual(dataset.width,  125)
+            self.assertEqual(dataset.height, 204)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
@@ -261,7 +261,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             #coords 300725.0, 6181571.0
             self.assertEqual(src.read(1)[47,62],-9999)
             # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 0.22253361, 4)
+            self.assertAlmostEqual(src.read(1)[52, 23], 0.20820355, 4)
 
     def test_dontApplyNonVineMask(self):
         out_dir = os.path.join(TmpDir,'test_CalculateImageIndices', 'no-nonvine')
@@ -288,7 +288,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             # coords 300725.0, 6181571.0
             self.assertEqual(src.read(1)[47,62],-9999)
             # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 0.02232674, 4)
+            self.assertAlmostEqual(src.read(1)[52, 23], 0.070868947, 4)
 
     def test_noShapefile(self):
 
@@ -410,7 +410,7 @@ class test_ResampleToBlock(unittest.TestCase):
             # coords 300725.0, 6181571.0
             self.assertEqual(src.read(1)[47,62],0)
             # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 917.34998, 4)
+            self.assertAlmostEqual(src.read(1)[52, 23], 855.23999, 4)
 
     def test_noShapefile(self):
 

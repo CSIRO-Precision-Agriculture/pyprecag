@@ -108,7 +108,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
     # get the number of rows/cols
     x_cols = int((x_max - x_min) / pixel_size) + 1
-    y_rows = int((y_max - y_min) / pixel_size) + 1
+    y_rows = int((y_max - y_min) / pixel_size) 
     LOGGER.debug('Width (xCols):     {}   Height (yRows):     {}'.format(x_cols, y_rows))
 
     # create an affine transformation matrix to associate the array to the coordinates.
