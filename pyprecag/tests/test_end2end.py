@@ -207,7 +207,7 @@ class test_End2End(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(out_PredTif)) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 55)
+            self.assertEqual(dataset.width, 54)
             self.assertEqual(dataset.height, 53)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
@@ -215,7 +215,7 @@ class test_End2End(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(out_SETif)) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 55)
+            self.assertEqual(dataset.width, 54)
             self.assertEqual(dataset.height, 53)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))

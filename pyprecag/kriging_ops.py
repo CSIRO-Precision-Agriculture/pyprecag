@@ -18,7 +18,7 @@ from unidecode import unidecode
 from . import config
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
-from .raster_ops import raster_snap_extent
+from .raster_ops import raster_snap_extent, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
@@ -104,16 +104,9 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     out_SETif = control_textfile.replace('control', 'SE_{}'.format(pixel_size_str)).replace('.txt', '.tif')
     out_PredTif = control_textfile.replace('control', 'PRED_{}'.format(pixel_size_str)).replace('.txt', '.tif')
 
-    x_min, y_min, x_max, y_max = raster_snap_extent(*gdfKrig.total_bounds, pixel_size=pixel_size)
-
-    # get the number of rows/cols
-    x_cols = int((x_max - x_min) / pixel_size) + 1
-    y_rows = int((y_max - y_min) / pixel_size) 
-    LOGGER.debug('Width (xCols):     {}   Height (yRows):     {}'.format(x_cols, y_rows))
-
     # create an affine transformation matrix to associate the array to the coordinates.
-    from rasterio.transform import from_origin
-    transform = from_origin(x_min, y_max, pixel_size, pixel_size)
+    transform, x_cols, y_rows, new_bbox = create_raster_transform(list(gdfKrig.total_bounds), pixel_size=pixel_size)
+    LOGGER.debug('Width (xCols):     {}   Height (yRows):     {}'.format(x_cols, y_rows))
 
     # create the two tifs and populate with data. This method is by far the quickest of all 3 methods trialed.
     with rasterio.open(os.path.normpath(out_PredTif), 'w', driver='GTiff',
