@@ -46,7 +46,11 @@ class test_End2End(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(test_End2End, cls).setUpClass()
-        if not os.path.exists(TmpDir): os.mkdir(TmpDir)
+        if os.path.exists(TmpDir):
+            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            shutil.rmtree(TmpDir)
+
+        os.mkdir(TmpDir)
 
         global testFailed
         testFailed = False
@@ -54,7 +58,7 @@ class test_End2End(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not testFailed:
-            print 'Deleting folder {}'.format(TmpDir)
+            print ('Tests Passed .. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
     def setUp(self):

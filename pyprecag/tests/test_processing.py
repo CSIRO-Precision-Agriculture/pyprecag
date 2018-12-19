@@ -29,7 +29,12 @@ class test_Processing(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(test_Processing, cls).setUpClass()
-        if not os.path.exists(TmpDir): os.mkdir(TmpDir)
+
+        if os.path.exists(TmpDir):
+            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            shutil.rmtree(TmpDir)
+
+        os.mkdir(TmpDir)
         cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
         global testFailed
         testFailed = False
@@ -37,7 +42,7 @@ class test_Processing(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not testFailed:
-            print 'Deleting folder {}'.format(TmpDir)
+            print ('Tests Passed .. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
     def setUp(self):
@@ -131,7 +136,12 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(test_extractRasterStatisticsForPoints, cls).setUpClass()
-        if not os.path.exists(TmpDir): os.mkdir(TmpDir)
+
+        if os.path.exists(TmpDir):
+            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            shutil.rmtree(TmpDir)
+
+        os.mkdir(TmpDir)
         cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
         global testFailed
         testFailed = False
@@ -139,7 +149,7 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not testFailed:
-            print 'Deleting folder {}'.format(TmpDir)
+            print ('Tests Passed .. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
     def setUp(self):
@@ -204,7 +214,11 @@ class test_CalculateImageIndices(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(test_CalculateImageIndices, cls).setUpClass()
-        if not os.path.exists(TmpDir): os.makedirs(TmpDir)
+        if os.path.exists(TmpDir):
+            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            shutil.rmtree(TmpDir)
+
+        os.makedirs(TmpDir)
 
         global testFailed
         testFailed = False
@@ -212,8 +226,8 @@ class test_CalculateImageIndices(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not testFailed:
-            print 'Deleting folder {}'.format(TmpDir)
-            #shutil.rmtree(TmpDir)
+            print ('Tests Passed .. Deleting {}'.format(TmpDir))
+            shutil.rmtree(TmpDir)
 
     def setUp(self):
         self.startTime = time.time()
@@ -355,7 +369,11 @@ class test_ResampleToBlock(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(test_ResampleToBlock, cls).setUpClass()
 
-        if not os.path.exists(TmpDir): os.makedirs(TmpDir)
+        if os.path.exists(TmpDir):
+            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            shutil.rmtree(TmpDir)
+
+        os.makedirs(TmpDir)
 
         global testFailed
         testFailed = False
@@ -363,8 +381,8 @@ class test_ResampleToBlock(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if not testFailed:
-            print 'Deleting folder {}'.format(TmpDir)
-            #shutil.rmtree(TmpDir)
+            print ('Tests Passed .. Deleting {}'.format(TmpDir))
+            shutil.rmtree(TmpDir)
 
     def setUp(self):
         self.startTime = time.time()
