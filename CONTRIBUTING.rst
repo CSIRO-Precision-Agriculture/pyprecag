@@ -30,7 +30,7 @@ pyprecag could always use more documentation, whether as part of the official py
 Feature requests and feedback
 -----------------------------
 
-The best way to send feedback is to `file an issue <https://yourprojecturl/issues>`_
+The best way to send feedback is to `file an issue <https://github.com/CSIRO-Precision-Agriculture/pyprecag/issues>`_
 
 If you are proposing a feature:
 

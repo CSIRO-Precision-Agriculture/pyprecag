@@ -18,11 +18,11 @@ setup(
     long_description=long_description,
 
     # The project's main homepage.
-    url='https://yourprojecturl',
+    url='https://github.com/CSIRO-Precision-Agriculture/pyprecag',
 
     # Author details
     author='Christina Ratcliff',
-    author_email='Christina.Ratcliff@csiro.au',
+    author_email='pat@csiro.au',
 
     # Choose your license
     license='CSIRO Open Source Software License Agreement',
