@@ -35,7 +35,7 @@ Version numbers follow the `Semantic versioning guidelines <semver.org>`_.
 
 .. include:: ./contributing.rst
 
-Dependancies
+Dependencies
 ============
 
 * Python version 2.7
