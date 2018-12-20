@@ -1,0 +1,19 @@
+# Directories to include
+graft pyprecag/tests/examples
+graft pyprecag/tests/data
+
+# Directories to exclude
+prune docs
+
+# Files to include
+
+include pylintrc
+include AUTHORS.rst
+include CHANGELOG.rst
+include CONTRIBUTING.rst
+include LICENSE
+include README.rst
+include pyprecag/config.json
+
+# File patterns to exclude wherever they are found
+global-exclude *.py[co] __pycache__ *.so *.pyd

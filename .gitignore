@@ -1,0 +1,36 @@
+# Build artifacts and directories
+tags
+build/
+dist/
+*.egg-info/
+.coverage
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# PyCharm Project files contain local settings, and so are not appropriate for Git
+.project
+.idea/
+*.dat
+
+# From original pvtools repository
+.idea
+*.pyc
+*.lnk
+*.vrt
+*.qlr
+*.sbn
+*.sbx
+*.qml
+*.qgs
+rescale.tif
+normalise.tif
+snippets/
+old/
+notebooks/
+
+.pytest_cache/
+.vscode/
+Pipfile
+Pipfile.lock

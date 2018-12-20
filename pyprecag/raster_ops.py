@@ -1,0 +1,535 @@
+import datetime
+import inspect
+import logging
+
+import os
+import time
+import warnings
+from datetime import timedelta
+
+from osgeo import gdal
+import numpy as np
+import rasterio
+from rasterio.enums import Resampling
+from rasterio.warp import calculate_default_transform, reproject
+
+from scipy.ndimage import generic_filter
+from . import crs as pyprecag_crs
+from .bandops import CalculateIndices
+from . import general, config, TEMPDIR
+
+LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
+DEBUG = config.get_config_key('debug_mode')  # LOGGER.isEnabledFor(logging.DEBUG))
+
+
+def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
+    """Create parameters required for creating a new raster file based on a known extent and pixel size.
+
+    snap_extent_to_pixel can be used to ensure the bounding coordinates are a divisible of the pixel size.
+
+    Args:
+        bounds (float, float, float, float): the bounding box coordinates (xmin, ymin, xmax, ymax)
+        pixel_size (int, float): the required pixel size
+        snap_extent_to_pixel (bool): round the extent coordinates to be divisible by the pixel size
+
+    Returns:
+        affine.Affine: the Rasterio Transformation object
+        int: the width or number of columns
+        int: the height or number of rows.
+        [float, float, float, float]: new bounding box coordinates updated if snapping was used.
+    """
+
+    if not isinstance(bounds, (tuple, list)):
+        raise TypeError('Bounds should be a tuple or list for xmin, ymin, xmax, ymax')
+
+    if not isinstance(pixel_size, (int, long, float)):
+        raise TypeError('pixel_size must be numeric number.')
+    if not isinstance(snap_extent_to_pixel,(int,bool)):
+        raise TypeError('snap_extent_to_pixel must be boolean.')
+
+    # adjust values to an area slightly larger than the bounds
+    bounds = (bounds[0] - (pixel_size * 5), bounds[1] - (pixel_size * 5),
+              bounds[2] + (pixel_size * 5), bounds[3] + (pixel_size * 5))
+
+    # We may want to snap the output grids to a multiple of the grid size, allowing adjacent blocks to align nicely.
+    if snap_extent_to_pixel:
+        x_min, y_min, x_max, y_max = RasterSnapExtent(*bounds, pixel_size=pixel_size)
+    else:
+        x_min, y_min, x_max, y_max = bounds
+
+    width = int((x_max - x_min) / pixel_size) - 1       # columns
+    height = int((y_max - y_min) / pixel_size) - 1      # rows
+
+    # create an affine transformation matrix to associate the array to the coordinates.
+    from rasterio.transform import from_origin
+    transform = from_origin(x_min, y_max, pixel_size, pixel_size)
+
+    return transform, width, height, (x_min, y_min, x_max, y_max)
+
+
+def RasterSnapExtent(x_min, y_min, x_max, y_max, pixel_size):
+    """Calculate a new raster extent where the bounding coordinates are a divisible of the pixel size.
+
+   The LL will be rounded down, and the UR will be rounded up.
+
+    Using this function will ensure that rasters have the same pixel origin, when they are created
+    which in the long run, will save resampling when multiple raster with the same pixel size
+    are compared.
+
+    Args:
+        x_min (float): x_min coordinate will be rounded down to the nearest pixel edge
+        y_min (float): y_min coordinate will be rounded down to the nearest pixel edge
+        x_max (float): x_max coordinate will be rounded up to the nearest pixel edge
+        y_max (float): y_max coordinate will be rounded up to the nearest pixel edge
+        pixel_size (float): The pixel size representing the divisor
+
+    Returns:
+        List[float]]: Representing the Bounding box (xmin,ymin,xmax,ymax)
+
+    Examples:
+        >>> xmin, ymin = 350127.023547, 6059756.84652457
+        >>> xmax, ymax = xmin + 3.142 * 200, ymin + 3.142 * 550
+        >>> RasterSnapExtent(xmin, ymin, xmax, ymax, 5)
+        [350125.0, 6059755.0, 350760.0, 6061485.0]
+        >>> RasterSnapExtent(xmin, ymin, xmax, ymax, 0.5)
+        [350127.0, 6059756.5, 350755.5, 6061485.0]
+
+    """
+
+    for argCheck in [('x_min', x_min), ('y_min', y_min), ('x_max', x_max), ('y_max', y_max),
+                     ('pixel_size', pixel_size)]:
+        if not isinstance(argCheck[1], (int, long, float)):
+            raise TypeError('{} must be a floating number.'.format(argCheck[0]))
+
+    bBox = [x_min - (x_min % pixel_size),  # calc new xMin
+            y_min - (y_min % pixel_size),  # calc new yMin
+            (x_max + pixel_size) - ((x_max + pixel_size) % pixel_size),  # calc new xMax
+            (y_max + pixel_size) - ((y_max + pixel_size) % pixel_size)]  # calc new yMax
+
+    return bBox
+
+
+def rescale(raster, min_value, max_value, band_num=1, ignore_nodata=True):
+    """ Rescale a single band between a set number of values.
+
+    If ignore_nodata is used, then the selected band will be opened as a numpy masked array and the specified
+    nodata values will be excluded
+
+    It returns the calcuated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
+
+    Args:
+        raster (rasterio.io.DatasetReader): An raster file opened using rasterio.open(os.path.normpath())
+        min_value (int): The lower/min value to use during rescaling
+        max_value (int): The Upper/max value to use during rescaling
+        band_num (int): The band number to apply rescaling too.
+        ignore_nodata (bool): Ignore nodata values during rescaling.
+                    If False, the nodata pixels and values will be used during the calculation
+                    If True, the band will be read as a masked array and nodata pixels and values excluded
+
+    Returns:
+        numpy.ndarray: A single band as a numpy array.
+        or
+        numpy.ma.core.MaskedArray:    A single band as a numpy array with nodata being stored in the mask
+
+    Examples:
+        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
+        ...     meta = src.meta.copy()
+        ...     meta['count'] = 2
+        ...     rescaled = rescale(src,min_value=0,max_value=1,ignore_nodata=True)
+        ...     rescaled2 = rescale(src,min_value=0,max_value=255,ignore_nodata=True)
+        ...     with rasterio.open(os.path.normpath('../test/data/rescale.tif'), 'w', **meta) as dst:
+        ...         dst.write_band(1,rescaled)
+        ...         dst.write_band(2,rescaled2)
+        >>> print(np.nanmin(rescaled), np.nanmax(rescaled))
+        (0.0, 1.0)
+        >>> print(np.nanmin(rescaled2), np.nanmax(rescaled2))
+        (0.0, 255.0)
+    """
+    if config.get_config_key('debug_mode'):
+        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
+
+    if not isinstance(raster, rasterio.DatasetReader):
+        raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open(os.path.normpath())")
+
+    for argCheck in [('min_value', min_value), ('max_value', max_value)]:
+        if not isinstance(argCheck[1], (int, long, float)):
+            raise TypeError('{} must be numeric.'.format(argCheck[0]))
+
+    band = raster.read(band_num, masked=ignore_nodata)
+
+    # formula: https://gis.stackexchange.com/a/28563
+    # use np.nanXXX to create consistent results.
+    band = band.astype(np.float64)
+
+    rescaled = ((band - np.nanmin(band)) * (max_value - min_value) / (np.nanmax(band) - np.nanmin(band)) + min_value)
+
+    # pick and assign the most appropriate dtype for the result
+    rescaled = rescaled.astype(np.dtype(rasterio.dtypes.get_minimum_dtype(rescaled)))
+
+    return rescaled
+
+
+def normalise(raster, band_num=1, ignore_nodata=True):
+    """Normalise a single band by adjusting to a mean of zero and standard deviation of 1
+
+    If ignore_nodata is used, then the selected band will be opened as a numpy masked array and the specified
+    nodata values will be excluded from calculations
+
+    It returns the calcuated single band and can be written to file using rasterio.open(os.path.normpath(),'w')
+
+    Args:
+        raster (rasterio.io.DatasetReader): An raster file opened using rasterio.open(os.path.normpath())
+        band_num (int):       The band number to apply rescaling too.
+        ignore_nodata (bool): Ignore nodata values during rescaling.
+                              If False, the nodata pixels and values will be used during the calculation
+                              If True, the band will be read as a masked array and nodata pixels and values excluded.
+    Returns:
+        numpy.ndarray: A single band as a numpy array.
+        or
+        numpy.ma.core.MaskedArray:    A single band as a numpy array with nodata being stored in the mask
+
+    Example:
+        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
+        ...     meta = src.meta.copy()
+        ...     norm = normalise(src,ignore_nodata=True)
+        ...     meta['dtype'] = norm.dtype
+        ...     with rasterio.open(os.path.normpath('../test/data/normalise.tif'), 'w', **meta) as dst:
+        ...         dst.write_band(1,norm)
+        >>> print(np.nanmin(norm), np.nanmax(norm))
+        (-2.7588787, 3.308543)
+    """
+    if config.get_config_key('debug_mode'):
+        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
+
+    if not isinstance(raster, rasterio.DatasetReader):
+        raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open(os.path.normpath())")
+
+    band = raster.read(band_num, masked=ignore_nodata)
+
+    # convert to float64 for accuracy
+    band = band.astype(np.float64)
+
+    # Use ddof=0 for population std or ddof=1 for sample std      source: https://gis.stackexchange.com/a/267833/117453
+    # for more accurate results use .astype(np.float64)
+    #          see Notes: https://docs.scipy.org/doc/numpy-1.13.0/reference/generated/numpy.std.html
+    #                     https://github.com/numpy/numpy/issues/9071
+    # use np.nanXXX to create consistent results.
+
+    normalised = (band - np.nanmean(band)) / np.nanstd(band)
+
+    # pick and assign the most appriate dtype for the result
+    normalised = normalised.astype(np.dtype(rasterio.dtypes.get_minimum_dtype(normalised)))
+
+    return normalised
+
+
+def nancv(x):
+    """ A function used with scipy.ndimage.generic_filter to calculate the coeficent variant of pixels/values
+    excluding nan (nodata) values. It can be used in conjunction with focal_statistics.
+
+    example using a 3x3: generic_filter(band,nancv, mode='constant', cval=np.nan, size=3)
+
+    A variation of https://stackoverflow.com/a/14060024
+    """
+    return np.true_divide(np.nanstd(x), np.nanmean(x))
+
+
+def pixelcount(x):
+    """ A function used with scipy.ndimage.generic_filter to count the number of real values/pixels (ie not nan)
+        when applying a NxN filter.
+
+        A Count of 0 will be replace by np.nan. It can be used in conjunction with
+        focal statistics.
+        A variation of https://stackoverflow.com/a/14060024"""
+    val = sum(~np.isnan(x))
+    if val == 0:
+        return np.nan
+    else:
+        return val
+
+
+def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np.nanmean,
+                     clip_to_mask=False, out_colname=None):
+    """Derives for each pixel a statistic of the values with the specified neighbourhood.
+
+    Currently the neighbourhood is restricted to square neighbourhoods ie 3x3 size.
+
+    Any numpy statistical functions are supported along with custom functions.
+
+    Nodata values are converted to np.nan and will be excluded from the statistical calculation. Nodata pixels may be
+    assigned a value if at least one pixel in the neighbourhood has a valid value. To remove/mask these values from
+    the final output, set the clip_to_mask setting to True.
+
+    Using a size of 1 returns the selected band with the converted nodata values. No statistical functions are applied.
+
+    An string out_colname is returned and can be used as a filename or column name during future analysis. If None, it
+    is derived from the input raster, size and statistical function used.
+          For single band inputs   <stat><size>x<size>_<rastername>
+             Example:   mean3x3_area1_yield    apply a mean 3x3 filter for raster area1_yield
+
+          For multi band inputs   <function><size>x<size>bd<band_num>_<rastername>
+             Example:   mean3x3b3_area2       apply a mean 3x3 filter for band 3 of the raster area2
+
+    Source: https://stackoverflow.com/a/30853116/9567306
+    https://stackoverflow.com/questions/46953448/local-mean-filter-of-a-numpy-array-with-missing-data/47052791#47052791
+
+    Args:
+        raster (rasterio.io.DatasetReader): An raster file opened using rasterio.open(os.path.normpath())
+        band_num (int):       The band number to apply focal statistics to.
+        ignore_nodata (bool): If true, the nodata value of the raster will be converted to np.nan and excluded
+                              from statistical calculations.
+        size (int):           The size of the neighbourhood filter used for statistics calculations. Currently
+                              restricted to a square neighbourhood ie 3x3, 5x5 etc.
+        function (function):  a functions to apply to the raster. These can include numpy functions
+                              like np.nanmean or custom ones.
+        clip_to_mask (bool):  If true, remove values assigned to nodata pixels
+        out_colname (str):    An output string used to describe the filter result and can be used as a column or
+                              filename If NONE, then it will be derived.
+    Returns:
+        numpy.ndarray:        A 1D numpy array of double (float32) values
+        str:                  a string representation of the inputs
+
+    Example:
+        >>> with rasterio.open(os.path.normpath('../test/data/test_singleband_94mga54.tif')) as src:
+        ...     meta = src.meta.copy()
+        ...     focal_mean, name_mean = focal_statistics(src,ignore_nodata=True,size=5,function=np.nanmean)
+        >>> print(np.nanmin(focal_mean), np.nanmax(focal_mean))
+        (0.036385194063186646, 6.991053695678711)
+        >>> meta['dtype'] = np.float32
+        >>> with rasterio.open(os.path.normpath(os.path.join('../test/data',name_mean + '.tif')), 'w', **meta) as dst:
+        ...         dst.write_band(1,focal_mean)
+    """
+
+    if config.get_config_key('debug_mode'):
+        [LOGGER.debug(ea) for ea in general.print_functions_string(inspect.currentframe())]
+
+    if not isinstance(raster, rasterio.DatasetReader):
+        raise TypeError("Input should be a rasterio.DatasetReader created using rasterio.open()")
+
+    if not isinstance(size, int) or size % 2 == 0:
+        raise TypeError("Size should be an odd number integer greater than one. Only Square Filters are supported.")
+
+    if not isinstance(ignore_nodata, bool):
+        raise TypeError('{} should be a boolean.'.format(ignore_nodata))
+
+    start_time = time.time()
+    col_name = []
+    mask = raster.read_masks(band_num)
+    if ignore_nodata:
+        # change nodata values to np.nan
+        band = np.where(mask, raster.read(band_num), np.nan)
+    else:
+        band = raster.read(band_num)
+
+    # convert to float64 for accuracy
+    band = band.astype(np.float64)
+    if size > 1:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            filtered = generic_filter(band, function, mode='constant', cval=np.nan, size=size)
+
+        col_name += [function.func_name.replace('nan', ''), '{0}x{0}'.format(size)]
+    else:
+        filtered = band
+        col_name += ['pixel']
+
+    if raster.count > 1:  # the number of bands in the raster
+        col_name += ['bd{}'.format(band_num)]
+
+    if clip_to_mask:
+        # reapply the mask to remove values assigned to nodata pixels
+        filtered = np.where(mask, filtered, np.nan)
+
+    title = os.path.splitext(os.path.basename(raster.name))[0]
+    if out_colname is None or out_colname == '':
+        out_colname = '{}_{}'.format(''.join(col_name), title)
+
+    if config.get_config_key('debug_mode'):
+        LOGGER.info('{:50}  {dur:17} min: {:>.4f} max: {:>.4f}'.format(out_colname, np.nanmin(filtered), np.nanmax(filtered),
+                                                                 dur=timedelta(seconds=time.time() - start_time)))
+
+    return filtered.astype(np.float32), out_colname
+
+
+def calculate_image_indices(image_file, band_map, out_image_file, indices=[], out_nodata=-9999):
+    """Creates a multi-band image where each band represents a calculated index.
+
+    Rasterio's band tags are used to document which band represents which index.
+
+    The band mapping matches a band number to a band type ie band 3 is the Red band to enable the index calculation to
+    occur. It also identifies a band where the nodata value removes the non-vine or bare earth signal. This nodata is
+    assigned to the output image.
+
+     Indices currently supported are:
+        NDVI - Normalised difference vegetation index
+        PCD - Plant cell density index
+        GNDVI - Green normalised difference vegetation index
+        CHLRE - Chlorophyll red-edge index
+        NDRE - Normalised difference red-edge index
+
+    Args:
+        image_file (str): image_file (str): the input image file
+        band_map (pyprecag.bandops.BandMapping): a Band mapping matching a band number to band type.
+        out_image_file (str): the name and location of the output image file.
+        indices (List[str]): indices (List[str]): The list of indices to calculate.
+        out_nodata (int): the value to use in the output image for the nodata
+
+    Returns:
+        None:
+    """
+
+    if not isinstance(indices, list):
+        raise TypeError('indices must be a list of indices to calculate')
+
+    start_time = time.time()
+    meta = rasterio.open(image_file).meta.copy()
+    meta.update({'driver': 'GTiff', 'dtype': rasterio.float32, 'count': len(indices), 'nodata': out_nodata})
+
+    ci = CalculateIndices(**band_map)
+
+    with rasterio.open(out_image_file, 'w', compress="NONE", **meta) as dest:
+        # Calculate each index and write them as a separate band.
+        for i, eaIndex in enumerate(indices, 1):
+            index_arr = ci.calculate(eaIndex, image_file)
+            dest.write(index_arr.astype(rasterio.float32), i)
+            dest.update_tags(i, name=eaIndex)
+            del index_arr
+
+    LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Indices Calculate for Image', '',', '.join(indices),
+                                                       dur=datetime.timedelta(seconds=time.time() - start_time)))
+
+
+def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[], image_epsg=0, image_nodata=None,
+                    resampling=Resampling.nearest):
+
+    """Reproject selected image bands from one coordinate system to another.
+
+    "image_epsg" and "image_nodata" can be used to set the coordinate system and image nodata values when they are not
+    already specified within the image file.
+
+    Args:
+        image_file (str): An input image path and name
+        out_imagefile (str): An output image path and name
+        out_epsg (int): The epsg number representing output coordinate system
+        band_nums (List): The bands to reproject. If list is empty, all bands will be used
+        image_epsg (int): the epsg number for the image. Only used if not provided by the image.
+        image_nodata (int): the nodata value for the image. Only used if not provided by the image.
+        resampling (rasterio.enums.Resampling): The resampling technique to use during reprojection.
+
+    Returns:
+        None:
+    """
+    start_time = time.time()
+
+    if out_epsg > 0:
+        dst_crs = rasterio.crs.CRS.from_epsg(out_epsg)
+
+    with rasterio.open(os.path.normpath(image_file)) as src:
+        meta = src.meta.copy()
+        meta.update({'driver': 'GTiff'})
+
+        if len(band_nums) == 0:
+            band_nums = range(1, src.count + 1)
+        meta.update({'count': len(band_nums)})
+
+        if src.crs is None:
+            if image_epsg is None or image_epsg == 0:
+                raise ValueError('Input coordinate system required - image_file does not contain a coordinate system,'
+                                 ' and in_epsg is 0')
+            else:
+                src_crs = rasterio.crs.CRS.from_epsg(image_epsg)
+                meta.update({'crs': src_crs})
+        else:
+            image_epsg = pyprecag_crs.getCRSfromRasterFile(image_file).epsg_number
+            src_crs = src.crs
+
+        if image_nodata is not None or image_nodata != meta['nodata']:
+            meta.update({'nodata': image_nodata})
+
+        # create a raster in memory by copying input data or reprojecting --------------------------------------------
+        if out_epsg == image_epsg:
+            with rasterio.open(out_imagefile, 'w', **meta) as dest:
+                for i, ea_band in enumerate(band_nums, 1):
+                    dest.write(src.read(ea_band),i)
+                    dest.update_tags(i, **src.tags(ea_band))
+
+                dest.update_tags(**src.tags())
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Processed Image', '',
+                                                              'CRS: {} To  {}, nodata: {} To {}'.format(image_epsg, out_epsg, src.nodata, image_nodata),
+                                                              dur=datetime.timedelta(seconds=time.time() - start_time)))
+        else:
+            # calculate the new affine transform for to use for reprojection.
+            transform, width, height = calculate_default_transform(src_crs, dst_crs, src.width, src.height, *src.bounds)
+
+            # update the parameters for the output file
+            meta.update({'crs': dst_crs, 'transform': transform, 'width': width, 'height': height})
+
+            with rasterio.open(out_imagefile,'w',**meta) as dest:
+                for i in band_nums:
+                    reproject(source=rasterio.band(src, i),
+                              destination=rasterio.band(dest, i),
+                              src_transform=src.transform,
+                              src_crs=src.crs,
+                              dst_transform=transform,
+                              dst_crs=dst_crs,
+                              resampling=resampling)
+
+                    # image statistics have changed so copy only the other tags
+                    cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems() if not key.upper().startswith('STATISTIC')])
+                    if len(cleaned_tags) > 0:  dest.update_tags(i,**cleaned_tags)
+
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Reproject Image', '','From {} To  {}'.format(image_epsg, out_epsg),
+                                                               dur=datetime.timedelta(seconds=time.time() - start_time)))
+            del transform
+
+
+def update_band_statistics_GDAL(raster_file):
+    """ update band statistics using GDAL. Not yet built into rasterio """
+    ds = gdal.Open(raster_file, gdal.GA_Update)
+    for i in range(ds.RasterCount):
+        ds.GetRasterBand(i + 1).ComputeStatistics(0)
+    ds = band = None  # save, close
+    return
+
+
+def save_in_memory_raster_to_file(memory_raster, out_image):
+    """Save a rasterio memory file as a TIF to disk
+
+    if out_image does not contain a path, it will be save to the Temp Dir.
+
+    Args:
+        memory_raster (rasterio.io.MemoryFile):
+        out_image (str): the tif image name.
+
+    Returns:
+        str: the image path and name.
+
+    """
+    if not isinstance(memory_raster, rasterio.io.MemoryFile):
+        raise TypeError('Input raster is not a raster.io.MemoryFile')
+
+    if os.path.splitext(out_image)[-1].lower() != '.tif':
+        raise ValueError('File Extension of {} is not supported. Please change to .tif (GeoTiff)'.format(
+            os.path.splitext(out_image)[-1]))
+
+    if out_image is not None and not os.path.isabs(out_image):
+        out_image = os.path.join(TEMPDIR, out_image)
+
+    start_time = time.time()
+
+    with memory_raster.open() as src:
+        with rasterio.open(out_image, 'w',tfw='YES', **src.meta.copy()) as dest:
+            for i in src.indexes:
+                dest.write(src.read(i), i)
+
+                cleaned_tags = dict(
+                    [(key, val) for key, val in src.tags(i).iteritems() if not key.upper().startswith('STATISTIC')])
+
+                if len(cleaned_tags) > 0: dest.update_tags(i, **cleaned_tags)
+
+    if config.get_config_key('debug_mode'):
+        LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file', out_image,
+                                                 dur=datetime.timedelta(seconds=time.time() - start_time)))
+
+    return out_image

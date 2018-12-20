@@ -1,0 +1,22 @@
+#!/bin/bash
+
+i=0
+while [ 1 ]; do
+    let i=i+1
+    clear
+
+    echo Loop $i ...
+    echo
+
+    if [ "$1" == "slow" ]; then
+        make test-slow
+    elif [ ! "$1" == "" ]; then
+        $1
+    else
+        make test
+    fi
+
+    echo
+    read -n1 -s -p "Press any key to repeat (ctrl-c to quit) ..."
+    echo
+done
