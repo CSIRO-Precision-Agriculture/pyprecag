@@ -39,11 +39,11 @@ setup(
         'Development Status :: 2 - Pre-Alpha',
 
         # Indicate who your project is intended for
-        'Intended Audience :: ',
-        'Topic :: Todo :: Todo',
+        # 'Intended Audience :: ',
+        # 'Topic :: Todo :: Todo',
 
         # Pick your license as you wish (should match "license" above)
-        'License :: OSI Approved :: CSIRO Open Source Software License Agreement',
+        'License :: OSI Approved :: BSD License',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
