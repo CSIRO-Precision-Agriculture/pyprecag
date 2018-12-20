@@ -7,7 +7,7 @@ little bit helps, and credit will always be given.
 Bug reports
 -----------
 
-When `reporting a bug <https://yourprojecturl/issues>`_ please include:
+When `reporting a bug <https://github.com/CSIRO-Precision-Agriculture/pyprecag/issues>`_ please include:
 
     * Your operating system name and version.
     * Any details about your local setup that might be helpful in troubleshooting.
