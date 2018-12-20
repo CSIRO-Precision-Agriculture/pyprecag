@@ -51,12 +51,12 @@ class test_vectorOps(unittest.TestCase):
 
     def test_thinPointByDistance_mga54(self):
 
-        file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
+        file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
         out_epsg = 28354
         out_file = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(out_epsg)))
         gdf, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
 
         result = thin_point_by_distance(gdf, gdfCRS, 2.5)
         self.assertEqual(len(result), len(gdf))
-        self.assertEqual(len(result[result['filter'].isnull()]), 8406)
+        self.assertEqual(len(result[result['filter'].isnull()]), 1434)
         self.assertEqual(result.crs, gdf.crs)

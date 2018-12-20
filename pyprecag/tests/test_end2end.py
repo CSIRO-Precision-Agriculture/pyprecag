@@ -32,7 +32,7 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-fileCSV = os.path.realpath(this_dir + "/data/area1_yield_file_ascii_wgs84.csv")
+fileCSV = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
 fileBox = os.path.realpath(this_dir + "/data/area1_onebox_94mga54.shp")
 fileBoxes = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
 fileImage = os.path.realpath(this_dir + "/data/area1_rgbi_jan_50cm_84sutm54.tif")
@@ -78,7 +78,7 @@ class test_End2End(unittest.TestCase):
         csvDesc = CsvDescribe(fileCSV)
 
         self.assertEqual(csvDesc.file_encoding, 'ascii')
-        self.assertEqual(csvDesc.row_count, 34309)
+        self.assertEqual(csvDesc.row_count, 13756)
         self.assertEqual(csvDesc.column_count, 24)
         self.assertEqual(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Lon', 'Lat'])
         self.assertTrue(csvDesc.has_column_header)
@@ -255,10 +255,8 @@ class test_End2End(unittest.TestCase):
 
         self.gridextract_files +=[out_normalised]
 
-        # self.assertEqual(float(np.nanmax(norm)), 3.4318838119506836) # Fails
-        # self.assertEqual(float(np.nanmin(norm)), -2.016554594039917) # Fails
-        self.assertAlmostEqual(float(np.nanmax(norm)), 3.4318838119506836, 4) # Suceeds
-        self.assertAlmostEqual(float(np.nanmin(norm)), -2.016554594039917, 4) # Suceeds
+        self.assertAlmostEqual(float(np.nanmax(norm)), 3.4313838481903076, 4)
+        self.assertAlmostEqual(float(np.nanmin(norm)), -1.9706727266311646, 4)
 
         self.assertEqual(np.nanmin(rescaled), 0)
         self.assertEqual(np.nanmax(rescaled), 255)

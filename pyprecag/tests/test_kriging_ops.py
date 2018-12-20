@@ -26,7 +26,7 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
+file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
 poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
 data_col = r'Yld Mass(Dry)(tonne/ha)'
 fileSubName = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0])

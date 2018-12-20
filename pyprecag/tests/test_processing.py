@@ -59,7 +59,7 @@ class test_Processing(unittest.TestCase):
             testFailed = True
 
     def test_BlockGrid(self):
-        poly = os.path.realpath(this_dir + "/data/area2_blocklayout_94mga54.shp")
+        poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
 
         fileSubName = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
 
@@ -75,14 +75,14 @@ class test_Processing(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(fileSubName + '_block.tif')) as dataset:
             self.assertEqual(dataset.count,    1)
-            self.assertEqual(dataset.width,  125)
-            self.assertEqual(dataset.height, 204)
+            self.assertEqual(dataset.width,  47)
+            self.assertEqual(dataset.height, 26)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
     def test_cleanTrimPoints(self):
-        file = os.path.join(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
-        poly = os.path.join(this_dir + "/data/area2_blocklayout_94mga54.shp")
+        file = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
+        poly = os.path.join(this_dir + "/data/area2_onebox_94mga54.shp")
         out_CSV = os.path.join(TmpDir, os.path.basename(file))
         out_shp = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(TmpDir, os.path.basename(file).replace('.csv', '_remove.shp'))
@@ -95,10 +95,10 @@ class test_Processing(unittest.TestCase):
         self.assertTrue(os.path.exists(out_CSV))
         self.assertTrue(gdfPtsCrs, outCRS)
         self.assertEqual(outGDF.crs, {'init': 'epsg:28354', 'no_defs': True})
-        self.assertEqual(len(outGDF), 7804)
+        self.assertEqual(len(outGDF), 554)
 
     def test_createPolygonFromPointTrail(self):
-        file = os.path.join(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
+        file = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
 
         outPtsFile = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0] + '_points.shp')
         outPolyFile = os.path.join(TmpDir, os.path.splitext(os.path.basename(file))[0] + '_poly.shp')

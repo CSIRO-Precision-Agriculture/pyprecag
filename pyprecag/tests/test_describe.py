@@ -29,7 +29,7 @@ class test_GeneralDescribe(TestCase):
             ['longitude', 'latitude'])
 
     def test_from_ISO_8859_1_csv(self):
-        file = os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv")
+        file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
         descCSV = CsvDescribe(file)
         self.assertEqual(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
 
@@ -94,19 +94,19 @@ class test_CsvDescribe(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_csvfile_UTF8(self):
-        csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area2_yield_file_ISO-8859-1.csv"))
+        csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv"))
 
         self.assertEqual(csvDesc.file_encoding, 'ISO-8859-1')
-        self.assertEqual(csvDesc.row_count, 10000)
+        self.assertEqual(csvDesc.row_count, 1543)
         self.assertEqual(csvDesc.column_count, 18)
         self.assertEqual(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Longitude', 'Latitude'])
         self.assertTrue(csvDesc.has_column_header)
 
     def test_csvfile_ascii(self):
-        csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area1_yield_file_ascii_wgs84.csv"))
+        csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv"))
 
         self.assertEqual(csvDesc.file_encoding, 'ascii')
-        self.assertEqual(csvDesc.row_count, 34309)
+        self.assertEqual(csvDesc.row_count, 13756)
         self.assertEqual(csvDesc.column_count, 24)
         self.assertTrue(csvDesc.has_column_header)
 
