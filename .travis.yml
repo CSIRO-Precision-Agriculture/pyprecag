@@ -1,0 +1,8 @@
+services: docker
+
+before_install:
+  - docker build . --file docs/Dockerfile --tag pyprecag
+
+script:
+  - docker run pyprecag make lint
+  - docker run pyprecag make test
