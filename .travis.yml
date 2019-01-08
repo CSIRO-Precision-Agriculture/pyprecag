@@ -5,4 +5,5 @@ before_install:
 
 script:
   - docker run pyprecag make lint
+  - docker run pyprecag make html
   - docker run pyprecag make test
