@@ -1,0 +1,8 @@
+name: pyprecag
+channels:
+  - conda-forge
+dependencies:
+  - gdal>=2.2
+  - libgdal>=2.2
+  - python>=2.7
+  - setuptools

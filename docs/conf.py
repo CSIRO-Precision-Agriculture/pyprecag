@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
 
 # on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
