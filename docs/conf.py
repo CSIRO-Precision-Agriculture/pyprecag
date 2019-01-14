@@ -48,3 +48,6 @@ autodoc_default_options = {
     'undoc-members': None,
     'exclude-members': '__weakref__'
 }
+
+# mock import for gdal so it doesn't break docs build
+autodoc_mock_imports = ["gdal"]
