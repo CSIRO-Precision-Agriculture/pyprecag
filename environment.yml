@@ -1,50 +1,8 @@
 name: pyprecag
 channels:
   - conda-forge
-  - anaconda-fusion
-  - defaults
 dependencies:
-  - boost=1.66.0=py27_vc9_1
-  - boost-cpp=1.66.0=vc9_1
-  - ca-certificates=2018.4.16=0
-  - certifi=2018.4.16=py27_0
-  - curl=7.60.0=vc9_0
-  - expat=2.2.5=vc9_0
-  - freexl=1.0.2=vc9_2
-  - gdal=2.2.4=py27_vc9_0
-  - geos=3.6.2=h2880e7c_2
-  - geotiff=1.4.2=vc9_1
-  - hdf4=4.2.13=vc9_0
-  - hdf5=1.10.1=vc9_2
-  - jpeg=9b=vc9_2
-  - kealib=1.4.7=vc9_4
-  - krb5=1.14.6=vc9_0
-  - libgdal=2.2.4=vc9_5
-  - libiconv=1.14=vc9_4
-  - libnetcdf=4.4.1.1=vc9_10
-  - libpng=1.6.34=vc9_0
-  - libpq=9.6.3=vc9_0
-  - libspatialite=4.3.0a=vc9_19
-  - libssh2=1.8.0=vc9_2
-  - libtiff=4.0.9=vc9_0
-  - libxml2=2.9.5=vc9_1
-  - mkl_fft=1.0.5=py27_0
-  - openjpeg=2.3.0=vc9_2
-  - openssl=1.0.2o=vc9_0
-  - pip=18.0=py27_1
-  - proj4=4.9.3=vc9_5
-  - python=2.7.15=0
-  - setuptools=40.0.0=py27_1
-  - sqlite=3.20.1=vc9_2
-  - vc=9=0
-  - vs2008_runtime=9.0.30729.6161=0
-  - wheel=0.31.1=py27_1
-  - wincertstore=0.2=py27_2
-  - xerces-c=3.2.0=vc9_0
-  - xz=5.2.4=h3cc03e0_1
-  - zlib=1.2.11=vc9_0
-  - icc_rt=2017.0.4=h97af966_0
-  - intel-openmp=2018.0.3=0
-  - mkl=2018.0.3=1
-  - numpy=1.14.3=py27h911edcf_2
-  - numpy-base=1.14.3=py27h0bb1d87_0
+  - gdal>=2.2
+  - libgdal>=2.2
+  - python>=2.7
+  - setuptools
