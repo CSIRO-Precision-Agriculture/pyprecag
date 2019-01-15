@@ -52,4 +52,8 @@ autodoc_default_options = {
 }
 
 # mock import for gdal so it doesn't break docs build
-# autodoc_mock_imports = ["gdal"]
+autodoc_mock_imports = [
+    'gdal',
+    'pandas',
+    'geopandas'
+]
