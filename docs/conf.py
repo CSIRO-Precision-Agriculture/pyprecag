@@ -51,25 +51,9 @@ autodoc_default_options = {
     'exclude-members': '__weakref__'
 }
 
-setup_py_install = False
-
 # mock import for gdal so it doesn't break docs build
-# autodoc_mock_imports = [
-#     'gdal',
-#     'pandas',
-#     'geopandas'
-# ]
-
-from mock import Mock as MagicMock
-
-class Mock(MagicMock):
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-MOCK_MODULES = [
+autodoc_mock_imports = [
     'gdal',
     'pandas',
     'geopandas'
 ]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
