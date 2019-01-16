@@ -12,6 +12,7 @@ RUN     pip install --user pip && \
 RUN     pip install GDAL==$(gdal-config --version) --global-option=build_ext --global-option="-I/usr/include/gdal"
 
 COPY    README.rst setup.cfg setup.py MANIFEST.in Makefile /
+COPY    docs /docs
 COPY    pyprecag /pyprecag
 
-RUN     pip install -e .
+RUN     pip install -e.[dev,test]
