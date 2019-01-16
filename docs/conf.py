@@ -60,4 +60,8 @@ autodoc_mock_imports = [
     'rasterio',
     'fiona',
     'osgeo',
+    'shapely',
+    'unidecode',
+    'scipy',
+    'pyproj',
 ]
