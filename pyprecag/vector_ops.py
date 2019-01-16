@@ -19,10 +19,11 @@ from osgeo import osr
 from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 
-from . import crs as pyprecag_crs
-from . import TEMPDIR, config
-from .describe import VectorDescribe, save_geopandas_tofile
-from .errors import GeometryError
+import crs as pyprecag_crs
+from __init__ import TEMPDIR
+import config
+from describe import VectorDescribe, save_geopandas_tofile
+from errors import GeometryError
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured

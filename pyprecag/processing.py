@@ -27,13 +27,14 @@ from rasterio.warp import reproject, Resampling
 
 from shapely.geometry import LineString, Point, mapping
 
-from . import crs as pyprecag_crs
-from . import TEMPDIR, describe, config
-from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
-from .describe import save_geopandas_tofile, VectorDescribe
-from .errors import GeometryError, SpatialReferenceError
-from .vector_ops import thin_point_by_distance
-from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
+import crs as pyprecag_crs
+from __init__ import TEMPDIR
+import describe, config
+from convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
+from describe import save_geopandas_tofile, VectorDescribe
+from errors import GeometryError, SpatialReferenceError
+from vector_ops import thin_point_by_distance
+from raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
     calculate_image_indices
 
 LOGGER = logging.getLogger(__name__)

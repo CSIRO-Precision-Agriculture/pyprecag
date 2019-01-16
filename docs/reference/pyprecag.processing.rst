@@ -1,5 +1,5 @@
 pyprecag.processing
 ===================
 
-.. automodule:: pyprecag.processing
+.. automodule:: processing
     :members:

@@ -1,5 +1,5 @@
 pyprecag.errors
 ===============
 
-.. automodule:: pyprecag.errors
+.. automodule:: errors
     :members:

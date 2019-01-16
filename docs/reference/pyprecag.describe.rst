@@ -1,5 +1,5 @@
 pyprecag.describe
 =================
 
-.. automodule:: pyprecag.describe
+.. automodule:: describe
     :members:

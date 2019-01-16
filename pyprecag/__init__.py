@@ -9,7 +9,7 @@ import os
 import sys
 import subprocess
 import tempfile
-from . import config
+import config
 
 __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',

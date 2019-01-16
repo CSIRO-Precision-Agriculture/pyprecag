@@ -1,5 +1,5 @@
 pyprecag.convert
 ================
 
-.. automodule:: pyprecag.convert
+.. automodule:: convert
     :members:

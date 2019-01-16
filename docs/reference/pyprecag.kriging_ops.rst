@@ -1,5 +1,5 @@
 pyprecag.kriging_ops
 ====================
 
-.. automodule:: pyprecag.kriging_ops
+.. automodule:: kriging_ops
     :members:

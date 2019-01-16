@@ -11,8 +11,8 @@ from fiona.crs import from_string, from_epsg
 from osgeo import osr, gdal
 from shapely import geometry
 
-from . import config
-from .errors import SpatialReferenceError
+import config
+from errors import SpatialReferenceError
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured

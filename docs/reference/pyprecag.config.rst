@@ -1,5 +1,5 @@
 pyprecag.config
 ===============
 
-.. automodule:: pyprecag.config
+.. automodule:: config
     :members:

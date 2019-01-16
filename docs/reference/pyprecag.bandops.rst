@@ -1,5 +1,5 @@
 pyprecag.bandops
 ================
 
-.. automodule:: pyprecag.bandops
+.. automodule:: bandops
     :members:

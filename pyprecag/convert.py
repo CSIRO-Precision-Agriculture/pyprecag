@@ -19,11 +19,12 @@ from pandas.core.dtypes.common import is_string_dtype
 from rasterio import features
 from shapely.geometry import Point, mapping, shape, LineString
 
-from . import crs as pyprecag_crs
-from . import describe, TEMPDIR, config
+import crs as pyprecag_crs
+from __init__ import TEMPDIR
+import describe, config
 from describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
-from .errors import GeometryError
-from .raster_ops import raster_snap_extent, create_raster_transform
+from errors import GeometryError
+from raster_ops import raster_snap_extent, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
@@ -96,8 +97,8 @@ def convert_polygon_to_grid(in_shapefilename,
         LOGGER.info('\t           LL:{} {}'.format(xMin, yMin))
         LOGGER.info('\t           UR:{} {}'.format(xMax, yMax))
 
-    xCols = int((xMax - xMin) / pixel_size) 
-    yRows = int((yMax - yMin) / pixel_size) 
+    xCols = int((xMax - xMin) / pixel_size)
+    yRows = int((yMax - yMin) / pixel_size)
     LOGGER.info('\t           Cols: {}'.format(xCols))
     LOGGER.info('\t           Rows: {}'.format(yRows))
 

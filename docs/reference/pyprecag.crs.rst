@@ -1,5 +1,5 @@
 pyprecag.crs
 ============
 
-.. automodule:: pyprecag.crs
+.. automodule:: crs
     :members:

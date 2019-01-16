@@ -15,10 +15,10 @@ import rasterio
 from rasterio import features
 from unidecode import unidecode
 
-from . import config
-from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
-from .describe import predictCoordinateColumnNames
-from .raster_ops import raster_snap_extent, create_raster_transform
+import config
+from convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
+from describe import predictCoordinateColumnNames
+from raster_ops import raster_snap_extent, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())

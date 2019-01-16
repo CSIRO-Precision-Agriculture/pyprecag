@@ -13,9 +13,10 @@ from rasterio.enums import Resampling
 from rasterio.warp import calculate_default_transform, reproject
 
 from scipy.ndimage import generic_filter
-from . import crs as pyprecag_crs
-from .bandops import CalculateIndices
-from . import config, TEMPDIR
+import crs as pyprecag_crs
+from bandops import CalculateIndices
+import config
+from __init__ import TEMPDIR
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured

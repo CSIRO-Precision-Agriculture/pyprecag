@@ -1,5 +1,5 @@
 pyprecag.raster_ops
 ===================
 
-.. automodule:: pyprecag.raster_ops
+.. automodule:: raster_ops
     :members:

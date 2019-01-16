@@ -17,8 +17,9 @@ import pandas as pd
 from geopandas import GeoDataFrame
 from osgeo import gdal
 
-from . import crs as pyprecag_crs
-from . import TEMPDIR, config
+import crs as pyprecag_crs
+from __init__ import TEMPDIR
+import config
 
 try:
     from pandas.errors import ParserWarning  # 0.20+
