@@ -1,7 +1,1 @@
 sphinx
-shapely
-unidecode
-scipy
-pyproj
-numpy
-pandas
