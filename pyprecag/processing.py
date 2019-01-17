@@ -1,4 +1,5 @@
 import datetime
+import glob
 import inspect
 import re
 
@@ -17,24 +18,29 @@ import rasterio
 
 from fiona.crs import from_epsg
 from geopandas import GeoDataFrame
+from osgeo import gdal
 
-from rasterio import features
+from rasterio import features, shutil as rio_shutil
 from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import reproject, Resampling
 # from rasterio.warp import aligned_target
+from rasterio.windows import get_data_window, intersection, from_bounds
+from scipy.cluster.vq import *
+from scipy import stats
 
 from shapely.geometry import LineString, Point, mapping
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, describe, config
-from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster
+from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, \
+    convert_polygon_feature_to_raster
 from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
-    calculate_image_indices
+    calculate_image_indices, create_raster_transform
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
@@ -42,7 +48,6 @@ LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been 
 
 def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
                out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
-
     """Convert a polygon boundary to a 0,1 raster and generate a VESPER compatible list of coordinates for kriging.
             in_shapefilename (str): Input polygon shapefile
             pixel_size (float):  The required output pixel size
@@ -369,7 +374,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdfPoints.loc[~gdfPoints.index.isin(subset.index), 'filter'] = 'Duplicate XY'
     gdfPoints.loc[~gdfPoints.index.isin(subset.index), 'filter_inc'] = len(gdfPoints['filter'].value_counts())
 
-    LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format('Remove Duplicate XYs',len(G) - len(subset) ,'',
+    LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format('Remove Duplicate XYs', len(G) - len(subset), '',
                                                         dur=datetime.timedelta(seconds=time.time() - step_time)))
 
     subset = gdfPoints[gdfPoints['filter'].isnull()].copy()
@@ -1052,7 +1057,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                         # reapply block grid mask
                         with blockgrid_memfile.open() as src_bg:
-                            new_band = np.where((src_bg.read(1, masked=True).mask == 0), band,apply_nodata)
+                            new_band = np.where((src_bg.read(1, masked=True).mask == 0), band, apply_nodata)
 
                         dest.write(new_band, iband)
 
@@ -1068,9 +1073,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         # for rasterio 1.0.3+ the mask= options will interpolate values for all designated nodata
                         # pixels (marked by zeros in `mask`)
                         fill_nd = fillnodata(src.read(iband, masked=True),
-                                            mask=None,  # Dont use mask option
-                                            max_search_distance=100,  # default is 100
-                                            smoothing_iterations=0)
+                                             mask=None,  # Dont use mask option
+                                             max_search_distance=100,  # default is 100
+                                             smoothing_iterations=0)
 
                         # reapply block grid mask
                         with blockgrid_memfile.open() as src_bg:
@@ -1103,9 +1108,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
             if config.get_debug_mode():
                 tempFileList += [os.path.join(TEMPDIR, '{}_{}smoothed_{}_{}.tif'.format(filename, len(tempFileList) + 1,
-                                                                                  pixel_size_str, feat_name))]
+                                                                                        pixel_size_str, feat_name))]
 
-            for i, iband in enumerate(band_nums,start=1):  # range(1, src.count + 1):
+            for i, iband in enumerate(band_nums, start=1):  # range(1, src.count + 1):
                 smooth, _ = focal_statistics(src, iband, size=5, clip_to_mask=True)
 
                 # change np.nan to a number
@@ -1114,7 +1119,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                 if config.get_debug_mode():
                     meta.update(count=len(band_nums))
-                    with rasterio.open(tempFileList[-1],'w+',**meta) as dest:
+                    with rasterio.open(tempFileList[-1], 'w+', **meta) as dest:
                         dest.write(smooth, i)
                         # image statistics have changed so don't copy the tags
                         cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems() if
@@ -1161,14 +1166,13 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                                                           '{} of {}'.format(index + 1, len(gdfPoly)), feat_name,
                                                           dur=datetime.timedelta(seconds=time.time() - loop_time)))
 
-        #del dest, src, src_bg
+        # del dest, src, src_bg
 
     return output_files
 
 
 def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices=[], image_epsg=0,
                            image_nodata=None, polygon_shapefile=None, groupby=None, out_epsg=0):
-
     """Calculate indices for a multi band image then resample to a specified pixel size and block grid extent for each
       shapefile polygon.
 
@@ -1349,3 +1353,315 @@ def resample_bands_to_block(image_file, pixel_size, out_folder, band_nums=[], im
         os.remove(reproj_image)
 
     return out_files
+
+
+def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500):
+    """Create zones with k-means clustering from multiple raster files.
+
+    The input raster files should all:
+        - have the same pixel size
+        - be in the same coordinate system
+        - should overlap
+    Only the first band of each raster will be used.
+
+    The output TIFF image extent will be the minimum overlapping extent of the input images. Each image will be
+    resampled to a fixed coordinate to ensure pixels between images align.
+
+    Args:
+        raster_files (List[str]): The list of input raster files
+        output_tif (str):   The output TIFF file
+        n_clusters (int):  The number of clusters/zones to create.
+        max_iterations (int): Maximum number of iterations of the k-means algorithm for a single run.
+
+    Returns:
+        pandas.core.frame.DataFrame: A dataframe containing cluster statistics for each image.
+    """
+
+    if not isinstance(n_clusters, (int, long)):
+        raise TypeError('Size must be an Integer.')
+
+    if not isinstance(max_iterations, (int, long)):
+        raise TypeError('Size must be an Integer.')
+
+    if not isinstance(raster_files, list):
+        raise TypeError('Invalid Type: raster_files should be a list')
+
+    not_exists = [my_file for my_file in raster_files if not os.path.exists(my_file)]
+    if len(not_exists) > 0:
+        raise IOError(
+            'raster_files: {} raster file(s) do not exist\n\t({})'.format(len(not_exists), '\n\t'.join(not_exists)))
+
+    check_pixelsize = []
+    check_crs = []
+
+    for ea_raster in raster_files:
+        with rasterio.open(ea_raster) as src:
+            if src.crs is None:
+                check_crs.append(ea_raster)
+            if src.res not in check_pixelsize:
+                check_pixelsize.append(src.res)
+
+    if len(check_pixelsize) == 1:
+        resolution = check_pixelsize[0]
+    else:
+        raise TypeError("Pixel Sizes Don't Match - {}".format(check_pixelsize))
+
+    if len(check_crs) > 0:
+        raise TypeError("{} raster(s) don't have coordinates systems assigned".format(len(check_crs)))
+
+    # Make sure ALL masks are saved inside the TIFF file not as a sidecar.
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
+
+    tempFileList = []
+    start_time = time.time()
+    step_time = time.time()
+
+    try:
+        # Find minimum overlapping extent of all rasters ------------------------------------
+        for i, ea_raster in enumerate(raster_files, start=1):
+            with rasterio.open(ea_raster) as src:
+
+                band1 = src.read(1, masked=True)
+
+                # get minimum data extent
+                data_window = get_data_window(band1)
+
+                # find the intersection of all the windows
+                if i == 1:
+                    min_window = data_window
+                else:
+                    # create a new window using the last coordinates based on this image in case
+                    # extents/pixel origins are different
+                    min_img_window = from_bounds(*min_bbox, transform=src.transform)
+
+                    # find the intersection of the windows.
+                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+
+                # convert the window co coordinates
+                min_bbox = src.window_bounds(min_window)
+
+                del min_window
+
+        LOGGER.info('{:<30} {:<15} {dur} {}'.format('Found Common Extent', '', min_bbox,
+                                                    dur=datetime.timedelta(seconds=time.time() - step_time)))
+    except rasterio.errors.WindowError as e:
+        # reword 'windows do not intersect' error message
+        if not e.args:
+            e.args = ('',)
+        e.args = ("Images do not overlap",)
+
+        raise  # re-raise current exception
+
+    step_time = time.time()
+
+    # Create the metadata for the overlapping extent image. --------------------------
+    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0], buffer_by_pixels=5)
+
+    # update the new image metadata ---------------------------------------------------
+    kwargs = rasterio.open(raster_files[0]).meta.copy()
+    kwargs.update({'count': len(raster_files), 'nodata': -9999,
+                   'height': height, 'width': width,
+                   'transform': transform})
+
+    ''' combine individual rasters into one multi-band tiff using reproject will 
+           fit each raster to the same pixel origin
+           will crop to the min bbox
+           standardise the nodata values
+           apply nodata values to entire image including internal blocks'''
+
+    tempFileList += [os.path.join(TEMPDIR, '{}_kmeans_images_combined.tif'.format(len(tempFileList) + 1))]
+    images_combined = tempFileList[-1]
+
+    with rasterio.open(images_combined, 'w', **kwargs) as dst:
+        band_list = []
+        for i, ea_raster in enumerate(raster_files, start=1):
+            image = os.path.basename(os.path.splitext(ea_raster)[0])
+            band_list.append(image)
+
+            with rasterio.open(ea_raster) as src:
+                reproject(source=rasterio.band(src, 1),
+                          destination=rasterio.band(dst, i),
+                          src_transform=src.transform,
+                          dst_transform=transform,
+                          resampling=Resampling.nearest)
+
+            dst.update_tags(i, **{'name': image})
+
+        dst.descriptions = band_list
+
+    LOGGER.info('{:<30} {:<15} {dur}'.format('Images Combined', '',
+                                             dur=datetime.timedelta(seconds=time.time() - step_time)))
+    step_time = time.time()
+    if config.get_debug_mode():
+        # make a copy first
+        tempFileList += [os.path.join(TEMPDIR, '{}_kmeans_image_combine_mask.tif'.format(len(tempFileList) + 1))]
+        rio_shutil.copy(images_combined, tempFileList[-1])
+        images_combined = tempFileList[-1]
+
+    # find the common data area -------------------------------------------------------
+    with rasterio.open(images_combined, 'r+') as src:
+
+        # get all the masks
+        msk = src.read_masks()
+
+        # find common area across all bands as there maybe internal nodata values in some bands.
+        mask = []
+        for ea_mask in src.read_masks():
+            if len(mask) == 0:
+                mask = ea_mask
+            else:
+                mask = mask & ea_mask
+
+        # change mask values to  0 = nodata, 1 = valid data
+        mask[mask == 255] = 1
+
+        # apply mask to all bands of file
+        src.write_mask(mask)
+
+    if config.get_debug_mode():
+        # write mask to new file
+        tempFileList += [os.path.join(TEMPDIR, '{}_kmeans_commonarea_mask.tif'.format(len(tempFileList) + 1))]
+        kwargs_tmp = kwargs.copy()
+        kwargs_tmp.update({'count': 1, 'nodata': 0, 'dtype': rasterio.dtypes.get_minimum_dtype(mask)})
+        with rasterio.open(tempFileList[-1], 'w', **kwargs_tmp) as tmp_dst:
+            tmp_dst.write(mask, 1)
+
+        LOGGER.info('{:<30} {:<15} {dur}'.format('Mask Applied', '',
+                                                 dur=datetime.timedelta(seconds=time.time() - step_time)))
+
+        step_time = time.time()
+
+    # Extract data ready for k-means ------------------------------------------------
+    with rasterio.open(images_combined) as src:
+        template_band = src.read(1, masked=True)
+
+        stack_meta = src.meta.copy()
+
+        bands = src.read(masked=True)
+        data_stack = []
+        for ea_band in bands:
+            new_band = np.ma.masked_values(ea_band, src.nodata)
+            data_stack.append(np.ma.compressed(ea_band))
+
+        data_stack = np.array(data_stack)
+
+    # Now we need to whiten and/or normalise the data prior to clustering
+    # This ensures each variable carries the same weight despite different input data ranges
+    norm_stack = np.array([stats.zscore(ea) for ea in data_stack])
+
+    if config.get_debug_mode():
+        # write mask to file
+        tempFileList += [os.path.join(TEMPDIR, '{}_kmeans_normalised_image.tif'.format(len(tempFileList) + 1))]
+
+        with rasterio.open(tempFileList[-1], 'w', **stack_meta) as tmp_dst:
+
+            for i, ea in enumerate(norm_stack, start=1):
+                # recreate the full array dimensions
+                new_band = np.empty_like(template_band)
+                np.place(new_band, ~new_band.mask, ea)
+
+                # reapply the mask to remove values assigned to nodata pixels
+                new_band = np.ma.masked_values(new_band, tmp_dst.nodata)
+                tmp_dst.update_tags(i, name=band_list[i - 1])
+
+                tmp_dst.write(new_band, i)
+            tmp_dst.descriptions = band_list
+
+        LOGGER.info('{:<30} {:<15} {dur}'.format('Images Normalised', '',
+                                                 dur=datetime.timedelta(seconds=time.time() - step_time)))
+        step_time = time.time()
+
+    # Run the k-means clustering ---------------------------------------------------------------------
+
+    _, code = kmeans2(data=norm_stack.T, k=n_clusters, iter=max_iterations, minit='points')
+
+    # adjust the class values to start from 1 so 0 can be used as nodata
+    code = code + 1
+
+    # Write to file
+    cluster_data = np.empty_like(template_band, dtype='int')
+    np.place(cluster_data, ~cluster_data.mask, code.T)
+
+    # set nodata to 0
+    cluster_data = np.ma.masked_values(cluster_data, 0)
+    stack_meta.update({'count': 1, 'nodata': 0, 'dtype': cluster_data.dtype})
+
+    with rasterio.open(output_tif, 'w', **stack_meta) as dst:
+        dst.write(cluster_data, 1)
+
+    LOGGER.info('{:<30} {:<15} {dur}'.format('K-means Cluster', '',
+                                             dur=datetime.timedelta(seconds=time.time() - step_time)))
+    step_time = time.time()
+
+    # create summary statistics -----------------------------------------------------------------------
+
+    # create a table to store statistics
+    resultsDF = pd.DataFrame(columns=['zone'])
+
+    with rasterio.open(output_tif) as src_clust, \
+            rasterio.open(images_combined) as src_img:
+
+        # get the list of clusters to process
+        clust_list = list(np.unique(src_clust.read()))
+        clust_list.remove(src_clust.nodata)
+
+        bands = src_img.read(masked=True)
+
+        for ea_clust in clust_list:
+            # get pixels for each cluster
+            clust_mask = np.where((src_clust.read(1, masked=True) == ea_clust), 1, 0)
+
+            new_row = pd.DataFrame([ea_clust], columns=['zone'])
+
+            with MemoryFile() as memfile:
+                # apply cluster mask to all bands
+                with memfile.open(**src_img.meta) as tmp_dst:
+                    tmp_dst.write_mask(clust_mask)
+                    tmp_dst.write(bands)
+
+                with memfile.open() as tmp_src:
+                    for i, ea_band in enumerate(tmp_src.read(masked=True)):
+                        new_row[(src_img.descriptions)[i] + ', mean'] = np.nanmean(ea_band)
+                        new_row[(src_img.descriptions)[i] + ', std'] = np.nanstd(ea_band)
+
+            # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
+            resultsDF = new_row.append(resultsDF, ignore_index=True)
+
+        # Move 'Zone' to be the first column - fixed in pandas 0.23.4 by adding sort=False to append
+        columns = list(resultsDF.columns)
+        columns.insert(0, columns.pop(columns.index('zone')))
+        resultsDF = resultsDF.reindex(columns=columns)
+        resultsDF.sort_values(by=['zone'], ascending=True, axis=0, inplace=True)
+
+        # write to csv without ', ' to assist when loading into ESRI
+        col_names = resultsDF.columns.str.replace(', ', '_').values
+        resultsDF.to_csv(output_tif.replace('.tif', '_statistics.csv'), header=col_names, index=False)
+
+        LOGGER.info('Statistics file saved as {}'.format(output_tif.replace('.tif', '_statistics.csv')))
+
+        # format the table and print to log.
+        resultsDF_copy = resultsDF.copy()
+        col_names = resultsDF_copy.columns.str.split(', ', expand=True).values
+
+        # replace column name NaNs to '....'. '....' is place holder as multiple spaces aren't allowed
+        resultsDF_copy.columns = pd.MultiIndex.from_tuples([('.......', x[0]) if pd.isnull(x[1]) else x for x in col_names])
+        
+        LOGGER.info('Cluster Statistics:\n'+resultsDF_copy.to_string(justify='center', index=False)+'\n')
+        
+        LOGGER.info('Statistics file saved as {}'.format(output_tif.replace('.tif','_statistics.csv')))
+        
+        del resultsDF_copy
+
+    # clean up of intermediate files
+    if len(tempFileList) > 0 and not config.get_debug_mode():
+        for ea in tempFileList:
+            for f in glob.glob(os.path.splitext(ea)[0] + '*'):
+                os.remove(f)
+
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
+
+    LOGGER.info('{:<30} {:>35} {dur}'.format('K-Means Clustering Completed',
+                                             '{} zones for {} rasters'.format(n_clusters, len(raster_files)),
+                                             dur=datetime.timedelta(seconds=time.time() - start_time)))
+
+    return resultsDF

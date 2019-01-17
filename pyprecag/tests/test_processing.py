@@ -9,10 +9,9 @@ import rasterio
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.tests import make_dummy_data
-from pyprecag import convert, raster_ops, crs
+from pyprecag import convert, raster_ops, crs as pyprecag_crs
 from pyprecag.describe import VectorDescribe
-from pyprecag.processing import clean_trim_points, create_polygon_from_point_trail, block_grid, random_pixel_selection, \
-    extract_pixel_statistics_for_points, calc_indices_for_block, resample_bands_to_block
+from pyprecag.processing import *
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()
@@ -121,7 +120,7 @@ class test_Processing(unittest.TestCase):
     def test_randomPixelSelection(self):
         raster_file = self.singletif
         out_shp = os.path.join(TmpDir, os.path.basename(raster_file).replace('.tif', '_randpts.shp'))
-        rast_crs = crs.getCRSfromRasterFile(raster_file)
+        rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
             rand_gdf, rand_crs = random_pixel_selection(raster, rast_crs, 50, out_shapefile=out_shp)
@@ -129,6 +128,39 @@ class test_Processing(unittest.TestCase):
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_shp))
         self.assertEqual(rand_crs, rast_crs)
+
+    def test_kmeansCluster(self):
+        raster_files = [os.path.realpath(this_dir + '/data/area1_onebox_NDRE_250cm.tif')
+                        , os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+                        , os.path.realpath(this_dir + '/data/area1_onebox_NDVI_250cm.tif')
+                        , os.path.realpath(this_dir + '/data/area1_onebox_PCD_250cm.tif')
+                        , os.path.realpath(this_dir + '/data/area1_onebox_Yield_250cm.tif')
+                        ]
+
+        out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
+        with self.assertRaises(TypeError) as msg:
+            outDF = kmeans_clustering(raster_files,out_img)
+            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5), (2.5, 2.5)]", str(msg.exception))
+        raster_files.pop(0)
+
+        with self.assertRaises(TypeError) as msg:
+            outDF = kmeans_clustering(raster_files,out_img)
+            self.assertEqual("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
+        raster_files.pop(0)
+
+        outDF = kmeans_clustering(raster_files, out_img)
+
+        self.assertTrue(os.path.exists(out_img))
+        self.assertTrue(os.path.exists(out_img.replace('.tif','_statistics.csv')))
+        self.assertEqual(3, len(outDF['zone'].unique()))
+
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertEqual(0, src.nodata)
+            band1 = src.read(1,masked=True)
+            self.assertItemsEqual(np.array([0,1,2,3]), np.unique(band1.data))
+
 
 
 class test_extractRasterStatisticsForPoints(unittest.TestCase):
@@ -169,7 +201,7 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
 
         raster_file = self.singletif
         out_csv = os.path.join(TmpDir, os.path.basename(raster_file).replace('.tif', '_b1grdext.csv'))
-        rast_crs = crs.getCRSfromRasterFile(raster_file)
+        rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
             ptsGDF, ptsCRS = random_pixel_selection(raster, rast_crs, 50)
@@ -185,11 +217,11 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
 
     def test_SingleBand_WGS84(self):
         raster_file = self.singletif
-        rast_crs = crs.getCRSfromRasterFile(raster_file)
+        rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         raster_file = self.singletif
         out_csv = os.path.join(TmpDir, os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
-        rast_crs = crs.getCRSfromRasterFile(raster_file)
+        rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
             ptsGDF, ptsCRS = random_pixel_selection(raster, rast_crs, 50)
