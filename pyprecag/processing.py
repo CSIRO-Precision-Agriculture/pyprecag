@@ -1584,7 +1584,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     # set nodata to 0
     cluster_data = np.ma.masked_values(cluster_data, 0)
-    stack_meta.update({'count': 1, 'nodata': 0, 'dtype': cluster_data.dtype})
+    stack_meta.update({'count': 1, 'nodata': 0, 
+                       'dtype': rasterio.dtypes.get_minimum_dtype( [0] + cluster_data )})
 
     with rasterio.open(output_tif, 'w', **stack_meta) as dst:
         dst.write(cluster_data, 1)
