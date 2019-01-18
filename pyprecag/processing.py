@@ -1584,11 +1584,12 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     # set nodata to 0
     cluster_data = np.ma.masked_values(cluster_data, 0)
-    stack_meta.update({'count': 1, 'nodata': 0, 
-                       'dtype': rasterio.dtypes.get_minimum_dtype( [0] + cluster_data )})
+    stack_dtype = rasterio.dtypes.get_minimum_dtype( [0] + cluster_data )
+    stack_meta.update({'count': 1, 'nodata': 0,
+                       'dtype': stack_dtype })
 
     with rasterio.open(output_tif, 'w', **stack_meta) as dst:
-        dst.write(cluster_data, 1)
+        dst.write(cluster_data.astype(stack_dtype), 1)
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('K-means Cluster', '',
                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
