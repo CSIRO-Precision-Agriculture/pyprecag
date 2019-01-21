@@ -1584,12 +1584,13 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     # set nodata to 0
     cluster_data = np.ma.masked_values(cluster_data, 0)
-    stack_dtype = rasterio.dtypes.get_minimum_dtype([0] + cluster_data)
-    stack_meta.update({'count': 1, 'nodata': 0,
-                       'dtype': stack_dtype})
+    cluster_dtype = rasterio.dtypes.get_minimum_dtype([0] + cluster_data)
 
-    with rasterio.open(output_tif, 'w', **stack_meta) as dst:
-        dst.write(cluster_data.astype(stack_dtype), 1)
+    cluster_meta = stack_meta.copy()
+    cluster_meta.update({'count': 1, 'nodata': 0, 'dtype': cluster_dtype})
+
+    with rasterio.open(output_tif, 'w', **cluster_meta) as dst:
+        dst.write(cluster_data.astype(cluster_dtype), 1)
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('K-means Cluster', '',
                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
@@ -1620,7 +1621,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                 # apply cluster mask to all bands
                 with memfile.open(**img_meta) as tmp_dst:
                     tmp_dst.write_mask(clust_mask.astype(img_meta['dtype']))
-                    tmp_dst.write(bands.astype(img_meta['dtype']))
+                    tmp_dst.write(bands)
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
@@ -1648,11 +1649,11 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
         # replace column name NaNs to '....'. '....' is place holder as multiple spaces aren't allowed
         resultsDF_copy.columns = pd.MultiIndex.from_tuples([('.......', x[0]) if pd.isnull(x[1]) else x for x in col_names])
-        
+
         LOGGER.info('Cluster Statistics:\n'+resultsDF_copy.to_string(justify='center', index=False)+'\n')
-        
+
         LOGGER.info('Statistics file saved as {}'.format(output_tif.replace('.tif','_statistics.csv')))
-        
+
         del resultsDF_copy
 
     # clean up of intermediate files
