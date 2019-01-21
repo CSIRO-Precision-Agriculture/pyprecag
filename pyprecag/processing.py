@@ -1584,9 +1584,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     # set nodata to 0
     cluster_data = np.ma.masked_values(cluster_data, 0)
-    stack_dtype = rasterio.dtypes.get_minimum_dtype( [0] + cluster_data )
+    stack_dtype = rasterio.dtypes.get_minimum_dtype([0] + cluster_data)
     stack_meta.update({'count': 1, 'nodata': 0,
-                       'dtype': stack_dtype })
+                       'dtype': stack_dtype})
 
     with rasterio.open(output_tif, 'w', **stack_meta) as dst:
         dst.write(cluster_data.astype(stack_dtype), 1)
@@ -1614,12 +1614,13 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             clust_mask = np.where((src_clust.read(1, masked=True) == ea_clust), 1, 0)
 
             new_row = pd.DataFrame([ea_clust], columns=['zone'])
+            img_meta = src_img.meta.copy()
 
             with MemoryFile() as memfile:
                 # apply cluster mask to all bands
-                with memfile.open(**src_img.meta) as tmp_dst:
-                    tmp_dst.write_mask(clust_mask.astype(stack_dtype))
-                    tmp_dst.write(bands.astype(stack_dtype))
+                with memfile.open(**img_meta) as tmp_dst:
+                    tmp_dst.write_mask(clust_mask.astype(img_meta['dtype']))
+                    tmp_dst.write(bands.astype(img_meta['dtype']))
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
