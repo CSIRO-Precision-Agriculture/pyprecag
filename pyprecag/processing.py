@@ -1618,8 +1618,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             with MemoryFile() as memfile:
                 # apply cluster mask to all bands
                 with memfile.open(**src_img.meta) as tmp_dst:
-                    tmp_dst.write_mask(clust_mask)
-                    tmp_dst.write(bands)
+                    tmp_dst.write_mask(clust_mask.astype(stack_dtype))
+                    tmp_dst.write(bands.astype(stack_dtype))
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
