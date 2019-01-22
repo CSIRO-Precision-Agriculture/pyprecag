@@ -1,3 +1,20 @@
+# Set these variables in travis configuration:
+
+  # GITHUB_DOCS_TOKEN should have scope 'repo'
+  #
+  # GITHUB_DOCS_REPO : if the repo to be published to is
+  #   https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
+  #   then this var should be /CSIRO-Precision-Agriculture/pyprecag_docs
+  #
+  # PUBLISH_BRANCHES : I had this set as ^.*$ for testing, but we probably want to
+  #   set it to master so that only pushes to the master branch rebuild the
+  #   docs.
+
+
+
+
+dist: xenial
+
 services: docker
 
 before_install:
@@ -5,5 +22,23 @@ before_install:
 
 script:
   - docker run pyprecag make lint || true
-  - docker run pyprecag make html
+  - sudo mkdir /html
+  - docker run --mount type=bind,source=/html,destination=/build/docs/html pyprecag make html
+  - sudo touch /html/.nojekyll
+  - find /html
   - docker run pyprecag make test
+
+
+#  https://docs.travis-ci.com/user/deployment/#conditional-releases-with-on
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_DOCS_TOKEN
+  repo: $GITHUB_DOCS_REPO
+  on:
+    all_branches: true
+    condition: $TRAVIS_BRANCH =~ $PUBLISH_BRANCHES
+  local_dir: /html
+  project-name: pyprecag
+  verbose: true
