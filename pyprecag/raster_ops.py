@@ -23,7 +23,7 @@ LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been 
 # DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG))
 
 
-def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
+def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffer_by_pixels=0):
     """Create parameters required for creating a new raster file based on a known extent and pixel size.
 
     snap_extent_to_pixel can be used to ensure the bounding coordinates are a divisible of the pixel size.
@@ -32,6 +32,7 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
         bounds (float, float, float, float): the bounding box coordinates (xmin, ymin, xmax, ymax)
         pixel_size (int, float): the required pixel size
         snap_extent_to_pixel (bool): round the extent coordinates to be divisible by the pixel size
+        buffer_by_pixels (int): The number of pixels to buffer the input bounding box by.
 
     Returns:
         affine.Affine: the Rasterio Transformation object
@@ -47,6 +48,11 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True):
         raise TypeError('pixel_size must be numeric number.')
     if not isinstance(snap_extent_to_pixel,(int,bool)):
         raise TypeError('snap_extent_to_pixel must be boolean.')
+
+    # adjust values to an area slightly larger than the bounds
+    if buffer_by_pixels > 0:
+        bounds = (bounds[0] - (pixel_size * buffer_by_pixels), bounds[1] - (pixel_size * buffer_by_pixels),
+                  bounds[2] + (pixel_size * buffer_by_pixels), bounds[3] + (pixel_size * buffer_by_pixels))
 
     # We may want to snap the output grids to a multiple of the grid size, allowing adjacent blocks to align nicely.
     if snap_extent_to_pixel:
