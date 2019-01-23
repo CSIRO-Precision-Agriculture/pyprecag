@@ -52,16 +52,13 @@ autodoc_default_options = {
 }
 
 # mock import for gdal so it doesn't break docs build
-autodoc_mock_imports = [
-    'gdal',
-    'pandas',
-    'geopandas',
-    'numpy',
-    'rasterio',
-    'fiona',
-    'osgeo',
-    # 'shapely',
-    # 'unidecode',
-    # 'scipy',
-    # 'pyproj',
-]
+if on_rtd:
+    autodoc_mock_imports = [
+        'gdal',
+        'pandas',
+        'geopandas',
+        'numpy',
+        'rasterio',
+        'fiona',
+        'osgeo',
+    ]
