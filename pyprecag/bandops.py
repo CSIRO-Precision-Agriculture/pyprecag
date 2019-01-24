@@ -56,12 +56,13 @@ class BandMapping(collections.MutableMapping, dict):
 
 
 class CalculateIndices(object):
-    def __init__(self, **kwargs):
-        """Functions used for validating and calculating image indices.
+    """Functions used for validating and calculating image indices.
 
-        Args:
-            **kwargs (): Components of the BandMapping object
-        """
+    Args:
+        **kwargs (): Components of the BandMapping object
+    """
+
+    def __init__(self, **kwargs):
         self.band_map = BandMapping()
         self.band_map.update(**kwargs)
 
