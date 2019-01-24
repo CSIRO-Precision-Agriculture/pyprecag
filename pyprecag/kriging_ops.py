@@ -24,11 +24,12 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 # DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
 
-# Set default value for vesper_exe if using Windows
-if platform.system() == 'Windows':
-    vesper_exe = r"C:\Program Files (x86)\Vesper\Vesper1.6.exe"
-else:
-    raise ImportError("Kriging currently only available on Windows with Vesper installed")
+# Set default value for vesper_exe
+vesper_exe = r"..\..\Vesper\Vesper1.6.exe"
+
+def test_for_windows():
+    if platform.system() != 'Windows':
+        raise IOError("Kriging currently only available on Windows with Vesper installed")
 
 def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     """Convert an vesper kriged text file output to a prediction and a standard error (SE) tif raster, and create a
@@ -163,6 +164,9 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     Returns:
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
+
+    # Vesper only works with Windows
+    test_for_windows()
 
     if not os.path.exists(vesper_exe):
         raise IOError('Vesper*.exe at "{}"'.format(vesper_exe)
@@ -383,6 +387,9 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
         bMinimiseWindow (bool):  Option to automatically minimise the VESPER window on launch.
         vesper_exe (str): The path for the location of the Vesper executable
     """
+
+    # Vesper only works with Windows
+    test_for_windows()
 
     if not os.path.exists(vesper_exe):
         raise IOError('Vesper*.exe at "{}"'.format(vesper_exe)
