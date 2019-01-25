@@ -13,7 +13,7 @@ from . import config
 
 __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
-__version__ = '0.1.1'
+__version__ = '0.2.0'
 
 TEMPDIR = os.path.join(tempfile.gettempdir(), 'PrecisionAg')
 

@@ -3,6 +3,8 @@ import shutil
 import tempfile
 import unittest
 
+from geopandas import GeoSeries
+
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.tests import make_dummy_data
 from pyprecag import convert, raster_ops
@@ -17,11 +19,12 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(False)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-class test_Processing(unittest.TestCase):
+
+class TestProcessing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_Processing, cls).setUpClass()
+        super(TestProcessing, cls).setUpClass()
 
         if os.path.exists(TmpDir):
             print 'Folder Exists.. Deleting {}'.format(TmpDir)
@@ -85,6 +88,7 @@ class test_Processing(unittest.TestCase):
                                              out_keep_shapefile=out_shp, out_removed_shapefile=out_rm_shp,
                                              boundary_polyfile=in_poly, thin_dist_m=2.5)
 
+        self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
         self.assertEqual(out_gdf.crs, {'init': 'epsg:28354', 'no_defs': True})
@@ -155,12 +159,64 @@ class test_Processing(unittest.TestCase):
             band1 = src.read(1, masked=True)
             self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
 
+    def testCreateStripTreatmentPoints(self):
+        in_lines = os.path.realpath(this_dir + '/data/LineMZ_wgs84_MixedPartFieldsTypes_exportedqgis.shp')
+        out_points_file = os.path.join(TmpDir, os.path.basename(in_lines)[:10] + '_StripTreatmentPts.shp')
+        out_lines_file = os.path.join(TmpDir, os.path.basename(in_lines)[:10] + '_StripTreatmentLines.shp')
 
-class test_extractRasterStatisticsForPoints(unittest.TestCase):
+        vect_desc_obj = VectorDescribe(in_lines)
+        in_lines_gdf = vect_desc_obj.open_geo_dataframe()
+
+        out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf, vect_desc_obj.crs, 7, 25,
+                                                                          out_points_shapefile=out_points_file,
+                                                                          out_lines_shapefile=out_lines_file)
+
+        self.assertIsInstance(out_points_gdf, GeoDataFrame)
+        self.assertEqual(702, len(out_points_gdf))
+        self.assertEqual(28354, out_crs.epsg_number)
+        self.assertTrue(os.path.exists(out_points_file))
+        self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
+        self.assertEqual(['C', 'L', 'R'], list(out_points_gdf['Side'].unique()))
+
+        self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
+
+        self.assertIsInstance(out_lines_gdf, GeoDataFrame)
+        self.assertEqual(24, len(out_lines_gdf))
+
+        self.assertTrue(os.path.exists(out_lines_file))
+        self.assertEqual({'LineString'}, set(out_lines_gdf.geom_type))
+        self.assertEqual(['C', 'L', 'R'], list(out_lines_gdf['Side'].unique()))
+
+        del out_points_gdf, out_lines_gdf, out_crs
+
+        lines_crs = pyprecag_crs.crs()
+        lines_crs.getFromEPSG(28353)
+
+        lines = GeoSeries([LineString(((740811.9268002876, 6169890.435495311), (740949.7570626185, 6170048.754039882),
+                                       (741145.3270294399, 6170037.578613207), (741309.2332873486, 6169946.312628689),
+                                       (741318.5461429111, 6169847.596359722)))])
+        in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']})
+
+        out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf, lines_crs, 31, 25)
+
+        self.assertIsInstance(out_points_gdf, GeoDataFrame)
+        self.assertEqual(69, len(out_points_gdf))
+
+        self.assertEqual(lines_crs.epsg_number, out_crs.epsg_number)
+        self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
+
+        self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
+        self.assertEqual(['C', 'L', 'R'], list(out_points_gdf['Side'].unique()))
+
+        self.assertEqual(3, len(out_lines_gdf))
+        self.assertEqual(['C', 'L', 'R'], list(out_lines_gdf['Side'].unique()))
+
+
+class TestExtractRasterStatisticsForPoints(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_extractRasterStatisticsForPoints, cls).setUpClass()
+        super(TestExtractRasterStatisticsForPoints, cls).setUpClass()
 
         if os.path.exists(TmpDir):
             print 'Folder Exists.. Deleting {}'.format(TmpDir)
@@ -234,11 +290,11 @@ class test_extractRasterStatisticsForPoints(unittest.TestCase):
         self.assertEqual(out_gdf['mean7x7_test_singleband_94mga54'].isnull().sum(), 0)
 
 
-class test_CalculateImageIndices(unittest.TestCase):
+class TestCalculateImageIndices(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_CalculateImageIndices, cls).setUpClass()
+        super(TestCalculateImageIndices, cls).setUpClass()
         if os.path.exists(TmpDir):
             print 'Folder Exists.. Deleting {}'.format(TmpDir)
             shutil.rmtree(TmpDir)
@@ -276,7 +332,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             Use Shapefile AND groupby field
         """
 
-        out_dir = os.path.join(TmpDir, 'test_CalculateImageIndices', 'all-opts')
+        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'all-opts')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -304,7 +360,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             self.assertAlmostEqual(src.read(1)[52, 23], 0.20820355, 4)
 
     def test_dontApplyNonVineMask(self):
-        out_dir = os.path.join(TmpDir, 'test_CalculateImageIndices', 'no-nonvine')
+        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-nonvine')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -337,7 +393,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             No Shapfile,
             No Non-Vine mask
         """
-        out_dir = os.path.join(TmpDir, 'test_CalculateImageIndices', 'no-shapefile')
+        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-shapefile')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -368,7 +424,7 @@ class test_CalculateImageIndices(unittest.TestCase):
             self.assertEqual(src.read(1)[int(row), int(col)], -9999)
 
     def test_noGroupby(self):
-        out_dir = os.path.join(TmpDir, 'test_CalculateImageIndices', 'no-groupby')
+        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-groupby')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
@@ -392,11 +448,11 @@ class test_CalculateImageIndices(unittest.TestCase):
             self.assertEqual(src.count, 1)
 
 
-class test_ResampleToBlock(unittest.TestCase):
+class TestResampleToBlock(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_ResampleToBlock, cls).setUpClass()
+        super(TestResampleToBlock, cls).setUpClass()
 
         if os.path.exists(TmpDir):
             print 'Folder Exists.. Deleting {}'.format(TmpDir)
@@ -435,7 +491,7 @@ class test_ResampleToBlock(unittest.TestCase):
             Use Shapefile AND groupby field
         """
 
-        out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'all-opts')
+        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'all-opts')
 
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -466,7 +522,7 @@ class test_ResampleToBlock(unittest.TestCase):
             No Shapfile,
             No Non-Vine mask
         """
-        out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'no-shapefile')
+        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'no-shapefile')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -493,7 +549,7 @@ class test_ResampleToBlock(unittest.TestCase):
             self.assertEqual(src.read(1)[int(row), int(col)], 0)
 
     def test_noGroupby(self):
-        out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'no-groupby')
+        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'no-groupby')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -516,7 +572,7 @@ class test_ResampleToBlock(unittest.TestCase):
     def test_nonStandardNoDataNotSet(self):
         """ change input image nodata to 7777 in the image but leave the nodata as none."""
 
-        out_dir = os.path.join(TmpDir, 'test_ResampleToBlock', 'nonstandard-nodata-notset')
+        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'nonstandard-nodata-notset')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 

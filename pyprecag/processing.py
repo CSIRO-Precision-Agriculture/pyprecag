@@ -14,6 +14,7 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pandas as pd
+
 import rasterio
 
 from fiona.crs import from_epsg
@@ -31,6 +32,7 @@ from scipy.cluster.vq import *
 from scipy import stats
 
 from shapely.geometry import LineString, Point, mapping
+from shapely.ops import linemerge
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, describe, config
@@ -136,7 +138,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(points_geodataframe, GeoDataFrame):
-        raise TypeError('Invalid input data : inputGeodataFrame')
+        raise TypeError('Invalid input data : inputGeoDataFrame')
 
     if 'POINT' not in ','.join(list(points_geodataframe.geom_type.unique())).upper():
         raise TypeError('Invalid input data : A points geopandas dataframe is required')
@@ -345,7 +347,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     start_time = time.time()
 
-    # set a UniqueID Field which ISNT the FID for use through out the proccessing
+    # set a UniqueID Field which ISNT the FID for use through out the processing
     id_col = 'PT_UID'  # IE clean/trim fid
     points_geodataframe[id_col] = points_geodataframe.index
     gdfPoints = points_geodataframe.copy()
@@ -943,7 +945,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         else:
             gdfPoly = GeoDataFrame(geometry=[gdfPoly.unary_union])
 
-    # Loop through polygns features -------------------------------------------------------------------------------------
+    # Loop through polygns features ---------------------------------------------------------------------------------
     output_files = []
     for index, feat in gdfPoly.iterrows():
         loop_time = time.time()
@@ -991,8 +993,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 for iband in range(1, src.count + 1):
                     # image statistics have changed so don't copy the tags
                     cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if not key.upper().startswith('STATISTIC')])
-                    if len(cleaned_tags) > 0:  dest.update_tags(iband, **cleaned_tags)
+                        [(key, val) for key, val in src.tags(iband).iteritems() if
+                         not key.upper().startswith('STATISTIC')])
+                    if len(cleaned_tags) > 0:
+                        dest.update_tags(iband, **cleaned_tags)
 
         if config.get_debug_mode():
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Clipped Image to Feature',
@@ -1024,8 +1028,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                     # image statistics have changed so don't copy the tags
                     cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if not key.upper().startswith('STATISTIC')])
-                    if len(cleaned_tags) > 0:  dest.update_tags(iband, **cleaned_tags)
+                        [(key, val) for key, val in src.tags(iband).iteritems() if
+                         not key.upper().startswith('STATISTIC')])
+                    if len(cleaned_tags) > 0:
+                        dest.update_tags(iband, **cleaned_tags)
 
         if config.get_debug_mode():
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Resampled to {}m'.format(pixel_size),
@@ -1064,7 +1070,8 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         # image statistics have changed so don't copy the tags
                         cleaned_tags = dict([(key, val) for key, val in src.tags(iband).iteritems() if
                                              not key.upper().startswith('STATISTIC')])
-                        if len(cleaned_tags) > 0: dest.update_tags(iband, **cleaned_tags)
+                        if len(cleaned_tags) > 0:
+                            dest.update_tags(iband, **cleaned_tags)
 
             # Fill holes ----------------------------------------------------------------------------------------------
             if hole_count > 0:
@@ -1085,7 +1092,8 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         # image statistics have changed so don't copy the tags
                         cleaned_tags = dict([(key, val) for key, val in src.tags(iband).iteritems() if
                                              not key.upper().startswith('STATISTIC')])
-                        if len(cleaned_tags) > 0: dest.update_tags(iband, **cleaned_tags)
+                        if len(cleaned_tags) > 0:
+                            dest.update_tags(iband, **cleaned_tags)
 
                         del fill_nd, filled
 
@@ -1124,7 +1132,8 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         # image statistics have changed so don't copy the tags
                         cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems() if
                                              not key.upper().startswith('STATISTIC')])
-                        if len(cleaned_tags) > 0: dest.update_tags(i, **cleaned_tags)
+                        if len(cleaned_tags) > 0:
+                            dest.update_tags(i, **cleaned_tags)
 
                 if 'name' in src.tags(iband):
                     index_str = src.tags(iband)['name']
@@ -1146,8 +1155,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                     # image statistics have changed so don't copy the tags
                     cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if not key.upper().startswith('STATISTIC')])
-                    if len(cleaned_tags) > 0:  dest.update_tags(1, **cleaned_tags)
+                        [(key, val) for key, val in src.tags(iband).iteritems() if
+                         not key.upper().startswith('STATISTIC')])
+                    if len(cleaned_tags) > 0:
+                        dest.update_tags(1, **cleaned_tags)
 
                 output_files += [out_imagefile]
 
@@ -1173,8 +1184,8 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
 def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices=[], image_epsg=0,
                            image_nodata=None, polygon_shapefile=None, groupby=None, out_epsg=0):
-    """Calculate indices for a multi band image then resample to a specified pixel size and block grid extent for each
-      shapefile polygon.
+    """ Calculate indices for a multi band image then resample to a specified pixel size
+      and block grid extent for each shapefile polygon.
 
       Use this tool to create single band images, one for each index and shapefile polygon combination.
       A group-by column may be used to dissolve multiple polygons belonging to an individual block.
@@ -1185,8 +1196,8 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
 
       A block grid will be created for each feature for the nominated pixel size and used as the base for analysis
 
-      "image_epsg" and "image_nodata" can be used to set the coordinate system and image nodata values when they are not
-      present within the image file.
+      "image_epsg" and "image_nodata" can be used to set the coordinate system and image nodata values when
+       they are not present within the image file.
 
       The output filename will consist of the selected feature and calculated index.
 
@@ -1205,7 +1216,8 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
     Args:
         image_file (str): the input image file
         pixel_size (int): the pixel size used for resampling
-        band_map (pyprecag.bandops.BandMapping): A dictionary matching band numbers to band type (ie Red, Green, Blue etc.)
+        band_map (pyprecag.bandops.BandMapping): A dictionary matching band numbers to
+                                                band type (ie Red, Green, Blue etc.)
         out_folder (str): The output folder for the created images.
         indices (List[str]): The list of indices to calculate.
         image_epsg (int): the epsg number for the image. this will only be used if not set within the image
@@ -1273,9 +1285,14 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
                                              groupby=groupby)
 
     if not config.get_debug_mode():
-        if TEMPDIR in indices_image: os.remove(indices_image)
-        if TEMPDIR in reproj_image: os.remove(reproj_image)
-        if TEMPDIR in polygon_shapefile: os.remove(polygon_shapefile)
+        if TEMPDIR in indices_image:
+            os.remove(indices_image)
+
+        if TEMPDIR in reproj_image:
+            os.remove(reproj_image)
+
+        if TEMPDIR in polygon_shapefile:
+            os.remove(polygon_shapefile)
 
     return out_files
 
@@ -1500,12 +1517,10 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     # find the common data area -------------------------------------------------------
     with rasterio.open(images_combined, 'r+') as src:
-
-        # get all the masks
-        msk = src.read_masks()
-
         # find common area across all bands as there maybe internal nodata values in some bands.
         mask = []
+
+        # loop through all all the masks
         for ea_mask in src.read_masks():
             if len(mask) == 0:
                 mask = ea_mask
@@ -1625,8 +1640,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
-                        new_row[(src_img.descriptions)[i] + ', mean'] = np.nanmean(ea_band)
-                        new_row[(src_img.descriptions)[i] + ', std'] = np.nanstd(ea_band)
+                        new_row[src_img.descriptions[i] + ', mean'] = np.nanmean(ea_band)
+                        new_row[src_img.descriptions[i] + ', std'] = np.nanstd(ea_band)
 
             # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
             resultsDF = new_row.append(resultsDF, ignore_index=True)
@@ -1648,11 +1663,12 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         col_names = resultsDF_copy.columns.str.split(', ', expand=True).values
 
         # replace column name NaNs to '....'. '....' is place holder as multiple spaces aren't allowed
-        resultsDF_copy.columns = pd.MultiIndex.from_tuples([('.......', x[0]) if pd.isnull(x[1]) else x for x in col_names])
+        resultsDF_copy.columns = pd.MultiIndex.from_tuples(
+            [('.......', x[0]) if pd.isnull(x[1]) else x for x in col_names])
 
         LOGGER.info('Cluster Statistics:\n'+resultsDF_copy.to_string(justify='center', index=False)+'\n')
 
-        LOGGER.info('Statistics file saved as {}'.format(output_tif.replace('.tif','_statistics.csv')))
+        LOGGER.info('Statistics file saved as {}'.format(output_tif.replace('.tif', '_statistics.csv')))
 
         del resultsDF_copy
 
@@ -1669,3 +1685,229 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                                              dur=datetime.timedelta(seconds=time.time() - start_time)))
 
     return resultsDF
+
+
+def create_points_along_line(lines_geodataframe, lines_crs, distance_between_points, offset_distance,
+                             out_epsg=0, out_points_shapefile=None, out_lines_shapefile=None):
+    """Add points along a line using a specified distance and create left/right parallel points offset by a distance.
+
+    If the lines are in a geographic coordinate system they will be re-projected to a projected coordinate system.
+
+    All touching lines will be treated as one.
+    MultiPart geometry will be converted to single part geometry.
+    The first and last points will be offset from start/end of the line evenly.
+    Attributes from the input lines will be lost.
+
+    line_crs is used to ensure that the correct wkt definition is maintained when using geopandas.
+
+    Args:
+        lines_geodataframe (geopandas.geodataframe.GeoDataFrame): A Geopandas dataframe containing Lines
+        lines_crs (pyprecag.crs.crs): The detailed coordinate system
+        distance_between_points (int): The separation distance between points.
+        offset_distance (int): The distance between the center point and parallel point.
+        out_epsg (int): Optionally specify the epsg number for the output coordinate system.
+                        This should be a project coordinate system
+        out_points_shapefile (str): Optionally specify shapefile path and filename used to save the points to
+                        If a path is not supplied, it will save the file to TEMPDIR  by default
+        out_lines_shapefile (str): Optionally specify shapefile path and filename used to save the lines to
+                        If a path is not supplied, it will save the file to TEMPDIR  by default
+    Returns:
+         geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created points.
+         pyprecag.crs.crs: The coordinate system object of both the points and lines geodataframe
+         geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created lines.
+    """
+
+    if not isinstance(lines_geodataframe, GeoDataFrame):
+        raise TypeError('Invalid input data : inputGeodataFrame')
+
+    if 'LINE' not in ','.join(list(lines_geodataframe.geom_type.unique())).upper():
+        raise TypeError('Invalid input data : A lines geopandas dataframe is required')
+
+    for argCheck in [('offset_distance', offset_distance),
+                     ('distance_between_points', distance_between_points)]:
+        if not isinstance(argCheck[1], (int, long, float)):
+            raise TypeError('{} must be a floating number.'.format(argCheck[0]))
+
+    if not isinstance(lines_crs, pyprecag_crs.crs):
+        raise TypeError('Crs must be an instance of pyprecag.crs.crs')
+
+    if not isinstance(out_epsg, (int, long)):
+            raise TypeError('out_epsg must be a integer - Got {}'.format(*out_epsg))
+
+    if out_points_shapefile is not None and os.path.isabs(out_points_shapefile):
+        if not os.path.exists(os.path.dirname(out_points_shapefile)):
+            raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_points_shapefile)))
+
+    if out_lines_shapefile is not None and os.path.isabs(out_lines_shapefile):
+        if not os.path.exists(os.path.dirname(out_lines_shapefile)):
+            raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_lines_shapefile)))
+
+    if out_points_shapefile is not None and out_lines_shapefile is not None:
+        if out_points_shapefile == out_lines_shapefile:
+            raise IOError('Output points and lines shapefile names are identical')
+
+    # create temp files template
+    with NamedTemporaryFile(prefix="strip_treatment_", suffix='.shp', dir=TEMPDIR) as new_file:
+        temp_filename = new_file.name
+
+    start_time = time.time()
+    step_time = time.time()
+
+    if out_epsg > 0:
+        # Make sure we get the correct details for the output coordinate system
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(out_epsg)
+
+    # overwrite the gdf proj4 string with the epsg mapping equivalent to maintain the correct wkt.
+    lines_geodataframe.crs = lines_crs.epsg
+
+    if out_epsg > 0:
+        # Make sure we get the correct details for the output coordinate system
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(out_epsg)
+
+    # input needs to be a projected coordinate system to work with metric distances
+    if lines_crs.srs.IsGeographic():
+        if out_epsg <= 0:
+            xmin, ymin, _, _ = lines_geodataframe.total_bounds
+            points_crs = pyprecag_crs.getProjectedCRSForXY(xmin, ymin, lines_crs.epsg_number)
+    else:
+        points_crs = lines_crs
+
+    # project if required.
+    if lines_crs.epsg_number != points_crs.epsg_number:
+        lines_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
+
+        if config.get_debug_mode():
+            LOGGER.info('{:<30}   {:<15} {dur}'.format('Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
+                                                       dur=datetime.timedelta(seconds=time.time() - step_time)))
+    step_time = time.time()
+
+    # merge touching lines
+    if len(lines_geodataframe) > 1:
+        gdf_lines = GeoDataFrame(geometry=[linemerge(lines_geodataframe.unary_union)],
+                                 crs=lines_geodataframe.crs)
+    else:
+        gdf_lines = lines_geodataframe[['geometry']].copy()
+
+    # convert multi part to single part geometry
+    gdf_lines = gdf_lines.explode()
+    # explode creates a multi index so flatten to single level
+    gdf_lines = gdf_lines.reset_index().drop(['level_0', 'level_1'], axis=1)
+
+    # Convert to 2d (drop Z)
+    def drop_z_from_linestring(geom):
+        if isinstance(geom, LineString):
+            return LineString([xy[0:2] for xy in list(geom.coords)])
+
+    gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: drop_z_from_linestring(x))
+
+    # Add LineID  Side, Length and startoffset
+    if 'LineID' not in gdf_lines.columns:
+        gdf_lines.insert(0, 'LineID', gdf_lines.index)
+    else:
+        gdf_lines['LineID'] = gdf_lines.index
+
+    # Add Side, Length and startoffset attributes
+    gdf_lines['Side'] = 'C'
+
+    # find dangle length when the line isn't evenly divided by the point distance
+    # Calculate the length of each line
+    gdf_lines['length'] = gdf_lines['geometry'].length
+
+    # calculate a start offset to center points along the line
+    gdf_lines['startoffset'] = (gdf_lines['geometry'].length % distance_between_points) / 2
+
+    # create a new dataframe for parallel lines
+    gdf_lrline = GeoDataFrame(columns=['FID', 'LineID', 'Side', 'geometry'], geometry='geometry', crs=gdf_lines.crs)
+
+    # create L/R lines for each centre line
+    for index, c_line_row in gdf_lines.iterrows():
+        c_line_geom = c_line_row['geometry'].simplify(0.5, preserve_topology=True)
+        for side in ['left', 'right']:
+            # update the geometry and lineID.
+            parallel_line = c_line_geom.parallel_offset(offset_distance, side, resolution=16,
+                                                        join_style=1, mitre_limit=5.0)
+            parallel_line = parallel_line.simplify(0.5, preserve_topology=True)
+
+            # One of the lines needs to be flipped
+            if side == 'right':
+                parallel_line = LineString(parallel_line.coords[::-1])
+
+            gdf_lrline = gdf_lrline.append({'LineID': c_line_row['LineID'],
+                                            'Side': side[0].upper(),
+                                            'geometry': parallel_line},
+                                           ignore_index=True)
+
+    gdf_lrline['FID'] = gdf_lrline.index
+
+    if config.get_debug_mode():
+        LOGGER.info('{:<30}   {:<15} {dur}'.format('Parallel lines created', '',
+                                                   dur=datetime.timedelta(seconds=time.time() - step_time)))
+
+    step_time = time.time()
+
+    # Create an empty dataframe to store points in
+    gdf_points = GeoDataFrame(columns=['FID', 'LineID', 'Side', 'PointID', 'geometry'], geometry='geometry',
+                              crs=gdf_lrline.crs)
+
+    # Loop through each centre line
+    for index_c, line_c in gdf_lines.iterrows():
+        distance = line_c['startoffset']
+        ptid = 1
+
+        while distance < line_c['length']:
+            # Add point along the centre line.
+            pt = line_c['geometry'].interpolate(distance)
+
+            # add it to the dataframe
+            gdf_points = gdf_points.append({'geometry': pt,
+                                            'LineID': line_c['LineID'],
+                                            'PointID': ptid,
+                                            'Side': line_c['Side'],
+                                            'line_dist': distance},
+                                           ignore_index=True)
+
+            # To add points to Left and right lines, first find corresponding LR lines.
+            line_subset = gdf_lrline[gdf_lrline['LineID'] == line_c['LineID']]
+
+            for index_lr, line_lr in line_subset.iterrows():
+
+                # find the distance along the L/R line of the corresponding centre line point
+                dist_along_line = line_lr['geometry'].project(pt)
+
+                # Add a new point feature. Interpolate locates the xy based on the distance along the line.
+                gdf_points = gdf_points.append({'geometry': line_lr['geometry'].interpolate(dist_along_line),
+                                                'LineID': line_c['LineID'],
+                                                'PointID': ptid,
+                                                'Side': line_lr['Side'],
+                                                'line_dist': dist_along_line},
+                                               ignore_index=True)
+
+            distance += distance_between_points
+            ptid += 1
+
+    # add a feature identifier
+    gdf_points['FID'] = gdf_points.index
+
+    # combine to original center line while only keeping common columns and calculate length
+    gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner', axis=0).sort_values(['LineID', 'Side'])
+    gdf_lines['length'] = gdf_lines['geometry'].length
+
+    if out_lines_shapefile is not None or config.get_debug_mode():
+        if out_lines_shapefile is None:
+            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
+        else:
+            save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
+
+    if out_points_shapefile is not None or config.get_debug_mode():
+        if out_lines_shapefile is None:
+            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
+        else:
+            save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
+
+    if config.get_debug_mode():
+        LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
+                                                 dur=datetime.timedelta(seconds=time.time() - start_time)))
+
+    return gdf_points, points_crs, gdf_lines
