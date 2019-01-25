@@ -10,12 +10,8 @@ import time
 from pyprecag import convert, processing, config
 from pyprecag.describe import predictCoordinateColumnNames
 from pyprecag.processing import clean_trim_points
-try:
-    from pyprecag import kriging_ops
-    from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
-except ImportError as e:
-    if "Vesper" not in e.message:
-        raise e
+from pyprecag import kriging_ops
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
 
 pyFile = os.path.basename(__file__)
 TmpDir = tempfile.gettempdir()

@@ -9,12 +9,7 @@ from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import CsvDescribe, predictCoordinateColumnNames
 from pyprecag.processing import *
 from pyprecag.raster_ops import rescale, normalise
-
-try:
-    from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
-except ImportError as e:
-    if "Vesper" not in e.message:
-        raise e
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
 
 pyFile = os.path.basename(__file__)
 
