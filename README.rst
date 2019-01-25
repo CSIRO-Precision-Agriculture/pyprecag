@@ -6,7 +6,7 @@ A suite of tools for Precision Agriculture
 
 * Free software: CSIRO Open Source Software License Agreement
 * Homepage: https://github.com/CSIRO-Precision-Agriculture/pyprecag
-* Documentation: https://pyprecag.readthedocs.org
+* Documentation: https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs
 * Version: 0.2.0
 
 pyprecag supports Python version 2.7
