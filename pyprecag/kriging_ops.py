@@ -25,7 +25,7 @@ LOGGER.addHandler(logging.NullHandler())
 # DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
 
 # Set default value for vesper_exe
-vesper_exe = r"..\..\Vesper\Vesper1.6.exe"
+vesper_exe = r"C:\Program Files (x86)\Vesper\Vesper1.6.exe"
 
 def test_for_windows():
     if platform.system() != 'Windows':
