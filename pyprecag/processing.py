@@ -1901,7 +1901,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
 
     if out_points_shapefile is not None or config.get_debug_mode():
-        if out_lines_shapefile is None:
+        if out_points_shapefile is None:
             save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
         else:
             save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
