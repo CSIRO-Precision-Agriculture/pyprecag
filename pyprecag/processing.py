@@ -18,7 +18,7 @@ import pandas as pd
 import rasterio
 
 from fiona.crs import from_epsg
-from geopandas import GeoDataFrame
+from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
 from rasterio import features, shutil as rio_shutil
@@ -1791,7 +1791,10 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         gdf_lines = lines_geodataframe[['geometry']].copy()
 
     # convert multi part to single part geometry
-    gdf_lines = GeoDataFrame(geometry=gdf_lines.explode(), crs=lines_geodataframe.crs)
+    gdf_lines = gdf_lines.explode()
+    if isinstance(gdf_lines, GeoSeries):
+        #  geopandas 0.3.0 explode creates a geoseries so convert back to geodataframe
+        gdf_lines = GeoDataFrame(geometry=gdf_lines, crs=lines_geodataframe.crs)
 
     # explode creates a multi index so flatten to single level
     gdf_lines = gdf_lines.reset_index().drop(['level_0', 'level_1'], axis=1)
