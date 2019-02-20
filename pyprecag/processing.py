@@ -18,7 +18,7 @@ import pandas as pd
 import rasterio
 
 from fiona.crs import from_epsg
-from geopandas import GeoDataFrame
+from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
 from rasterio import features, shutil as rio_shutil
@@ -1792,15 +1792,23 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     # convert multi part to single part geometry
     gdf_lines = gdf_lines.explode()
+    if isinstance(gdf_lines, GeoSeries):
+        #  geopandas 0.3.0 explode creates a geoseries so convert back to geodataframe
+        gdf_lines = GeoDataFrame(geometry=gdf_lines, crs=lines_geodataframe.crs)
+
     # explode creates a multi index so flatten to single level
     gdf_lines = gdf_lines.reset_index().drop(['level_0', 'level_1'], axis=1)
+
+    # assign a name to the index column
+    gdf_lines.index.name = 'FID'
 
     # Convert to 2d (drop Z)
     def drop_z_from_linestring(geom):
         if isinstance(geom, LineString):
             return LineString([xy[0:2] for xy in list(geom.coords)])
 
-    gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: drop_z_from_linestring(x))
+    if gdf_lines['geometry'][0].has_z:
+        gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: drop_z_from_linestring(x))
 
     # Add LineID  Side, Length and startoffset
     if 'LineID' not in gdf_lines.columns:
