@@ -1848,7 +1848,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     # create L/R lines for each centre line
     for index, c_line_row in gdf_lines.iterrows():
         c_line_geom = c_line_row['geometry'].simplify(0.5, preserve_topology=True)
-        for ea_line in [('left','Offset 1'),('right','Offset 2')]:
+        for ea_line in [('left', 'Offset 1'), ('right', 'Offset 2')]:
             side, value = ea_line
 
             # update the geometry and lineID.
@@ -1861,16 +1861,15 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
                 parallel_line = LineString(parallel_line.coords[::-1])
 
             gdf_lrline = gdf_lrline.append({'LineID': c_line_row['LineID'],
-                                            'Transect': value,
-                                            'geometry': parallel_line},
-                                            ignore_index=True)
+                                            'Transect': value, 'geometry': parallel_line},
+                                           ignore_index=True)
 
     gdf_lrline['FID'] = gdf_lrline.index
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30}   {:<15} {dur}'.format('Parallel lines created', '',
-                                                   dur=datetime.timedelta(
-                                                       seconds=time.time() - step_time)))
+        LOGGER.info('{:<30}   {:<15} '
+                    '{dur}'.format('Parallel lines created', '',
+                                   dur=datetime.timedelta(seconds=time.time() - step_time)))
 
     step_time = time.time()
 
@@ -1940,8 +1939,8 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
-                                                 dur=datetime.timedelta(
-                                                     seconds=time.time() - start_time)))
+        LOGGER.info('{:<30} {:>15} '
+                    '{dur}'.format('Create Points Along Line Completed', '',
+                                   dur=datetime.timedelta(seconds=time.time() - start_time)))
 
     return gdf_points, points_crs, gdf_lines
