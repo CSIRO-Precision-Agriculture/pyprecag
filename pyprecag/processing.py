@@ -1688,8 +1688,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
 
 def create_points_along_line(lines_geodataframe, lines_crs, distance_between_points,
-                             offset_distance,
-                             out_epsg=0, out_points_shapefile=None, out_lines_shapefile=None):
+                             offset_distance, out_epsg=0, out_points_shapefile=None,
+                             out_lines_shapefile=None):
     """Add points along a line using a specified distance and create left/right parallel points
         offset by a distance.
 
