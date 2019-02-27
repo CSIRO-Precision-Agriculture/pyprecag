@@ -160,6 +160,10 @@ class TestProcessing(unittest.TestCase):
             self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
 
     def testCreateStripTreatmentPoints(self):
+        import pandas, geopandas
+        print ('Pandas Version is ', pandas.__version__)
+        print ('GeoPandas Version is ', geopandas.__version__)
+
         in_lines = os.path.realpath(this_dir + '/data/LineMZ_wgs84_MixedPartFieldsTypes_exportedqgis.shp')
         out_points_file = os.path.join(TmpDir, os.path.basename(in_lines)[:10] + '_StripTreatmentPts.shp')
         out_lines_file = os.path.join(TmpDir, os.path.basename(in_lines)[:10] + '_StripTreatmentLines.shp')
@@ -167,16 +171,18 @@ class TestProcessing(unittest.TestCase):
         vect_desc_obj = VectorDescribe(in_lines)
         in_lines_gdf = vect_desc_obj.open_geo_dataframe()
 
-        out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf, vect_desc_obj.crs, 7, 25,
-                                                                          out_points_shapefile=out_points_file,
-                                                                          out_lines_shapefile=out_lines_file)
+        out_points_gdf, out_crs, out_lines_gdf = \
+            create_points_along_line(in_lines_gdf, vect_desc_obj.crs, 7, 25,
+                                     out_points_shapefile=out_points_file,
+                                     out_lines_shapefile=out_lines_file)
 
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
         self.assertEqual(702, len(out_points_gdf))
         self.assertEqual(28354, out_crs.epsg_number)
         self.assertTrue(os.path.exists(out_points_file))
         self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
-        self.assertEqual(['C', 'L', 'R'], list(out_points_gdf['Side'].unique()))
+        self.assertEqual(['Centre', 'Offset 1', 'Offset 2'], list(out_points_gdf[
+                                                                    'Transect'].unique()))
 
         self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
 
@@ -185,19 +191,23 @@ class TestProcessing(unittest.TestCase):
 
         self.assertTrue(os.path.exists(out_lines_file))
         self.assertEqual({'LineString'}, set(out_lines_gdf.geom_type))
-        self.assertEqual(['C', 'L', 'R'], list(out_lines_gdf['Side'].unique()))
+        self.assertEqual(['Centre', 'Offset 1', 'Offset 2'],
+                         list(out_lines_gdf['Transect'].unique()))
 
         del out_points_gdf, out_lines_gdf, out_crs
 
         lines_crs = pyprecag_crs.crs()
         lines_crs.getFromEPSG(28353)
 
-        lines = GeoSeries([LineString(((740811.9268002876, 6169890.435495311), (740949.7570626185, 6170048.754039882),
-                                       (741145.3270294399, 6170037.578613207), (741309.2332873486, 6169946.312628689),
+        lines = GeoSeries([LineString(((740811.9268002876, 6169890.435495311),
+                                       (740949.7570626185, 6170048.754039882),
+                                       (741145.3270294399, 6170037.578613207),
+                                       (741309.2332873486, 6169946.312628689),
                                        (741318.5461429111, 6169847.596359722)))])
         in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']})
 
-        out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf, lines_crs, 31, 25)
+        out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf,
+                                                                          lines_crs, 31, 25)
 
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
         self.assertEqual(69, len(out_points_gdf))
@@ -206,10 +216,12 @@ class TestProcessing(unittest.TestCase):
         self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
 
         self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
-        self.assertEqual(['C', 'L', 'R'], list(out_points_gdf['Side'].unique()))
+        self.assertEqual(['Centre', 'Offset 1', 'Offset 2'],
+                         list(out_points_gdf['Transect'].unique()))
 
         self.assertEqual(3, len(out_lines_gdf))
-        self.assertEqual(['C', 'L', 'R'], list(out_lines_gdf['Side'].unique()))
+        self.assertEqual(['Centre', 'Offset 1', 'Offset 2'],
+                         list(out_lines_gdf['Transect'].unique()))
 
 
 class TestExtractRasterStatisticsForPoints(unittest.TestCase):
@@ -255,9 +267,10 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         with rasterio.open(os.path.normpath(raster_file)) as raster:
             pts_gdf, pts_crs = random_pixel_selection(raster, rast_crs, 50)
 
-            out_gdf, out_crs = extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
-                                                                   function_list=[np.nanmean, raster_ops.nancv],
-                                                                   size_list=[1, 3, 7], output_csvfile=out_csv)
+            out_gdf, out_crs = \
+                extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
+                                                    function_list=[np.nanmean, raster_ops.nancv],
+                                                    size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(len(out_gdf), len(pts_gdf))
@@ -278,9 +291,10 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         pts_crs.getFromEPSG(4326)
         pts_gdf.to_crs(epsg=4326, inplace=True)
 
-        out_gdf, out_crs = extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
-                                                               function_list=[np.nanmean, raster_ops.nancv],
-                                                               size_list=[1, 3, 7], output_csvfile=out_csv)
+        out_gdf, out_crs = \
+            extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
+                                                function_list=[np.nanmean, raster_ops.nancv],
+                                                size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(len(out_gdf), len(pts_gdf))
@@ -527,8 +541,8 @@ class TestResampleToBlock(unittest.TestCase):
             os.makedirs(out_dir)
 
         image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
-        files = resample_bands_to_block(image_file, 2, out_dir,
-                                        band_nums=[6], image_epsg=32754, image_nodata=0, out_epsg=28354)
+        files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
+                                        image_nodata=0, out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
 
@@ -555,9 +569,8 @@ class TestResampleToBlock(unittest.TestCase):
 
         image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
         polygon_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
-        files = resample_bands_to_block(image_file, 2,
-                                        out_dir, band_nums=[6], image_epsg=32754, image_nodata=0,
-                                        polygon_shapefile=polygon_shapefile,
+        files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
+                                        image_nodata=0, polygon_shapefile=polygon_shapefile,
                                         out_epsg=28354)
 
         self.assertEqual(len(files), 1)
@@ -592,9 +605,8 @@ class TestResampleToBlock(unittest.TestCase):
                     dest.write(data, i)
 
         polygon_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
-        files = resample_bands_to_block(new_image, 2.5,
-                                        out_dir, band_nums=[6], image_epsg=32754, image_nodata=7777,
-                                        polygon_shapefile=polygon_shapefile,
+        files = resample_bands_to_block(new_image, 2.5, out_dir, band_nums=[6], image_epsg=32754,
+                                        image_nodata=7777, polygon_shapefile=polygon_shapefile,
                                         out_epsg=28354)
 
         self.assertEqual(len(files), 1)

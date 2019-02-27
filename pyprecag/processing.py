@@ -1687,35 +1687,47 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     return resultsDF
 
 
-def create_points_along_line(lines_geodataframe, lines_crs, distance_between_points, offset_distance,
-                             out_epsg=0, out_points_shapefile=None, out_lines_shapefile=None):
-    """Add points along a line using a specified distance and create left/right parallel points offset by a distance.
+def create_points_along_line(lines_geodataframe, lines_crs, distance_between_points,
+                             offset_distance, out_epsg=0, out_points_shapefile=None,
+                             out_lines_shapefile=None):
+    """Add points along a line using a specified distance and create left/right parallel points
+        offset by a distance.
 
-    If the lines are in a geographic coordinate system they will be re-projected to a projected coordinate system.
+        If the lines are in a geographic coordinate system they will be re-projected to a projected
+        coordinate system.
 
-    All touching lines will be treated as one.
-    MultiPart geometry will be converted to single part geometry.
-    The first and last points will be offset from start/end of the line evenly.
-    Attributes from the input lines will be lost.
+        All touching lines will be treated as one.
+        MultiPart geometry will be converted to single part geometry.
+        The first and last points will be offset from start/end of the line evenly.
+        Attributes from the input lines will be lost.
 
-    line_crs is used to ensure that the correct wkt definition is maintained when using geopandas.
+        line_crs is used to ensure that the correct wkt definition is maintained when using
+        geopandas.
 
-    Args:
-        lines_geodataframe (geopandas.geodataframe.GeoDataFrame): A Geopandas dataframe containing Lines
-        lines_crs (pyprecag.crs.crs): The detailed coordinate system
-        distance_between_points (int): The separation distance between points.
-        offset_distance (int): The distance between the center point and parallel point.
-        out_epsg (int): Optionally specify the epsg number for the output coordinate system.
-                        This should be a project coordinate system
-        out_points_shapefile (str): Optionally specify shapefile path and filename used to save the points to
-                        If a path is not supplied, it will save the file to TEMPDIR  by default
-        out_lines_shapefile (str): Optionally specify shapefile path and filename used to save the lines to
-                        If a path is not supplied, it will save the file to TEMPDIR  by default
-    Returns:
-         geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created points.
-         pyprecag.crs.crs: The coordinate system object of both the points and lines geodataframe
-         geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created lines.
-    """
+        Args:
+            lines_geodataframe (geopandas.geodataframe.GeoDataFrame): A Geopandas dataframe
+                             containing Lines
+            lines_crs (pyprecag.crs.crs): The detailed coordinate system
+
+            distance_between_points (int): The separation distance between points.
+
+            offset_distance (int): The distance between the centre point and parallel point.
+
+            out_epsg (int): Optionally specify the epsg number for the output coordinate system.
+                            This should be a project coordinate system
+
+            out_points_shapefile (str): Optionally specify shapefile path and filename used to
+                            save the points to. If a path is not supplied, it will save the file
+                            to TEMPDIR  by default.
+
+            out_lines_shapefile (str): Optionally specify shapefile path and filename used to save
+                            the lines to. If a path is not supplied, it will save the file to
+                            TEMPDIR  by default
+        Returns:
+             geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created points.
+             pyprecag.crs.crs: The coordinate system of both the points and lines geodataframe.
+             geopandas.geodataframe.GeoDataFrame: The geodataframe containing the created lines.
+        """
 
     if not isinstance(lines_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
@@ -1732,15 +1744,17 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if not isinstance(out_epsg, (int, long)):
-            raise TypeError('out_epsg must be a integer - Got {}'.format(*out_epsg))
+        raise TypeError('out_epsg must be a integer - Got {}'.format(*out_epsg))
 
     if out_points_shapefile is not None and os.path.isabs(out_points_shapefile):
         if not os.path.exists(os.path.dirname(out_points_shapefile)):
-            raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_points_shapefile)))
+            raise IOError(
+                'Output directory {} does not exist'.format(os.path.dirname(out_points_shapefile)))
 
     if out_lines_shapefile is not None and os.path.isabs(out_lines_shapefile):
         if not os.path.exists(os.path.dirname(out_lines_shapefile)):
-            raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_lines_shapefile)))
+            raise IOError(
+                'Output directory {} does not exist'.format(os.path.dirname(out_lines_shapefile)))
 
     if out_points_shapefile is not None and out_lines_shapefile is not None:
         if out_points_shapefile == out_lines_shapefile:
@@ -1779,8 +1793,9 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         lines_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30}   {:<15} {dur}'.format('Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
-                                                       dur=datetime.timedelta(seconds=time.time() - step_time)))
+            LOGGER.info('{:<30}   {:<15} {dur}'.format(
+                'Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
+                dur=datetime.timedelta(seconds=time.time() - step_time)))
     step_time = time.time()
 
     # merge touching lines
@@ -1817,22 +1832,25 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         gdf_lines['LineID'] = gdf_lines.index
 
     # Add Side, Length and startoffset attributes
-    gdf_lines['Side'] = 'C'
+    gdf_lines['Transect'] = 'Centre'
 
     # find dangle length when the line isn't evenly divided by the point distance
     # Calculate the length of each line
     gdf_lines['length'] = gdf_lines['geometry'].length
 
-    # calculate a start offset to center points along the line
+    # calculate a start offset to centre points along the line
     gdf_lines['startoffset'] = (gdf_lines['geometry'].length % distance_between_points) / 2
 
     # create a new dataframe for parallel lines
-    gdf_lrline = GeoDataFrame(columns=['FID', 'LineID', 'Side', 'geometry'], geometry='geometry', crs=gdf_lines.crs)
+    gdf_lrline = GeoDataFrame(columns=['FID', 'LineID', 'Transect', 'geometry'],
+                              geometry='geometry', crs=gdf_lines.crs)
 
     # create L/R lines for each centre line
     for index, c_line_row in gdf_lines.iterrows():
         c_line_geom = c_line_row['geometry'].simplify(0.5, preserve_topology=True)
-        for side in ['left', 'right']:
+        for ea_line in [('left', 'Offset 1'), ('right', 'Offset 2')]:
+            side, value = ea_line
+
             # update the geometry and lineID.
             parallel_line = c_line_geom.parallel_offset(offset_distance, side, resolution=16,
                                                         join_style=1, mitre_limit=5.0)
@@ -1843,20 +1861,21 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
                 parallel_line = LineString(parallel_line.coords[::-1])
 
             gdf_lrline = gdf_lrline.append({'LineID': c_line_row['LineID'],
-                                            'Side': side[0].upper(),
-                                            'geometry': parallel_line},
+                                            'Transect': value, 'geometry': parallel_line},
                                            ignore_index=True)
 
     gdf_lrline['FID'] = gdf_lrline.index
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30}   {:<15} {dur}'.format('Parallel lines created', '',
-                                                   dur=datetime.timedelta(seconds=time.time() - step_time)))
+        LOGGER.info('{:<30}   {:<15} '
+                    '{dur}'.format('Parallel lines created', '',
+                                   dur=datetime.timedelta(seconds=time.time() - step_time)))
 
     step_time = time.time()
 
     # Create an empty dataframe to store points in
-    gdf_points = GeoDataFrame(columns=['FID', 'LineID', 'Side', 'PointID', 'geometry'], geometry='geometry',
+    gdf_points = GeoDataFrame(columns=['FID', 'LineID', 'Transect', 'PointID', 'geometry'],
+                              geometry='geometry',
                               crs=gdf_lrline.crs)
 
     # Loop through each centre line
@@ -1872,25 +1891,26 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             gdf_points = gdf_points.append({'geometry': pt,
                                             'LineID': line_c['LineID'],
                                             'PointID': ptid,
-                                            'Side': line_c['Side'],
-                                            'line_dist': distance},
+                                            'Transect': line_c['Transect'],
+                                            'DistOnLine': distance},
                                            ignore_index=True)
 
-            # To add points to Left and right lines, first find corresponding LR lines.
+            # To add points to Offset lines, first find corresponding lines.
             line_subset = gdf_lrline[gdf_lrline['LineID'] == line_c['LineID']]
 
             for index_lr, line_lr in line_subset.iterrows():
-
                 # find the distance along the L/R line of the corresponding centre line point
                 dist_along_line = line_lr['geometry'].project(pt)
 
-                # Add a new point feature. Interpolate locates the xy based on the distance along the line.
-                gdf_points = gdf_points.append({'geometry': line_lr['geometry'].interpolate(dist_along_line),
-                                                'LineID': line_c['LineID'],
-                                                'PointID': ptid,
-                                                'Side': line_lr['Side'],
-                                                'line_dist': dist_along_line},
-                                               ignore_index=True)
+                # Add a new point feature. Interpolate locates the xy based on the distance
+                # along the line.
+                gdf_points = gdf_points.append(
+                    {'geometry': line_lr['geometry'].interpolate(dist_along_line),
+                     'LineID': line_c['LineID'],
+                     'PointID': ptid,
+                     'Transect': line_lr['Transect'],
+                     'DistOnLine': distance},
+                    ignore_index=True)
 
             distance += distance_between_points
             ptid += 1
@@ -1898,24 +1918,29 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     # add a feature identifier
     gdf_points['FID'] = gdf_points.index
 
-    # combine to original center line while only keeping common columns and calculate length
-    gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner', axis=0).sort_values(['LineID', 'Side'])
+    # combine to original centre line while only keeping common columns and calculate length
+    gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner',
+                          axis=0).sort_values(['LineID', 'Transect'])
+
     gdf_lines['length'] = gdf_lines['geometry'].length
 
     if out_lines_shapefile is not None or config.get_debug_mode():
         if out_lines_shapefile is None:
-            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
+            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'),
+                                  overwrite=True)
         else:
             save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
 
     if out_points_shapefile is not None or config.get_debug_mode():
         if out_points_shapefile is None:
-            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
+            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'),
+                                  overwrite=True)
         else:
             save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
-                                                 dur=datetime.timedelta(seconds=time.time() - start_time)))
+        LOGGER.info('{:<30} {:>15} '
+                    '{dur}'.format('Create Points Along Line Completed', '',
+                                   dur=datetime.timedelta(seconds=time.time() - start_time)))
 
     return gdf_points, points_crs, gdf_lines
