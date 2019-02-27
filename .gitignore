@@ -16,6 +16,7 @@ __pycache__/
 
 # From original pvtools repository
 .idea
+*.aux.xml
 *.pyc
 *.lnk
 *.vrt
