@@ -896,7 +896,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     if groupby is None or groupby.strip() == '':
         groupby = None
 
-    if polygon_shapefile is None or polygon_shapefile.strip() == '':
+    if polygon_shapefile is None :
         # create a polygon from the image. hopefully by now the nodata val is correct.
         with rasterio.open(image_file) as src:
             # source: https://gis.stackexchange.com/questions/187877/how-to-polygonize-raster-to-shapely-polygons
@@ -940,10 +940,11 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
         # If a column name is specified, dissolve by this and create multi-polygons
         # otherwise dissolve without a column name at treat all features as one
-        if groupby is not None:
-            gdfPoly = gdfPoly.dissolve(groupby, as_index=False).copy()
-        else:
-            gdfPoly = GeoDataFrame(geometry=[gdfPoly.unary_union])
+        if len(gdfPoly) > 1:
+            if groupby is not None:
+                gdfPoly = gdfPoly.dissolve(groupby, as_index=False).copy()
+            else:
+                gdfPoly = GeoDataFrame(geometry=[gdfPoly.unary_union])
 
     # Loop through polygns features ---------------------------------------------------------------------------------
     output_files = []
@@ -1013,8 +1014,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         # Resample to new pixel size using averaging ------------------------------------------------------------
         with clip_memfile.open() as src:
             meta = src.meta.copy()
-            meta.update(
-                {'height': meta_block['height'], 'width': meta_block['width'], 'transform': meta_block['transform']})
+            meta.update({'height': meta_block['height'], 'width': meta_block['width'], 'transform': meta_block['transform']})
 
             # Resample all bands and write to file
             resamp_memfile = MemoryFile()
@@ -1049,6 +1049,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         # get a count of holes to see if fill is required.
         fillholes_memfile = MemoryFile()
         with resamp_memfile.open() as src:
+            
+            apply_nodata = int(src.nodata) if src.nodata.is_integer() else src.nodata
+            
             with blockgrid_memfile.open() as src_bg:
                 # find holes where blockgrid has data and resample is nodata - this can be used as the mask
                 # in the fillnodata at a later stage if required.
@@ -1059,7 +1062,6 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 with fillholes_memfile.open(**src.meta) as dest:
                     for iband in range(1, src.count + 1):
                         band = src.read(iband)
-                        apply_nodata = int(src.nodata) if src.nodata.is_integer() else src.nodata
 
                         # reapply block grid mask
                         with blockgrid_memfile.open() as src_bg:
@@ -1086,7 +1088,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                         # reapply block grid mask
                         with blockgrid_memfile.open() as src_bg:
-                            filled = np.where((src_bg.read(1, masked=True).mask == 0), fill_nd, -9999)
+                            filled = np.where((src_bg.read(1, masked=True).mask == 0), fill_nd, apply_nodata)
 
                         dest.write(filled, iband)
                         # image statistics have changed so don't copy the tags
@@ -1122,7 +1124,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 smooth, _ = focal_statistics(src, iband, size=5, clip_to_mask=True)
 
                 # change np.nan to a number
-                smooth[np.isnan(smooth)] = src.nodata
+                smooth[np.isnan(smooth)] = apply_nodata
                 meta.update(dtype=rasterio.dtypes.get_minimum_dtype(smooth))
 
                 if config.get_debug_mode():
@@ -1644,7 +1646,10 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                         new_row[src_img.descriptions[i] + ', std'] = np.nanstd(ea_band)
 
             # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
-            resultsDF = new_row.append(resultsDF, ignore_index=True)
+            try:
+                resultsDF = new_row.append(resultsDF, ignore_index=True, sort=False)
+            except:
+                resultsDF = new_row.append(resultsDF, ignore_index=True)
 
         # Move 'Zone' to be the first column - fixed in pandas 0.23.4 by adding sort=False to append
         columns = list(resultsDF.columns)
