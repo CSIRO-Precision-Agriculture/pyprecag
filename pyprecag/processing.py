@@ -983,6 +983,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         with rasterio.open(image_file) as src:
             crop_data, crop_transform = rio_mask(src, geoms, crop=True)
 
+            for iband in band_nums:  # range(1, src.count + 1):
+                if  crop_data[iband-1].min() ==  crop_data[iband-1].max():
+                    raise GeometryError("There is no overlap between your polygon features and selected band(s)")
+
             meta = src.meta.copy()
             meta.update({"driver": "GTiff", "height": int(crop_data.shape[1]), "width": int(crop_data.shape[2]),
                          "transform": crop_transform})
