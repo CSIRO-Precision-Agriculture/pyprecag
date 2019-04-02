@@ -921,13 +921,15 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     else:
         descPoly = describe.VectorDescribe(polygon_shapefile)
 
-        if 'POLY' not in descPoly.geometry_type.upper():
-            raise ValueError('Invalid input data : a polygon shapefile is required')
-
         gdfPoly = descPoly.open_geo_dataframe()
+
         if groupby is not None and groupby not in gdfPoly.columns:
             raise ValueError('Groupby column {} does not exist'.format(groupby))
-
+        
+        if groupby is not None:
+            # change null/nones to blank string
+            gdfPoly[groupby].fillna('', inplace=True)
+        
         # reproject shapefile to raster
         poly_epsg = descPoly.crs.epsg_number
         if poly_epsg != image_epsg:
@@ -953,6 +955,8 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         step_time = time.time()
         if groupby is not None:
             feat_name = re.sub('[^0-9a-zA-Z]+', '-', str(feat[groupby])).strip('-')
+            if feat_name == '':
+                feat_name = 'No-Name'
         else:
             feat_name = ''
 
