@@ -72,8 +72,10 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
         search_file = os.path.basename(control_textfile[:101]).replace('control', '*')
         suffix = control_textfile[101:]
         for ea_file in glob.glob(os.path.join(search_dir, search_file)):
-            os.rename(ea_file, ea_file + suffix)
-            logging.debug('Renaming file {} to {}'.format(ea_file, ea_file + suffix))
+            #only rename if there is no extension on the file
+            if os.path.splitext(ea_file)[-1] == '':
+                os.rename(ea_file, ea_file + suffix)
+                logging.debug('Renaming file {} to {}'.format(ea_file, ea_file + suffix))
 
     krige_textfile = control_textfile.replace('control', 'kriged')
     out_CITxt = control_textfile.replace('control', 'CI')
