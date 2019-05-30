@@ -921,6 +921,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     else:
         descPoly = describe.VectorDescribe(polygon_shapefile)
 
+        if 'POLY' not in descPoly.geometry_type.upper():
+            raise ValueError('Invalid input data : a polygon shapefile is required')
+
         gdfPoly = descPoly.open_geo_dataframe()
 
         if groupby is not None and groupby not in gdfPoly.columns:
