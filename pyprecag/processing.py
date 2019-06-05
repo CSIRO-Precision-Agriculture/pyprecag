@@ -2340,7 +2340,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             offset_subst = '-'.join([ea.split(' ')[0] for ea in control_col])
             file_path_noext = os.path.join(out_folder, "Trial-{}_{}-strip".format(line_id,
-                                                                                offset_subst))
+                                                                                  offset_subst))
 
             df_statstable = calculate_strip_stats(df_subtable.drop(columns=dropcols),
                                                   column_names['Value'][0],
@@ -2533,7 +2533,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                     dur=timedelta(seconds=time.time() - loop_time)))
 
         LOGGER.info('{:<30} {:>15} {dur}'.format(
-            'T-Test for Line {} Completed'.format(line_id),status,
+            'T-Test for Line {} Completed'.format(line_id), status,
             dur=timedelta(seconds=time.time() - loop_time)))
 
     return df_table
