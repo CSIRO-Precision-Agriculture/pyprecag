@@ -22,7 +22,7 @@ from fiona.crs import from_epsg
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
-from rasterio import features, shutil as rio_shutil
+from rasterio import features
 from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
@@ -47,7 +47,7 @@ from .describe import save_geopandas_tofile, VectorDescribe, get_dataframe_encod
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
-    calculate_image_indices, create_raster_transform
+    calculate_image_indices, stack_and_clip_rasters
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
@@ -193,7 +193,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     # apply a new row/line id when distance between points is greater than 25m
     gdf_thin["lineID"] = (gdf_thin["dist_shift"] >= aggregate_dist_m).cumsum()
     LOGGER.info('{:<30} {:<15} {dur}'.format('Assign lineID', '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
+                                             dur=timedelta(seconds=time.time() - step_time)))
 
     temp_file_list = []
     if config.get_debug_mode():
@@ -223,7 +223,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     del gdf_thin, ptsperline, df_line
     gdf_final.crs = ptsgdf_crs
     LOGGER.info('{:<30} {:<15} {dur}'.format('Convert to lines', '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
+                                             dur=timedelta(seconds=time.time() - step_time)))
 
     if config.get_debug_mode():
         temp_file_list.append(os.path.join(TEMPDIR, os.path.basename(
@@ -237,7 +237,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
+                                             dur=timedelta(seconds=time.time() - step_time)))
 
     if config.get_debug_mode():
         temp_file_list.append(os.path.join(
@@ -250,7 +250,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)))
         gdf_final.crs = ptsgdf_crs
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=timedelta(seconds=time.time() - step_time)))
 
         if config.get_debug_mode():
             temp_file_list.append(os.path.join(
@@ -269,7 +269,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     gdf_final['Perimeter'] = gdf_final.length
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('Explode polygons', '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
+                                             dur=timedelta(seconds=time.time() - step_time)))
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
@@ -427,7 +427,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number),
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=timedelta(seconds=time.time() - step_time)))
 
         step_time = time.time()
 
@@ -443,7 +443,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             = len(gdf_points['filter'].value_counts())
 
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format(
-            'Clip', len(subset), '', dur=timedelta(seconds=time.time() - start_time)))
+            'Clip', len(subset), '', dur=timedelta(seconds=time.time() - step_time)))
         step_time = time.time()
 
     if remove_zeros:
@@ -476,7 +476,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
         'Filter by column', len(gdf_points[gdf_points['filter'].isnull()]),
         "{} (zeros, norm, {} std)".format(process_column, stdevs),
-        dur=timedelta(seconds=time.time() - start_time)))
+        dur=timedelta(seconds=time.time() - step_time)))
 
     gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()],
                                       points_crs, thin_dist_m)
@@ -557,7 +557,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
         'Save to CSV', len(gdf_final[gdf_final['filter'].isnull()]),
-        os.path.basename(output_csvfile), dur=timedelta(seconds=time.time() - start_time)))
+        os.path.basename(output_csvfile), dur=timedelta(seconds=time.time() - step_time)))
 
     step_time = time.time()
 
@@ -568,7 +568,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
             'Save to Shapefile', len(gdf_final[gdf_final['filter'].isnull()]),
-            os.path.basename(out_keep_shapefile), dur=timedelta(seconds=time.time() - start_time)))
+            os.path.basename(out_keep_shapefile), dur=timedelta(seconds=time.time() - step_time)))
 
         step_time = time.time()
 
@@ -580,9 +580,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'
                     .format('Save removed Shapefile', len(gdf_final[gdf_final['filter'].notnull()]),
                             os.path.basename(out_removed_shapefile),
-                            dur=timedelta(seconds=time.time() - start_time)))
-
-        step_time = time.time()
+                            dur=timedelta(seconds=time.time() - step_time)))
 
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
@@ -772,8 +770,6 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         size_list.remove(1)
 
     for ea_raster in rasterfiles:
-        step_time = time.time()
-
         # Need to get the wktproj of the raster from gdal NOT rasterio.
         # RasterIO works from the proj4 string NOT the wkt string so aussie zones details gets lost.
         rast_crs = pyprecag_crs.getCRSfromRasterFile(ea_raster)
@@ -840,14 +836,14 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if points_crs.epsg != points_geodataframe.crs:
         points_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
-    step_time = time.time()
     if output_csvfile is not None:
+        step_time = time.time()
         # Save to CSV only points to KEEP using appropriate file encoding
         points_geodataframe.drop(['geometry'], axis=1).to_csv(output_csvfile, index=False)
 
         LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
             'Saved CSV', '', os.path.basename(output_csvfile),
-            dur=timedelta(seconds=time.time() - start_time)))
+            dur=timedelta(seconds=time.time() - step_time)))
 
     LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '', '',
@@ -952,7 +948,6 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     # ----------------------------------------------------------------------------------------------
     # Run coordinate system checks on the input image
     with rasterio.open(os.path.normpath(image_file)) as src:
-        meta = src.meta.copy()
         if src.crs is None:
             if image_epsg is None or image_epsg == 0:
                 raise ValueError('Input coordinate system required - image_file does not contain'
@@ -1517,153 +1512,14 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         raise IOError('raster_files: {} raster file(s) do '
                       'not exist\n\t({})'.format(len(not_exists), '\n\t'.join(not_exists)))
 
-    check_pixelsize = []
-    check_crs = []
-
-    for ea_raster in raster_files:
-        with rasterio.open(ea_raster) as src:
-            if src.crs is None:
-                check_crs.append(ea_raster)
-            if src.res not in check_pixelsize:
-                check_pixelsize.append(src.res)
-
-    if len(check_pixelsize) == 1:
-        resolution = check_pixelsize[0]
-    else:
-        raise TypeError("Pixel Sizes Don't Match - {}".format(check_pixelsize))
-
-    if len(check_crs) > 0:
-        raise TypeError("{} raster(s) don't have coordinates "
-                        "systems assigned".format(len(check_crs)))
-
-    # Make sure ALL masks are saved inside the TIFF file not as a sidecar.
-    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
-
     temp_file_list = []
     start_time = time.time()
-    step_time = time.time()
 
-    try:
-        # Find minimum overlapping extent of all rasters ------------------------------------
-        for i, ea_raster in enumerate(raster_files, start=1):
-            with rasterio.open(ea_raster) as src:
-
-                band1 = src.read(1, masked=True)
-
-                # get minimum data extent
-                data_window = get_data_window(band1)
-
-                # find the intersection of all the windows
-                if i == 1:
-                    min_window = data_window
-                else:
-                    # create a new window using the last coordinates based on this image in case
-                    # extents/pixel origins are different
-                    min_img_window = from_bounds(*min_bbox, transform=src.transform)
-
-                    # find the intersection of the windows.
-                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
-
-                # convert the window co coordinates
-                min_bbox = src.window_bounds(min_window)
-
-                del min_window
-
-        LOGGER.info('{:<30} {:<15} {dur} {}'.format(
-            'Found Common Extent', '', min_bbox, dur=timedelta(seconds=time.time() - start_time)))
-
-    except rasterio.errors.WindowError as e:
-        # reword 'windows do not intersect' error message
-        if not e.args:
-            e.args = ('',)
-        e.args = ("Images do not overlap",)
-
-        raise  # re-raise current exception
+    images_combined, band_list = stack_and_clip_rasters(raster_files,
+                                                        output_tif='1_kmeans_combined.tif')
+    temp_file_list.append(images_combined)
 
     step_time = time.time()
-
-    # Create the metadata for the overlapping extent image. --------------------------
-    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0],
-                                                             buffer_by_pixels=5)
-
-    # update the new image metadata ---------------------------------------------------
-    kwargs = rasterio.open(raster_files[0]).meta.copy()
-    kwargs.update({'count': len(raster_files), 'nodata': -9999,
-                   'height': height, 'width': width,
-                   'transform': transform})
-
-    ''' combine individual rasters into one multi-band tiff using reproject will 
-           fit each raster to the same pixel origin
-           will crop to the min bbox
-           standardise the nodata values
-           apply nodata values to entire image including internal blocks'''
-
-    temp_file_list += [os.path.join(
-        TEMPDIR, '{}_kmeans_images_combined.tif'.format(len(temp_file_list) + 1))]
-    images_combined = temp_file_list[-1]
-
-    with rasterio.open(images_combined, 'w', **kwargs) as dst:
-        band_list = []
-        for i, ea_raster in enumerate(raster_files, start=1):
-            image = os.path.basename(os.path.splitext(ea_raster)[0])
-            band_list.append(image)
-
-            with rasterio.open(ea_raster) as src:
-                reproject(source=rasterio.band(src, 1),
-                          destination=rasterio.band(dst, i),
-                          src_transform=src.transform,
-                          dst_transform=transform,
-                          resampling=Resampling.nearest)
-
-            dst.update_tags(i, **{'name': image})
-
-        dst.descriptions = band_list
-
-    LOGGER.info('{:<30} {:<15} {dur}'.format('Images Combined', '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
-    step_time = time.time()
-    if config.get_debug_mode():
-        # make a copy first
-        temp_file_list += [os.path.join(
-            TEMPDIR, '{}_kmeans_image_combine_mask.tif'.format(len(temp_file_list) + 1))]
-        rio_shutil.copy(images_combined, temp_file_list[-1])
-        images_combined = temp_file_list[-1]
-
-    # find the common data area -------------------------------------------------------
-    with rasterio.open(images_combined, 'r+') as src:
-        # find common area across all bands as there maybe internal nodata values in some bands.
-        mask = []
-
-        # loop through all all the masks
-        for ea_mask in src.read_masks():
-            if len(mask) == 0:
-                mask = ea_mask
-            else:
-                mask = mask & ea_mask
-
-        # change mask values to  0 = nodata, 1 = valid data
-        mask[mask == 255] = 1
-
-        # apply mask to all bands of file
-        src.write_mask(mask)
-
-    if config.get_debug_mode():
-        # write mask to new file
-        temp_file_list += [os.path.join(
-            TEMPDIR, '{}_kmeans_commonarea_mask.tif'.format(len(temp_file_list) + 1))]
-
-        kwargs_tmp = kwargs.copy()
-        kwargs_tmp.update({'count': 1,
-                           'nodata': 0,
-                           'dtype': rasterio.dtypes.get_minimum_dtype(mask)})
-
-        with rasterio.open(temp_file_list[-1], 'w', **kwargs_tmp) as tmp_dst:
-            tmp_dst.write(mask, 1)
-
-        LOGGER.info('{:<30} {:<15} {dur}'.format('Mask Applied', '',
-                                                 dur=timedelta(seconds=time.time() - start_time)))
-
-        step_time = time.time()
 
     # Extract data ready for k-means ------------------------------------------------
     with rasterio.open(images_combined) as src:
@@ -1703,7 +1559,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             tmp_dst.descriptions = band_list
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Images Normalised', '',
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=timedelta(seconds=time.time() - step_time)))
         step_time = time.time()
 
     # Run the k-means clustering -------------------------------------------------------------------
@@ -1727,8 +1583,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     with rasterio.open(output_tif, 'w', **cluster_meta) as dst:
         dst.write(cluster_data.astype(cluster_dtype), 1)
 
-    LOGGER.info('{:<30} {:<15} {dur}'.format('K-means Cluster', '',
-                                             dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30} {:<15} {dur}'.format('Clustering complete', '',
+                                             dur=timedelta(seconds=time.time() - step_time)))
     step_time = time.time()
 
     # create summary statistics --------------------------------------------------------------------
@@ -1780,9 +1636,6 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         results_df.to_csv(output_tif.replace('.tif', '_statistics.csv'),
                           header=col_names, index=False)
 
-        LOGGER.info('Statistics file saved as {}'.format(
-            output_tif.replace('.tif', '_statistics.csv')))
-
         # format the table and print to log.
         results_df_copy = results_df.copy()
         col_names = results_df_copy.columns.str.split(', ', expand=True).values
@@ -1791,13 +1644,14 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         results_df_copy.columns = pd.MultiIndex.from_tuples(
             [('.......', x[0]) if pd.isnull(x[1]) else x for x in col_names])
 
-        LOGGER.info('Cluster Statistics:\n{}\n'.format(
+        LOGGER.info('\nCluster Statistics:\n{}\n'.format(
             results_df_copy.to_string(justify='center', index=False)))
 
-        LOGGER.info('Statistics file saved as {}'.format(
-            output_tif.replace('.tif', '_statistics.csv')))
-
         del results_df_copy
+
+    LOGGER.info('{:<30} {:<15} {dur:<15} {}'.format(
+        'Saved Stats CSV', '', output_tif.replace('.tif', '_statistics.csv'),
+        dur=timedelta(seconds=time.time() - step_time)))
 
     # clean up of intermediate files
     if len(temp_file_list) > 0 and not config.get_debug_mode():
@@ -1807,8 +1661,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
 
-    LOGGER.info('{:<30} {:>35} {dur}'.format(
-        'K-Means Clustering Completed', '{} zones for {} rasters'.format(
+    LOGGER.info('{:<30}  {:<15} {dur:<15} {}'.format(
+        'K-Means Clustering Completed', '', '{} zones for {} rasters'.format(
             n_clusters, len(raster_files)), dur=timedelta(seconds=time.time() - start_time)))
 
     return results_df
@@ -1922,7 +1776,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         if config.get_debug_mode():
             LOGGER.info('{:<30}   {:<15} {dur}'.format(
                 'Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=timedelta(seconds=time.time() - step_time)))
     step_time = time.time()
 
     # merge touching lines
@@ -1995,7 +1849,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     if config.get_debug_mode():
         LOGGER.info('{:<30}   {:<15} {dur}'.format(
-            'Parallel lines created', '', dur=timedelta(seconds=time.time() - start_time)))
+            'Parallel lines created', '', dur=timedelta(seconds=time.time() - step_time)))
 
     step_time = time.time()
 
