@@ -54,11 +54,6 @@ class TestConvert(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             testFailed = True
 
-    def test_duration(self):
-        start_time = time.time()
-        self.assertEqual(datetime.timedelta(0, 60), duration(start_time, start_time + 60))
-        self.assertEqual(datetime.timedelta(0, 365), duration(start_time, start_time + 365))
-
     def test_convert_csv_to_points_EastingNorthings(self):
         in_file = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
         epsg = 28354

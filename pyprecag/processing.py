@@ -1,4 +1,4 @@
-import datetime
+from datetime import timedelta
 import glob
 import inspect
 import re
@@ -41,7 +41,7 @@ from . import TEMPDIR, config
 from .table_ops import calculate_strip_stats
 from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pixelsize_to_string, \
     convert_polygon_feature_to_raster, drop_z, deg_to_8_compass_pts, point_to_point_bearing, \
-    text_rotation, duration
+    text_rotation
 
 from .describe import save_geopandas_tofile, VectorDescribe, get_dataframe_encoding
 from .errors import GeometryError, SpatialReferenceError
@@ -105,7 +105,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
                            out_vesperfilename=out_vesperfilename)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=duration(start_time)))
+                                               dur=timedelta(seconds=time.time() - start_time)))
 
 
 def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0,
@@ -192,7 +192,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     # apply a new row/line id when distance between points is greater than 25m
     gdf_thin["lineID"] = (gdf_thin["dist_shift"] >= aggregate_dist_m).cumsum()
-    LOGGER.info('{:<30} {:<15} {dur}'.format('Assign lineID', '', dur=duration(start_time)))
+    LOGGER.info('{:<30} {:<15} {dur}'.format('Assign lineID', '',
+                                             dur=timedelta(seconds=time.time() - start_time)))
 
     temp_file_list = []
     if config.get_debug_mode():
@@ -222,7 +223,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     del gdf_thin, ptsperline, df_line
     gdf_final.crs = ptsgdf_crs
     LOGGER.info('{:<30} {:<15} {dur}'.format('Convert to lines', '',
-                                             dur=duration(start_time)))
+                                             dur=timedelta(seconds=time.time() - start_time)))
 
     if config.get_debug_mode():
         temp_file_list.append(os.path.join(TEMPDIR, os.path.basename(
@@ -236,7 +237,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
-                                             dur=duration(start_time)))
+                                             dur=timedelta(seconds=time.time() - start_time)))
 
     if config.get_debug_mode():
         temp_file_list.append(os.path.join(
@@ -249,7 +250,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)))
         gdf_final.crs = ptsgdf_crs
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
-                                                 dur=duration(start_time)))
+                                                 dur=timedelta(seconds=time.time() - start_time)))
 
         if config.get_debug_mode():
             temp_file_list.append(os.path.join(
@@ -268,12 +269,12 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     gdf_final['Perimeter'] = gdf_final.length
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('Explode polygons', '',
-                                             dur=duration(start_time)))
+                                             dur=timedelta(seconds=time.time() - start_time)))
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=duration(start_time)))
+                                               dur=timedelta(seconds=time.time() - start_time)))
 
     thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
@@ -409,9 +410,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] \
         = len(gdf_points['filter'].value_counts())
 
-    LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format('Remove Duplicate XYs',
-                                                       len(geom) - len(subset), '',
-                                                       dur=duration(start_time)))
+    LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
+        'Remove Duplicate XYs', len(geom) - len(subset), '',
+        dur=timedelta(seconds=time.time() - start_time)))
 
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
@@ -426,7 +427,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number),
-                dur=duration(start_time)))
+                dur=timedelta(seconds=time.time() - start_time)))
 
         step_time = time.time()
 
@@ -441,8 +442,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] \
             = len(gdf_points['filter'].value_counts())
 
-        LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format('Clip', len(subset), '',
-                                                            dur=duration(start_time)))
+        LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format(
+            'Clip', len(subset), '', dur=timedelta(seconds=time.time() - start_time)))
         step_time = time.time()
 
     if remove_zeros:
@@ -475,7 +476,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
         'Filter by column', len(gdf_points[gdf_points['filter'].isnull()]),
         "{} (zeros, norm, {} std)".format(process_column, stdevs),
-        dur=duration(start_time)))
+        dur=timedelta(seconds=time.time() - start_time)))
 
     gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()],
                                       points_crs, thin_dist_m)
@@ -556,7 +557,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
         'Save to CSV', len(gdf_final[gdf_final['filter'].isnull()]),
-        os.path.basename(output_csvfile), dur=duration(start_time)))
+        os.path.basename(output_csvfile), dur=timedelta(seconds=time.time() - start_time)))
 
     step_time = time.time()
 
@@ -567,7 +568,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
             'Save to Shapefile', len(gdf_final[gdf_final['filter'].isnull()]),
-            os.path.basename(out_keep_shapefile), dur=duration(start_time)))
+            os.path.basename(out_keep_shapefile), dur=timedelta(seconds=time.time() - start_time)))
 
         step_time = time.time()
 
@@ -579,7 +580,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'
                     .format('Save removed Shapefile', len(gdf_final[gdf_final['filter'].notnull()]),
                             os.path.basename(out_removed_shapefile),
-                            dur=duration(start_time)))
+                            dur=timedelta(seconds=time.time() - start_time)))
 
         step_time = time.time()
 
@@ -587,7 +588,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         results_table.to_string(index=False, justify='center')))
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=duration(start_time)))
+                                               dur=timedelta(seconds=time.time() - start_time)))
 
     return gdf_final[gdf_final['filter'].isnull()], points_crs
 
@@ -844,12 +845,13 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         # Save to CSV only points to KEEP using appropriate file encoding
         points_geodataframe.drop(['geometry'], axis=1).to_csv(output_csvfile, index=False)
 
-        LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format('Saved CSV', '',
-                                                           os.path.basename(output_csvfile),
-                                                           dur=duration(start_time)))
+        LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
+            'Saved CSV', '', os.path.basename(output_csvfile),
+            dur=timedelta(seconds=time.time() - start_time)))
 
-    LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(inspect.currentframe().f_code.co_name, '', '',
-                                                      dur=duration(start_time)))
+    LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '', '',
+        dur=timedelta(seconds=time.time() - start_time)))
 
     return points_geodataframe, points_crs
 
@@ -1046,8 +1048,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         del blockgrid
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to block_grid', status,
-                                                              feat_name, dur=duration(step_time)))
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
+                'Feature to block_grid', status, feat_name,
+                dur=timedelta(seconds=time.time() - step_time)))
 
             temp_file_list += [os.path.join(TEMPDIR, '{}_{}BlockGrid_{}_{}.tif'.format(
                 filename, len(temp_file_list) + 1, pixel_size_str, feat_name))]
@@ -1084,8 +1087,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         dest.update_tags(iband, **cleaned_tags)
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Clipped Image to Feature', status,
-                                                              feat_name, dur=duration(step_time)))
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
+                'Clipped Image to Feature', status, feat_name,
+                dur=timedelta(seconds=time.time() - step_time)))
 
             temp_file_list += [os.path.join(TEMPDIR, '{}_{}crop_{}.tif'.format(
                 filename, len(temp_file_list) + 1, feat_name))]
@@ -1120,9 +1124,9 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         dest.update_tags(iband, **cleaned_tags)
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Resampled to {}m'.format(pixel_size),
-                                                              status, feat_name,
-                                                              dur=duration(step_time)))
+            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
+                'Resampled to {}m'.format(pixel_size), status, feat_name,
+                dur=timedelta(seconds=time.time() - step_time)))
 
             temp_file_list += [os.path.join(TEMPDIR, '{}_{}resampleAV_{}_{}.tif'.format(
                 filename, len(temp_file_list) + 1, pixel_size_str, feat_name))]
@@ -1192,7 +1196,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             if config.get_debug_mode():
                 LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                     'Filled {} holes'.format(hole_count), status, feat_name,
-                    dur=duration(step_time)))
+                    dur=timedelta(seconds=time.time() - step_time)))
 
                 step_time = time.time()
                 temp_file_list += [os.path.join(TEMPDIR, '{}_{}filled_{}_{}.tif'.format(
@@ -1259,7 +1263,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             if config.get_debug_mode():
                 LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                     'Smoothed and saved to {} file(s)'.format(len(band_nums)),
-                    status, feat_name, dur=duration(step_time)))
+                    status, feat_name, dur=timedelta(seconds=time.time() - step_time)))
 
                 step_time = time.time()
 
@@ -1267,7 +1271,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
         LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
             'Created {} files for feature'.format(len(band_nums)),
-            status, feat_name, dur=duration(loop_time)))
+            status, feat_name, dur=timedelta(seconds=time.time() - loop_time)))
 
         # del dest, src, src_bg
 
@@ -1565,8 +1569,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                 del min_window
 
-        LOGGER.info('{:<30} {:<15} {dur} {}'.format('Found Common Extent', '', min_bbox,
-                                                    dur=duration(start_time)))
+        LOGGER.info('{:<30} {:<15} {dur} {}'.format(
+            'Found Common Extent', '', min_bbox, dur=timedelta(seconds=time.time() - start_time)))
+
     except rasterio.errors.WindowError as e:
         # reword 'windows do not intersect' error message
         if not e.args:
@@ -1615,7 +1620,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         dst.descriptions = band_list
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('Images Combined', '',
-                                             dur=duration(start_time)))
+                                             dur=timedelta(seconds=time.time() - start_time)))
     step_time = time.time()
     if config.get_debug_mode():
         # make a copy first
@@ -1656,7 +1661,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             tmp_dst.write(mask, 1)
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Mask Applied', '',
-                                                 dur=duration(start_time)))
+                                                 dur=timedelta(seconds=time.time() - start_time)))
 
         step_time = time.time()
 
@@ -1698,7 +1703,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             tmp_dst.descriptions = band_list
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Images Normalised', '',
-                                                 dur=duration(start_time)))
+                                                 dur=timedelta(seconds=time.time() - start_time)))
         step_time = time.time()
 
     # Run the k-means clustering -------------------------------------------------------------------
@@ -1723,7 +1728,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         dst.write(cluster_data.astype(cluster_dtype), 1)
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('K-means Cluster', '',
-                                             dur=duration(start_time)))
+                                             dur=timedelta(seconds=time.time() - start_time)))
     step_time = time.time()
 
     # create summary statistics --------------------------------------------------------------------
@@ -1804,7 +1809,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     LOGGER.info('{:<30} {:>35} {dur}'.format(
         'K-Means Clustering Completed', '{} zones for {} rasters'.format(
-            n_clusters, len(raster_files)), dur=duration(start_time)))
+            n_clusters, len(raster_files)), dur=timedelta(seconds=time.time() - start_time)))
 
     return results_df
 
@@ -1917,7 +1922,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         if config.get_debug_mode():
             LOGGER.info('{:<30}   {:<15} {dur}'.format(
                 'Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
-                dur=duration(start_time)))
+                dur=timedelta(seconds=time.time() - start_time)))
     step_time = time.time()
 
     # merge touching lines
@@ -1989,9 +1994,8 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     gdf_lrline['FID'] = gdf_lrline.index
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30}   {:<15} '
-                    '{dur}'.format('Parallel lines created', '',
-                                   dur=duration(start_time)))
+        LOGGER.info('{:<30}   {:<15} {dur}'.format(
+            'Parallel lines created', '', dur=timedelta(seconds=time.time() - start_time)))
 
     step_time = time.time()
 
@@ -2061,9 +2065,9 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30} {:>15} '
-                    '{dur}'.format('Create Points Along Line Completed', '',
-                                   dur=duration(start_time)))
+        LOGGER.info('{:<30} {:>15} {dur}'.format(
+            'Create Points Along Line Completed', '',
+            dur=timedelta(seconds=time.time() - start_time)))
 
     return gdf_points, points_crs, gdf_lines
 
@@ -2290,7 +2294,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     import matplotlib.patheffects as pe
 
     for iline, (line_id, gdf_strip) in enumerate(gdf_points.groupby(['TrialID']), start=1):
-
+        status = '{} of {}'.format(iline, line_count)
         loop_time = time.time()
         df_subtable = df_table[df_table['TrialID'] == line_id].copy()
 
@@ -2344,9 +2348,9 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             df_statstable.to_csv(file_path_noext + '.csv', index=False)  # na_rep=rast_nodata
             if config.get_debug_mode():
-                LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'
-                            .format('Saved CSV', '', file_path_noext + '.csv',
-                                    dur=duration(loop_time)))
+                LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
+                    'Saved CSV', '', file_path_noext + '.csv',
+                    dur=timedelta(seconds=time.time() - loop_time)))
 
             ''' Create the map & graphs ---------------------------------------------------------
             https://stackoverflow.com/a/39694347
@@ -2427,7 +2431,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 anno_kwargs = {'size': 7, 'va': 'center', 'ha': 'center',
                                'path_effects': [pe.withStroke(linewidth=4, foreground="white")]}
 
-                middle_pts.apply(lambda x: ax.annotate(x['Strip_Name'], xy=(x.geometry.x, x.geometry.y),
+                middle_pts.apply(lambda x: ax.annotate(x['Strip_Name'],
+                                                       xy=(x.geometry.x, x.geometry.y),
                                                        rotation=x['label_angle'], **anno_kwargs),
                                  axis=1)
 
@@ -2445,8 +2450,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 plt.close()
 
                 if config.get_debug_mode():
-                    LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format('Map Saved', '', map_file,
-                                                                       dur=duration(loop_time)))
+                    LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
+                        'Map Saved', '', map_file, dur=timedelta(seconds=time.time() - loop_time)))
 
             # Create the graphs ----------------------------------------------
             fig_graph = plt.figure(figsize=(15, 10))  # width, height
@@ -2485,7 +2490,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
                 if config.get_debug_mode():
                     group.plot.scatter(x='DistOnLine', y='p_value', marker=name[1], s=25, c='k',
-                                       ax=axs[3], label='Zone {}'.format(name[0]), zorder=2)  # s=25
+                                       ax=axs[3], label='Zone {}'.format(name[0]), zorder=2)
 
             axs[0].set(ylabel="Treatment Units")
             axs[1].set(ylabel="Treatment Difference")
@@ -2523,13 +2528,12 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             plt.savefig(file_path_noext + '_graph.png', index=False)
             plt.close()
             if config.get_debug_mode():
-                LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'
-                            .format('Saved graph', '', file_path_noext + '_graph.png',
-                                    dur=duration(loop_time)))
+                LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
+                    'Saved graph', '', file_path_noext + '_graph.png',
+                    dur=timedelta(seconds=time.time() - loop_time)))
 
-        LOGGER.info('{:<30} {:>15} '
-                    '{dur}'.format('T-Test for Line {} Completed'.format(line_id),
-                                   '{} of {}'.format(iline, line_count),
-                                   dur=duration(loop_time)))
+        LOGGER.info('{:<30} {:>15} {dur}'.format(
+            'T-Test for Line {} Completed'.format(line_id),status,
+            dur=timedelta(seconds=time.time() - loop_time)))
 
     return df_table

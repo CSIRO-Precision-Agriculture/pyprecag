@@ -2,7 +2,7 @@
 """
 Format conversion routines.
 """
-import datetime
+from  datetime import timedelta
 import inspect
 import logging
 import math
@@ -141,20 +141,6 @@ def text_rotation(pt1, pt2):
     return rotation
 
 
-def duration(start_time, end_time=None):
-    """Calculate the time difference in seconds
-
-    Args:
-        start_time (): the start time as time.time() object
-        end_time ():  the end time as time.time() object.
-
-    Returns: datetime.timedelta()
-    """
-    if end_time is None:
-        end_time = time.time()
-    return datetime.timedelta(seconds=end_time - start_time)
-
-
 def convert_polygon_to_grid(in_shapefilename,
                             out_rasterfilename,
                             pixel_size,
@@ -233,7 +219,7 @@ def convert_polygon_to_grid(in_shapefilename,
 
     else:
         LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                                   dur=duration(start_time)))
+                                                   dur=timedelta(seconds=time.time() - start_time)))
 
     # close the data sources
     r_band = None
@@ -276,7 +262,7 @@ def convert_grid_to_vesper(in_rasterfilename, out_vesperfilename):
                         vesFile.write(' {}   {}\n'.format(xy[0], xy[1]))
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=duration(start_time)))
+                                               dur=timedelta(seconds=time.time() - start_time)))
     return
 
 
@@ -400,7 +386,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
         save_geopandas_tofile(gdf_csv, out_shapefilename, overwrite=True)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=duration(start_time)))
+                                               dur=timedelta(seconds=time.time() - start_time)))
 
     return gdf_csv, gdf_crs
 
