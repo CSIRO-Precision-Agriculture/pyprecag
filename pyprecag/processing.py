@@ -1477,7 +1477,8 @@ def resample_bands_to_block(image_file, pixel_size, out_folder, band_nums=[], im
 
 
 def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500):
-    """Create zones with k-means clustering from multiple raster files.
+    """Create zones with k-means clustering from multiple raster files as described in
+
 
     The input raster files should all:
         - have the same pixel size
@@ -1518,6 +1519,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     images_combined, band_list = stack_and_clip_rasters(raster_files,
                                                         output_tif='1_kmeans_combined.tif')
     temp_file_list.append(images_combined)
+
+    # Make sure ALL masks are saved inside the TIFF file not as a sidecar.
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
 
     step_time = time.time()
 
@@ -1928,22 +1932,28 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
 def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                    zone_raster='', control_raster='', size=5, create_graph=False):
-    """Run a moving window t-test analysis for a strip trial
+    """Run a moving window t-test analysis for a strip trial as described in Lawes
+    and Bramley (2012).
 
     Format of the points must be from the create_points_along_line tools.
     All input rasters must be of the same coordinate system and pixel size and overlap with the
     points.
+
     Output statistics include:
         controls_mean  - row by row mean of the control columns
         treat_diff -   row by row difference between the treatment and controls_mean columns
         av_treat_diff - calculate mean of values using a moving window using the treat_diff column
         p_value - calculate  p_value using a moving window using treatment and controls_mean columns
         RI  - Response Index using the treatment and controls_mean columns
+
     Output Files include:
         For each line and strip combination :
             - png Map showing orientation of the line (start and ends)
             - png set of graphs
             - CSV file of derived statistics.
+    Reference:
+        Lawes RA, Bramley RGV. 2012. A Simple Method for the Analysis of On-Farm Strip Trials.
+         Agronomy Journal 104, 371-377.
 
     Args:
         points_geodataframe (geopandas.geodataframe.GeoDataFrame): points derived using
@@ -2253,7 +2263,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                         lambda x: LineString(x.tolist()) if x.size > 1 else x.tolist())
                 except ValueError:
                     gdf_lines = gdf_map.groupby(['Strip_Name'])['geometry'].apply(
-                         lambda x: LineString([(p.x, p.y) for p in x]))
+                        lambda x: LineString([(p.x, p.y) for p in x]))
 
                 gdf_lines = GeoDataFrame(gdf_lines, geometry='geometry')
 
@@ -2391,3 +2401,222 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             dur=timedelta(seconds=time.time() - loop_time)))
 
     return df_table
+
+
+def persistor_all_years(raster_files, output_tif, greater_than, target_percentage):
+    """Determine the performance persistance of yeild by accross multipe years as described in
+    Bramley and Hamilton (2005)
+
+    The "All Years" method identifies cells for each raster within the target percentage above or
+    below the mean. These are then summed to create a count representing the number of years
+    the criteria was met.
+
+     All input rasters MUST overlap and have the same coordinate system and pixel size.
+
+     If a path is omited from output_tif it will be created in your temp folder.
+
+    References:
+        Bramley RGV, Hamilton RP (2005) Understanding variability in winegrape production systems
+        1. Within vineyard variation in yield over several vintages. Australian Journal Of Grape And
+        Wine Research 10, 32-45. doi:10.1111/j.1755-0238.2004.tb00006.x.
+
+    Args:
+        raster_files (List[str]): List of rasters to use as inputs
+        output_tif (str): Output TIF file
+        greater_than (bool): if true test above (gt) the mean
+        target_percentage (int): the percent variation either above/below the mean. This should be
+                   a integer between -50 and 50
+
+    Returns:
+        str: The output tif name
+    """
+
+    if not isinstance(target_percentage, int):
+        raise TypeError('target_percentage must an integer between -50 to 50.')
+
+    if target_percentage < -50 or target_percentage > 50:
+        raise ValueError('target_percentage must an integer between -50 to 50.')
+
+    if not isinstance(greater_than, (int, bool)):
+        raise TypeError('greater_than must be boolean.')
+
+    if output_tif is not None and not os.path.isabs(output_tif):
+        output_tif = os.path.join(TEMPDIR, output_tif)
+
+    if not isinstance(raster_files, list):
+        raise TypeError('Invalid Type: raster_files should be a list')
+
+    if len(raster_files) == 0:
+        raise TypeError('Invalid Type: Empty list of raster files')
+
+    start_time = time.time()
+
+    # combine and align grid and slip to common area
+    image_combined, _ = stack_and_clip_rasters(raster_files, use_common=True,
+                                               output_tif='allyrs_combined.tif')
+
+    with rasterio.open(image_combined, 'r') as src:
+        kwargs = src.meta.copy()
+
+        for i, band in enumerate(src.read(masked=True), start=1):
+            cutoff = np.nanmean(band) + (np.nanmean(band) * (target_percentage / 100.00))
+            band_new = band.copy()
+
+            # classifiy bands
+            band_new[np.where(band >= cutoff)] = (greater_than == True)
+            band_new[np.where(band < cutoff)] = (greater_than != True)
+
+            # reapply nodata values
+            band_new[np.where(band.mask)] = -9999
+            band_new = band_new.astype(np.int16)
+
+            # cumulative sum of bands
+            if i == 1:
+                sum_of_rasters = band_new
+            else:
+                sum_of_rasters = sum_of_rasters + band_new
+
+            sum_of_rasters[band.mask] = -9999
+
+            del band, band_new
+
+    kwargs.pop('count')
+    kwargs.update({'nodata': -9999, 'dtype': np.int16})
+    with rasterio.open(output_tif, 'w', count=1, **kwargs) as dst_allyrs:
+        dst_allyrs.write(sum_of_rasters.astype(np.int16), 1)
+
+    arg_str = '{} {}%'.format('>' if greater_than else '<', target_percentage)
+    LOGGER.info('{:<30} {:>15} {dur}'.format('Persistor All Years Completed', arg_str,
+                                             dur=timedelta(seconds=time.time() - start_time)))
+
+    # cleanup Temp files
+    if not config.get_debug_mode() and TEMPDIR in image_combined:
+        os.remove(image_combined)
+
+    return output_tif
+
+
+def persistor_target_probability(upper_raster_files, upper_percentage, upper_probability,
+                                 lower_raster_files, lower_percentage, lower_probability,
+                                 output_tif):
+    """Determine the probability of a performance being exceced or not being met as described in
+    Bramley and Hamilton (2005).
+
+    The "Target probability" method anlayses and combindes two categories (UPPER and LOWER)
+    of rasters. For each category it assigns a value to each cell to indicate the  probability
+        (a) Less than the mean minus a nominated percentage,
+        (b) Within the range of mean +/- percentage or
+        (c) Greater than the mean plus the nominated percentage
+    The UPPER and LOWER categories are then summed creating a tif file representing the
+    probability of a target being met.
+
+    All input rasters MUST overlap and have the same coordinate system and pixel size.
+
+    If a path is omited from output_tif it will be created in your temp folder.
+
+    References:
+        Bramley RGV, Hamilton RP (2005) Understanding variability in winegrape production systems
+        1. Within vineyard variation in yield over several vintages. Australian Journal Of Grape
+        And Wine Research 10, 32-45. doi:10.1111/j.1755-0238.2004.tb00006.x.
+
+    Args:
+        upper_raster_files (List[str]): List of rasters to used for the analysis of the
+                    UPPER catagory
+        upper_percentage (int): the percent variation either above/below the mean to apply
+                    to the UPPER raster category.
+        upper_probability (int):the probability percentage to apply to the LOWER category
+
+        lower_raster_files (List[str]): List of rasters to used for the analysis of the
+                    LOWER catagory
+        lower_percentage (int): the percent variation either above/below the mean to apply
+                    to the LOWER raster category.
+        lower_probability (int): the probability percentage to apply to the LOWER category
+
+        output_tif (str): Output TIF file
+
+    """
+
+    for arg_check in [('upper_raster_files', upper_raster_files),
+                      ('lower_raster_files', lower_raster_files)]:
+        if not isinstance(arg_check[-1], list):
+            raise TypeError('Invalid Type: {} should be a list'.format(arg_check[0]))
+
+        if len(arg_check[-1]) == 0:
+            raise TypeError('Invalid Type: {} is a empty list'.format(arg_check[0]))
+
+    for arg_check in [('upper_percentage', upper_percentage),
+                      ('upper_probability', upper_probability),
+                      ('lower_percentage', lower_percentage),
+                      ('lower_probability', lower_probability)]:
+        if not isinstance(arg_check[1], int):
+            raise TypeError('{} must an integer'.format(arg_check[0]))
+
+    for arg_check in [('upper_percentage', upper_percentage),
+                      ('lower_percentage', lower_percentage)]:
+        if not isinstance(arg_check[1], int):
+            raise ValueError('{} must an integer between -50 to 50.'.format(arg_check[0]))
+
+    if output_tif is None or output_tif == '':
+        raise TypeError('Please specify an output filename')
+
+    if not os.path.exists(os.path.dirname(output_tif)):
+        raise IOError('Output directory {} does not exist'.format(os.path.dirname(output_tif)))
+
+    start_time = time.time()
+    temp_file_list = []
+    out_prefix, out_ext = os.path.splitext(os.path.basename(output_tif))
+
+    # Process upper ------------------------------------------------------------------------------
+    temp_file_list = [os.path.join(TEMPDIR, out_prefix + '_1_upperyears' + out_ext)]
+    upper_tif = persistor_all_years(upper_raster_files,
+                                    temp_file_list[-1],
+                                    greater_than=True,
+                                    target_percentage=upper_percentage)
+
+    upper_cutoff = (upper_probability / 100.00) * len(upper_raster_files)
+    with rasterio.open(upper_tif, 'r') as src:
+        kwargs = src.meta.copy()
+        band = src.read(masked=True)
+
+        # Greater than test = retuns boolean which can be converted to 0,1
+        data_u = np.where(~band.mask, (band >= upper_cutoff).astype(np.int16), -9999)
+
+    if config.get_debug_mode():
+        temp_file_list += [os.path.join(TEMPDIR, out_prefix + '_2gt_upperprob' + out_ext)]
+        with rasterio.open(temp_file_list[-1], 'w', **kwargs) as dst:
+            dst.write(data_u)
+
+    del band
+
+    # Process lower ------------------------------------------------------------------------------
+    temp_file_list += [os.path.join(TEMPDIR, out_prefix + '_1_loweryears' + out_ext)]
+    lower_tif = persistor_all_years(lower_raster_files,
+                                    temp_file_list[-1],
+                                    greater_than=False,
+                                    target_percentage=lower_percentage)
+
+    lower_cutoff = (lower_probability / 100.00) * len(lower_raster_files)
+    with rasterio.open(lower_tif, 'r') as src:
+        band = src.read(masked=True)
+
+        # Greater than test = retuns boolean which can be converted to 0,1
+        data_l = np.where(~band.mask, np.negative((band >= lower_cutoff).astype(np.int16)), -9999)
+
+        if config.get_debug_mode():
+            temp_file_list += [os.path.join(TEMPDIR, out_prefix + '_2gtn_lowerprob' + out_ext)]
+            with rasterio.open(temp_file_list[-1], 'w', **kwargs) as dst:
+                dst.write(data_l)
+
+        with rasterio.open(output_tif, 'w', **kwargs) as dst:
+            result = np.where(~band.mask, data_l + data_u, -9999)
+            dst.write(result.astype(np.int16))
+
+    LOGGER.info('{:<30} {:>15} {dur}'.format('Persistor Target Probability Completed', '',
+                                             dur=timedelta(seconds=time.time() - start_time)))
+
+    # clean up of intermediate files
+    if len(temp_file_list) > 0 and not config.get_debug_mode():
+        for ea in temp_file_list:
+            for f in glob.glob(os.path.splitext(ea)[0] + '*'):
+                os.remove(f)
+    return

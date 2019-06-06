@@ -490,6 +490,9 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
     if not isinstance(raster_files, list):
         raise TypeError('Invalid Type: raster_files should be a list')
 
+    if len(raster_files) == 0:
+        raise TypeError('Invalid Type: Empty list of raster files')
+
     not_exists = [my_file for my_file in raster_files if not os.path.exists(my_file)]
     if len(not_exists) > 0:
         raise IOError('raster_files: {} raster file(s) do '
@@ -508,14 +511,17 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
     if len(check_pixelsize) == 1:
         resolution = check_pixelsize[0]
     else:
-        raise TypeError("Pixel Sizes Don't Match - {}".format(check_pixelsize))
+        raise TypeError("raster_files are of different pixel sizes - {}".format(list(set(check_pixelsize))))
 
     if len(check_crs) > 0:
         raise TypeError("{} raster(s) don't have coordinates "
-                        "systems assigned".format(len(check_crs)))
+                        "systems assigned \n\t{}".format(len(check_crs),'\n\t'.join(check_crs)))
 
     start_time = time.time()
     step_time = time.time()
+
+    # Make sure ALL masks are saved inside the TIFF file not as a sidecar.
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
 
     try:
         # Find minimum overlapping extent of all rasters ------------------------------------
@@ -623,6 +629,8 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined and clipped', '',
                                                  dur=timedelta(seconds=time.time() - start_time)))
+
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
 
     return output_tif, band_list
 

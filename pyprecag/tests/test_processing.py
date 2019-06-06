@@ -139,7 +139,7 @@ class TestProcessing(unittest.TestCase):
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
-            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5), (2.5, 2.5)]",
+            self.assertEqual('raster_files are of different pixel sizes - [2.5, 0.5]',
                              str(msg.exception))
         raster_files.pop(-1)
 
@@ -161,6 +161,53 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+
+    def test_PersistorAllYears(self):
+        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
+        raster_files += [os.path.realpath(this_dir +
+                                          '/data/rasters/area1_onebox_NDRE_250cm.tif'),
+                         os.path.realpath(this_dir +
+                                          '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+                         ]
+
+        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+
+        with self.assertRaises(TypeError) as msg:
+            persistor_all_years(raster_files,out_img, True, 10)
+            self.assertEqual("raster_files are of different pixel sizes - [(0.5, 0.5), (2.0, 2.0)]",
+                             str(msg.exception))
+        raster_files.pop(-1)
+
+        with self.assertRaises(TypeError) as msg:
+            persistor_all_years(raster_files, out_img, True, 10)
+            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
+                             str(msg.exception))
+        raster_files.pop(-1)
+
+        persistor_all_years(raster_files, out_img, True, 10)
+        self.assertTrue(os.path.exists(out_img))
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertEqual(-9999, src.nodata)
+            band1 = src.read(1, masked=True)
+            self.assertItemsEqual([-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
+
+    def test_PersistorTargetProb(self):
+        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
+
+        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+
+        persistor_target_probability(raster_files,  10, 75,
+                                     raster_files, -10, 75, out_img)
+
+        self.assertTrue(os.path.exists(out_img))
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertEqual(-9999, src.nodata)
+            band1 = src.read(1, masked=True)
+            self.assertItemsEqual([-9999, -1, 0, 1], np.unique(band1.data).tolist())
 
 
 class TestStripTrials(unittest.TestCase):
