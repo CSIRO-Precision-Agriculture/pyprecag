@@ -2404,7 +2404,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
 
 def persistor_all_years(raster_files, output_tif, greater_than, target_percentage):
-    """Determine the performance persistance of yeild by accross multipe years as described in
+    """Determine the performance persistence of yield by accross multipe years as described in
     Bramley and Hamilton (2005)
 
     The "All Years" method identifies cells for each raster within the target percentage above or
@@ -2523,13 +2523,14 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
         upper_raster_files (List[str]): List of rasters to used for the analysis of the
                     UPPER catagory
         upper_percentage (int): the percent variation either above/below the mean to apply
-                    to the UPPER raster category.
+                    to the UPPER category rasters
         upper_probability (int):the probability percentage to apply to the LOWER category
+                    rasters
 
         lower_raster_files (List[str]): List of rasters to used for the analysis of the
-                    LOWER catagory
+                    LOWER catagory rasters
         lower_percentage (int): the percent variation either above/below the mean to apply
-                    to the LOWER raster category.
+                    to the LOWER category rasters
         lower_probability (int): the probability percentage to apply to the LOWER category
 
         output_tif (str): Output TIF file
