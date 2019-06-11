@@ -2404,7 +2404,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
 
 def persistor_all_years(raster_files, output_tif, greater_than, target_percentage):
-    """Determine the performance persistence of yield by accross multipe years as described in
+    """Determine the performance persistence of yield by across multiple years as described in
     Bramley and Hamilton (2005)
 
     The "All Years" method identifies cells for each raster within the target percentage above or
@@ -2499,10 +2499,10 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
 def persistor_target_probability(upper_raster_files, upper_percentage, upper_probability,
                                  lower_raster_files, lower_percentage, lower_probability,
                                  output_tif):
-    """Determine the probability of a performance being exceced or not being met as described in
+    """Determine the probability of a performance being exceeded or not being met as described in
     Bramley and Hamilton (2005).
 
-    The "Target probability" method anlayses and combindes two categories (UPPER and LOWER)
+    The "Target probability" method analysis and combines two categories (UPPER and LOWER)
     of rasters. For each category it assigns a value to each cell to indicate the  probability
         (a) Less than the mean minus a nominated percentage,
         (b) Within the range of mean +/- percentage or
@@ -2512,7 +2512,7 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
 
     All input rasters MUST overlap and have the same coordinate system and pixel size.
 
-    If a path is omited from output_tif it will be created in your temp folder.
+    If a path is omitted from output_tif it will be created in your temp folder.
 
     References:
         Bramley RGV, Hamilton RP (2005) Understanding variability in winegrape production systems
@@ -2521,16 +2521,15 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
 
     Args:
         upper_raster_files (List[str]): List of rasters to used for the analysis of the
-                    UPPER catagory
+                    UPPER category
         upper_percentage (int): the percent variation either above/below the mean to apply
-                    to the UPPER category rasters
+                    to the UPPER raster category.
         upper_probability (int):the probability percentage to apply to the LOWER category
-                    rasters
 
         lower_raster_files (List[str]): List of rasters to used for the analysis of the
-                    LOWER catagory rasters
+                    LOWER category
         lower_percentage (int): the percent variation either above/below the mean to apply
-                    to the LOWER category rasters
+                    to the LOWER raster category.
         lower_probability (int): the probability percentage to apply to the LOWER category
 
         output_tif (str): Output TIF file
