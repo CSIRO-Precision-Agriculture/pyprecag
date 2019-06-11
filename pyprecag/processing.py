@@ -2413,7 +2413,7 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
 
      All input rasters MUST overlap and have the same coordinate system and pixel size.
 
-     If a path is omited from output_tif it will be created in your temp folder.
+     If a path is omitted from output_tif it will be created in your temp folder.
 
     References:
         Bramley RGV, Hamilton RP (2005) Understanding variability in winegrape production systems
