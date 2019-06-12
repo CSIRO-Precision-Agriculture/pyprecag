@@ -2501,7 +2501,7 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
 def persistor_target_probability(upper_raster_files, upper_percentage, upper_probability,
                                  lower_raster_files, lower_percentage, lower_probability,
                                  output_tif):
-     """Determine the probability of a performance being exceeded or not being met as described in
+    """Determine the probability of a performance being exceeded or not being met as described in
     Bramley and Hamilton (2005).
 
     The "Target probability" method analysis and combines two categories (UPPER and LOWER) of
