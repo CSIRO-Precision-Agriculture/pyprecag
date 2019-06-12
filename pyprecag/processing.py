@@ -2462,9 +2462,11 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
             cutoff = np.nanmean(band) + (np.nanmean(band) * (target_percentage / 100.00))
             band_new = band.copy()
 
-            # classifiy bands
-            band_new[np.where(band >= cutoff)] = (greater_than == True)
-            band_new[np.where(band < cutoff)] = (greater_than != True)
+            # classify bands
+            if greater_than == True :
+                band_out = np.where(band > cutoff,1,0)
+            else:
+                band_out = np.where(band < cutoff,1,0)
 
             # reapply nodata values
             band_new[np.where(band.mask)] = -9999
