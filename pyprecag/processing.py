@@ -2501,16 +2501,18 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
 def persistor_target_probability(upper_raster_files, upper_percentage, upper_probability,
                                  lower_raster_files, lower_percentage, lower_probability,
                                  output_tif):
-    """Determine the probability of a performance being exceeded or not being met as described in
+     """Determine the probability of a performance being exceeded or not being met as described in
     Bramley and Hamilton (2005).
 
-    The "Target probability" method analysis and combines two categories (UPPER and LOWER)
-    of rasters. For each category it assigns a value to each cell to indicate the  probability
-        (a) Less than the mean minus a nominated percentage,
-        (b) Within the range of mean +/- percentage or
-        (c) Greater than the mean plus the nominated percentage
-    The UPPER and LOWER categories are then summed creating a tif file representing the
-    probability of a target being met.
+    The "Target probability" method analysis and combines two categories (UPPER and LOWER) of
+    rasters and rules to determine which cells meet a higher performance rule (Upper category),
+    or a lower performance rule (Lower category) as described in Bramley and Hamilton (2005).
+    This is typically applied to data such as yield maps with one yield raster per year.
+
+    Each pixel of the output raster is assigned a value as follows:
+        a) 1 if the upper category rasters meet the upper category rule,
+        b) -1 if the lower category rasters meet the lower category rule
+        c) zero otherwise
 
     All input rasters MUST overlap and have the same coordinate system and pixel size.
 
@@ -2581,7 +2583,7 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
         band = src.read(masked=True)
 
         # Greater than test = retuns boolean which can be converted to 0,1
-        data_u = np.where(~band.mask, (band >= upper_cutoff).astype(np.int16), -9999)
+        data_u = np.where(~band.mask, (band > upper_cutoff).astype(np.int16), -9999)
 
     if config.get_debug_mode():
         temp_file_list += [os.path.join(TEMPDIR, out_prefix + '_2gt_upperprob' + out_ext)]
@@ -2601,7 +2603,8 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
     with rasterio.open(lower_tif, 'r') as src:
         band = src.read(masked=True)
 
-        # Greater than test = retuns boolean which can be converted to 0,1
+        # (band >= lower_cutoff) returns booleans (0,1) we need (0,-1) so
+        # convert to integer and use np.negative to switch it while maintaining the nodata values.
         data_l = np.where(~band.mask, np.negative((band >= lower_cutoff).astype(np.int16)), -9999)
 
         if config.get_debug_mode():
