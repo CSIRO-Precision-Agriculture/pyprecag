@@ -1,15 +1,19 @@
+import inspect
 import logging
 
 import os
 import time
 import warnings
 from datetime import timedelta
+from tempfile import NamedTemporaryFile
 
 from osgeo import gdal
 import numpy as np
 import rasterio
 from rasterio.enums import Resampling
+from rasterio import shutil as rio_shutil
 from rasterio.warp import calculate_default_transform, reproject
+from rasterio.windows import get_data_window, from_bounds, intersection
 
 from scipy.ndimage import generic_filter
 from . import crs as pyprecag_crs
@@ -453,6 +457,182 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
                 dur=timedelta(seconds=time.time() - start_time)))
 
             del transform
+
+
+def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
+    """Combine multiple single band files into a single multi band raster where one band represents
+    one file. The filename will be saved in the bands tag. Optionally a minimum common area mask
+    can be applied.
+
+    All input rasters MUST be of the same coordinate system and pixel size.
+
+    Args:
+        raster_files (List[str]): list of raster files to process
+        use_common (bool):  if true input rasters will be masked to the minimum common data area
+        output_tif (str):  output tif name. if omitted will be created in TEMPDIR
+
+    Returns:
+        str(): The output tif file
+        list(): A list of the band tags. (ie order of allocation to bands)
+    """
+    # if output_tif doesn't include a path then add tempdir as well as overwriting it
+    if output_tif is not None and not os.path.isabs(output_tif):
+        output_tif = os.path.join(TEMPDIR, output_tif)
+
+    if output_tif is None or config.get_debug_mode():
+        # get a unique name, it will create, open the file and delete after saving the variable
+        with NamedTemporaryFile(prefix='{}_'.format(
+                inspect.getframeinfo(inspect.currentframe())[2]),
+                suffix='.tif', dir=TEMPDIR) as new_file:
+            output_tif = new_file.name
+        del new_file
+
+    if not isinstance(raster_files, list):
+        raise TypeError('Invalid Type: raster_files should be a list')
+
+    if len(raster_files) == 0:
+        raise TypeError('Invalid Type: Empty list of raster files')
+
+    not_exists = [my_file for my_file in raster_files if not os.path.exists(my_file)]
+    if len(not_exists) > 0:
+        raise IOError('raster_files: {} raster file(s) do '
+                      'not exist\n\t({})'.format(len(not_exists), '\n\t'.join(not_exists)))
+
+    check_pixelsize = []
+    check_crs = []
+
+    for ea_raster in raster_files:
+        with rasterio.open(ea_raster) as src:
+            if src.crs is None:
+                check_crs.append(ea_raster)
+            if src.res not in check_pixelsize:
+                check_pixelsize.append(src.res)
+
+    if len(check_pixelsize) == 1:
+        resolution = check_pixelsize[0]
+    else:
+        raise TypeError("raster_files are of different pixel sizes - {}".format(list(set(check_pixelsize))))
+
+    if len(check_crs) > 0:
+        raise TypeError("{} raster(s) don't have coordinates "
+                        "systems assigned \n\t{}".format(len(check_crs),'\n\t'.join(check_crs)))
+
+    start_time = time.time()
+    step_time = time.time()
+
+    # Make sure ALL masks are saved inside the TIFF file not as a sidecar.
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', 'YES')
+
+    try:
+        # Find minimum overlapping extent of all rasters ------------------------------------
+        for i, ea_raster in enumerate(raster_files, start=1):
+            with rasterio.open(ea_raster) as src:
+
+                band1 = src.read(1, masked=True)
+
+                # get minimum data extent
+                data_window = get_data_window(band1)
+
+                # find the intersection of all the windows
+                if i == 1:
+                    min_window = data_window
+                else:
+                    # create a new window using the last coordinates based on this image in case
+                    # extents/pixel origins are different
+                    min_img_window = from_bounds(*min_bbox, transform=src.transform)
+
+                    # find the intersection of the windows.
+                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+
+                # convert the window co coordinates
+                min_bbox = src.window_bounds(min_window)
+
+                del min_window
+        if config.get_debug_mode():
+            LOGGER.info('{:<30} {:<15} {dur} {}'.format(
+                'Found Common Extent', '', min_bbox,
+                dur=timedelta(seconds=time.time() - step_time)))
+
+    except rasterio.errors.WindowError as e:
+        # reword 'windows do not intersect' error message
+        if not e.args:
+            e.args = ('',)
+        e.args = ("Rasters (Images) do not overlap",)
+
+        raise  # re-raise current exception
+
+    # Create the metadata for the overlapping extent image. ---------------------------------------
+    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0],
+                                                             buffer_by_pixels=5)
+
+    # update the new image metadata ---------------------------------------------------------------
+    kwargs = rasterio.open(raster_files[0]).meta.copy()
+    kwargs.update({'count': len(raster_files), 'nodata': -9999,
+                   'height': height, 'width': width,
+                   'transform': transform})
+
+    ''' combine individual rasters into one multi-band tiff using reproject will 
+           fit each raster to the same pixel origin
+           will crop to the min bbox
+           standardise the nodata values
+           apply nodata values to entire image including internal blocks'''
+
+    with rasterio.open(output_tif, 'w', **kwargs) as dst:
+        band_list = []
+        for i, ea_raster in enumerate(raster_files, start=1):
+            image = os.path.basename(os.path.splitext(ea_raster)[0])
+            band_list.append(image)
+
+            with rasterio.open(ea_raster) as src:
+                reproject(source=rasterio.band(src, 1),
+                          destination=rasterio.band(dst, i),
+                          src_transform=src.transform,
+                          dst_transform=transform,
+                          resampling=Resampling.nearest)
+
+            dst.update_tags(i, **{'name': image})
+
+        dst.descriptions = band_list
+    if config.get_debug_mode():
+        LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined', '',
+                                                 dur=timedelta(seconds=time.time() - step_time)))
+
+    # find the common data area -------------------------------------------------------
+    if use_common:
+        with rasterio.open(output_tif, 'r+') as src:
+            # find common area across all bands as there maybe internal nodata values in some bands.
+            mask = []
+
+            # loop through all all the masks
+            for ea_mask in src.read_masks():
+                if len(mask) == 0:
+                    mask = ea_mask
+                else:
+                    mask = mask & ea_mask
+
+            # change mask values to  0 = nodata, 1 = valid data
+            mask[mask == 255] = 1
+
+            # apply mask to all bands of file
+            src.write_mask(mask)
+
+        if config.get_debug_mode():
+            # write mask to new file
+            tmp_file = os.path.join(TEMPDIR, output_tif.replace('.tif', '_commonarea.tif'))
+
+            kwargs_tmp = kwargs.copy()
+            kwargs_tmp.update({'count': 1, 'nodata': 0,
+                               'dtype': rasterio.dtypes.get_minimum_dtype(mask)})
+
+            with rasterio.open(tmp_file, 'w', **kwargs_tmp) as tmp_dst:
+                tmp_dst.write(mask, 1)
+
+        LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined and clipped', '',
+                                                 dur=timedelta(seconds=time.time() - start_time)))
+
+    gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
+
+    return output_tif, band_list
 
 
 def update_band_statistics_GDAL(raster_file):

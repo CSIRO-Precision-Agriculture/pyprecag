@@ -132,19 +132,16 @@ class TestProcessing(unittest.TestCase):
         self.assertEqual(rand_crs, rast_crs)
 
     def test_kmeansCluster(self):
-        raster_files = [os.path.realpath(this_dir + '/data/area1_onebox_NDRE_250cm.tif'),
-                        os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif'),
-                        os.path.realpath(this_dir + '/data/area1_onebox_NDVI_250cm.tif'),
-                        os.path.realpath(this_dir + '/data/area1_onebox_PCD_250cm.tif'),
-                        os.path.realpath(this_dir + '/data/area1_onebox_Yield_250cm.tif')
-                        ]
+        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/*one*.tif'))
+        raster_files += [os.path.realpath(this_dir +
+                                          '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')]
 
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
-            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5), (2.5, 2.5)]",
+            self.assertEqual('raster_files are of different pixel sizes - [2.5, 0.5]',
                              str(msg.exception))
-        raster_files.pop(0)
+        raster_files.pop(-1)
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
@@ -164,6 +161,53 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+
+    def test_PersistorAllYears(self):
+        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
+        raster_files += [os.path.realpath(this_dir +
+                                          '/data/rasters/area1_onebox_NDRE_250cm.tif'),
+                         os.path.realpath(this_dir +
+                                          '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+                         ]
+
+        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+
+        with self.assertRaises(TypeError) as msg:
+            persistor_all_years(raster_files,out_img, True, 10)
+            self.assertEqual("raster_files are of different pixel sizes - [(0.5, 0.5), (2.0, 2.0)]",
+                             str(msg.exception))
+        raster_files.pop(-1)
+
+        with self.assertRaises(TypeError) as msg:
+            persistor_all_years(raster_files, out_img, True, 10)
+            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
+                             str(msg.exception))
+        raster_files.pop(-1)
+
+        persistor_all_years(raster_files, out_img, True, 10)
+        self.assertTrue(os.path.exists(out_img))
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertEqual(-9999, src.nodata)
+            band1 = src.read(1, masked=True)
+            self.assertItemsEqual([-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
+
+    def test_PersistorTargetProb(self):
+        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
+
+        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+
+        persistor_target_probability(raster_files,  10, 75,
+                                     raster_files, -10, 75, out_img)
+
+        self.assertTrue(os.path.exists(out_img))
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertEqual(-9999, src.nodata)
+            band1 = src.read(1, masked=True)
+            self.assertItemsEqual([-9999, -1, 0, 1], np.unique(band1.data).tolist())
 
 
 class TestStripTrials(unittest.TestCase):
@@ -326,9 +370,9 @@ class TestStripTrials(unittest.TestCase):
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 
-        values_rast = os.path.realpath(this_dir + "/data/strip/Yield_withStrip_PRED_2m.tif")
-        control_raster = os.path.realpath(this_dir + "/data/strip/Yield_withoutStrip_PRED_2m.tif")
-        zone_raster = os.path.realpath(this_dir + "/data/strip/k-means_3clusters_3rasters_2m.tif")
+        values_rast = os.path.realpath(this_dir + "/data/rasters/Yield_withStrip_PRED_2m.tif")
+        control_raster = os.path.realpath(this_dir + "/data/rasters/Yield_withoutStrip_PRED_2m.tif")
+        zone_raster = os.path.realpath(this_dir + "/data/rasters/k-means_3clusters_3rasters_2m.tif")
 
         result = ttest_analysis(gdf_points, crs_points,
                                 values_rast, TmpDir,
@@ -474,7 +518,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
@@ -502,7 +546,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
@@ -535,7 +579,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
@@ -567,7 +611,7 @@ class TestCalculateImageIndices(unittest.TestCase):
             os.makedirs(out_dir)
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(**bm).valid_indices()
         files = calc_indices_for_block(image_file, 2,
@@ -634,7 +678,7 @@ class TestResampleToBlock(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         files = resample_bands_to_block(image_file, 2,
                                         out_dir, band_nums=[6], image_epsg=32754, image_nodata=0,
@@ -664,7 +708,7 @@ class TestResampleToBlock(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, out_epsg=28354)
 
@@ -691,7 +735,7 @@ class TestResampleToBlock(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, polygon_shapefile=poly_shapefile,
@@ -717,7 +761,7 @@ class TestResampleToBlock(unittest.TestCase):
         new_image = os.path.join(out_dir, 'geotif_32754_no-nodata-7777.tif')
         crs_sutm54 = rasterio.crs.CRS.from_epsg(32754)
 
-        image_file = os.path.realpath(this_dir + '/data/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         with rasterio.open(image_file) as src:
             meta = src.meta.copy()
             del meta['crs']
