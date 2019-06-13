@@ -60,6 +60,7 @@ def calculate_strip_stats(input_table, treatment_column, control_columns=[], siz
 
     Returns:
         pandas.core.frame.DataFrame: The output table containing new statistics columns
+        control_mean (str): The column used as the control mean.
     """
 
     if isinstance(input_table, GeoDataFrame):
@@ -83,11 +84,19 @@ def calculate_strip_stats(input_table, treatment_column, control_columns=[], siz
     input_table = input_table.copy()
 
     ''' Statistics ----------------------------------------------------------------- '''
-    # calculate the mean for the column(s)
-    input_table['controls_mean'] = input_table[control_columns].mean(axis=1)
+    if len(control_columns) > 1:
+        # calculate the mean for the column(s)
+        control_mean = '-'.join(control_columns)
+        control_mean = control_mean.replace(' Strip Value', '')
+        control_mean = control_mean.replace(' Strip Control', '')
+        control_mean = '{}_mean'.format(control_mean.strip())
+        input_table[control_mean] = input_table[control_columns].mean(axis=1)
 
-    # calculate the difference
-    input_table['treat_diff'] = input_table[treatment_column] - input_table['controls_mean']
+    else:
+        control_mean = control_columns[0]
+
+        # calculate the difference
+    input_table['treat_diff'] = input_table[treatment_column] - input_table[control_mean]
 
     # Moving Mean for values diff
     input_table['av_treat_dif'] = input_table['treat_diff'].rolling(size, center=True).mean()
@@ -100,13 +109,13 @@ def calculate_strip_stats(input_table, treatment_column, control_columns=[], siz
 
     input_table = input_table.set_index(treatment_column, drop=False)
 
-    input_table['p_value'] = input_table['controls_mean'].rolling(
+    input_table['p_value'] = input_table[control_mean].rolling(
         window=size, center=True).apply(t_test, raw=False)
 
-    input_table['RI'] = input_table['controls_mean'].rolling(
+    input_table['RI'] = input_table[control_mean].rolling(
         window=size, center=True).apply(response_index, raw=False)
 
     # reset index
     input_table.set_index('TrialPtID', drop=False, inplace=True)
 
-    return input_table
+    return input_table, control_mean
