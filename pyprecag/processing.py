@@ -2206,11 +2206,13 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             file_path_noext = os.path.join(out_folder, "Trial-{}_{}-strip".format(line_id,
                                                                                   offset_subst))
 
-            df_statstable = calculate_strip_stats(df_subtable.drop(columns=dropcols),
+            df_statstable, control_mean = calculate_strip_stats(df_subtable.drop(columns=dropcols),
                                                   column_names['Value'][0],
                                                   control_col, size=size)
 
-            df_statstable.to_csv(file_path_noext + '.csv', index=False)  # na_rep=rast_nodata
+            df_statstable.drop(columns=['FID','TrialPtID'],axis=1).to_csv(
+                file_path_noext + '.csv', index=False)
+
             if config.get_debug_mode():
                 LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
                     'Saved CSV', '', file_path_noext + '.csv',
@@ -2339,7 +2341,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             df_statstable.plot(x='DistOnLine', y=column_names['Value'][0], marker='.', ax=axs[0],
                                label='Treatment')  # ,colormap='rainbow', figsize=(25, 5))
 
-            df_statstable.plot(x='DistOnLine', y='controls_mean', marker='.', ax=axs[0],
+            df_statstable.plot(x='DistOnLine', y=control_mean, marker='.', ax=axs[0],
                                label='Control')
 
             for name, group in df_statstable.groupby(['Strip Zone', 'zone_marker', 'sig_color',
@@ -2368,7 +2370,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             for iax, ea_ax in enumerate(axs):
                 ea_ax.grid(True, which='major', axis='x')
-                ea_ax.set(xlabel="Distance (m)")
+                ea_ax.set(xlabel="Distance (m) from start of strip (see map)")
                 # increase graph outline
                 plt.setp(ea_ax.spines.values(), linewidth=1)
 
