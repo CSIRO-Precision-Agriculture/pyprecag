@@ -22,11 +22,11 @@ class TestTableOps(TestCase):
                            'Strip Value': [4.6034, 4.9931, 5.2358, 5.3660, 5.3959, 5.3928,
                                            5.3153, 5.3071, 5.4854]})
 
-        result = calculate_strip_stats(df, 'Strip Value', size=5,
+        result, col = calculate_strip_stats(df, 'Strip Value', size=5,
                                        control_columns=['N Strip Control', 'S Strip Control'])
 
         self.assertEqual(9, len(result.columns))
-
+        self.assertEqual('N-S_mean',col)
 
 
 
