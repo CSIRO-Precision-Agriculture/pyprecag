@@ -320,16 +320,17 @@ class TestEnd2End(unittest.TestCase):
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files + [fileImage], out_img)
-            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5),"
-                             " (2.5, 2.5)]", str(msg.exception))
+        self.assertEqual("raster_files are of different pixel sizes - [(2.5, 2.5), (0.5, 0.5)]",
+                         str(msg.exception))
 
         with self.assertRaises(TypeError) as msg:
-            _ = kmeans_clustering(self.gridextract_files +
-                                  [os.path.realpath(this_dir + '/data/rasters/'
-                                                               'area1_onebox_NDRE_250cm.tif')]
-                                  , out_img)
-            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
-                             str(msg.exception))
+            _ = kmeans_clustering(
+                self.gridextract_files +
+                [os.path.realpath(this_dir + '/data/rasters/area1_onebox_NDRE_250cm.tif')],
+                out_img)
+
+        self.assertEqual("1 raster(s) don't have coordinates systems assigned ",
+                             str(msg.exception).split('\n')[0])
 
         out_df = kmeans_clustering(self.gridextract_files, out_img)
 

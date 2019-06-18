@@ -92,4 +92,4 @@ class TestBandOps(unittest.TestCase):
 
         with self.assertRaises(KeyError) as msg:
             ci.calculate('NDVIa', file_image, src_nodata=0)
-            self.assertEqual(msg, "KeyError: 'NDVIA'")
+        self.assertEqual("'NDVIA'", str(msg.exception))

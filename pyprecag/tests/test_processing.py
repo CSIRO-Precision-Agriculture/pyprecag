@@ -95,6 +95,7 @@ class TestProcessing(unittest.TestCase):
         self.assertTrue(gdf_pts_crs, out_crs)
         self.assertEqual(out_gdf.crs, {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
+        self.assertIn('EN_EPSG', out_gdf.columns)
 
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
@@ -139,14 +140,15 @@ class TestProcessing(unittest.TestCase):
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
-            self.assertEqual('raster_files are of different pixel sizes - [2.5, 0.5]',
-                             str(msg.exception))
+        self.assertEqual('raster_files are of different pixel sizes - [(2.5, 2.5), (0.5, 0.5)]',
+                         str(msg.exception))
         raster_files.pop(-1)
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
-            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
-                             str(msg.exception))
+        self.assertEqual("1 raster(s) don't have coordinates systems assigned ",
+                         str(msg.exception).split('\n')[0])
+
         raster_files.pop(0)
 
         out_df = kmeans_clustering(raster_files, out_img)
@@ -173,15 +175,15 @@ class TestProcessing(unittest.TestCase):
         out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
 
         with self.assertRaises(TypeError) as msg:
-            persistor_all_years(raster_files,out_img, True, 10)
-            self.assertEqual("raster_files are of different pixel sizes - [(0.5, 0.5), (2.0, 2.0)]",
-                             str(msg.exception))
+            persistor_all_years(raster_files, out_img, True, 10)
+        self.assertEqual("raster_files are of different pixel sizes - [(2.5, 2.5), (0.5, 0.5),"
+                         " (2.0, 2.0)]", str(msg.exception))
         raster_files.pop(-1)
 
         with self.assertRaises(TypeError) as msg:
             persistor_all_years(raster_files, out_img, True, 10)
-            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
-                             str(msg.exception))
+        self.assertEqual('raster_files are of different pixel sizes - [(2.5, 2.5), (2.0, 2.0)]',
+                         str(msg.exception))
         raster_files.pop(-1)
 
         persistor_all_years(raster_files, out_img, True, 10)
@@ -198,7 +200,7 @@ class TestProcessing(unittest.TestCase):
 
         out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
 
-        persistor_target_probability(raster_files,  10, 75,
+        persistor_target_probability(raster_files, 10, 75,
                                      raster_files, -10, 75, out_img)
 
         self.assertTrue(os.path.exists(out_img))
