@@ -1,3 +1,4 @@
+import collections
 import datetime
 import glob
 import inspect
@@ -8,12 +9,15 @@ import re
 import shutil
 import subprocess
 import time
+import warnings
 
 import geopandas as gpd
 import pandas as pd
 import rasterio
 from rasterio import features
+
 from unidecode import unidecode
+from collections import OrderedDict
 
 from . import config
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
@@ -31,6 +35,128 @@ vesper_exe = r"C:\Program Files (x86)\Vesper\Vesper1.6.exe"
 def test_for_windows():
     if platform.system() != 'Windows':
         raise IOError("Kriging currently only available on Windows with Vesper installed")
+
+
+# consider enums - https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
+# The codes for the variogram. The key is the tag used in the control file_csv
+VESPER_OPTIONS = {
+    "modtyp": {"Spherical": 1, "Exponential": 2, "Gaussian": 3, "Linear with sill": 4,
+               "Stable": 5, "Generalised Cauchy": 6, "Matern": 7, "Double spherical": 8,
+               "Double exponential": 9},
+    'jlockrg': {'Local': 1, 'Global': 0},
+    'jpntkrg': {'Block': 0, 'Point': 1, 'Punctual': 1},
+    'jsetrad': {'Calculate Radius': 0, 'Set Radius': 1},
+    'jcomvar': {'Define Variogram Parameter': 0, 'Compute Variogram': 1},
+    'jigraph': {"Don't Show": 0, 'Show': 1},
+    'jimap': {"Don't Show": 0, 'Show': 1}}
+
+
+class VesperControl(collections.MutableMapping, dict):
+    """A dictionary used to manage vesper control keys and values.
+
+    The list of keys is confined to those in __defaults, values are checked against the default
+    and must be the same type.
+
+    Attributes:
+        __defaults = values to use as defaults. Defaults are set for type as well ie 0.00 = float
+        key_order = This doubles as the list of allowed keys and the order required when writing
+               to file with the exception of epsg.
+    """
+
+    __defaults = dict(ivers=16121, title='kriging of control.txt configured by pyprecag epsg=',
+                      datfil='vesperdata.csv', gridfile='vespergrid.txt', outdir='', epsg=0,
+                      repfil='report.txt', outfil='kriged.txt', parfil='parameter.txt', numcol=4,
+                      icol_x=1, icol_y=2, icol_z=3, jordkrg=1, jpntkrg=0, jlockrg=1, nest=10,
+                      dstinc=1, valmis=-9999, jsetint=0, xlint=0, xhint=0, ylint=0, yhint=0,
+                      jsetrad=0, radius=100, minpts=90, maxpts=100, sigsqr=0, isomod=1, modtyp=2,
+                      isearch=0, igeos=0, icircs=0, phi=0, psin=0, pcos=0, jcomvar=1, nlag=20,
+                      hmax=0, tolag=10, iwei=1, jigraph=0, jimap=0,
+                      CO=0.0, C1=1.0, A1=10.0, C2=1.0, A2=1.0, Alfa=1.0,
+                      xside=10, yside=10, lognorm=0, itrend=0, iconvex=0, igrids=1)
+
+    # epsg is an non-vesper key so it is excluded from the key_order and written at top of file
+    key_order = ['ivers', 'title', 'datfil', 'gridfile', 'outdir', 'repfil', 'outfil', 'parfil',
+                 'numcol', 'icol_x', 'icol_y', 'icol_z', 'jordkrg', 'jpntkrg', 'jlockrg', 'nest',
+                 'dstinc', 'valmis', 'jsetint', 'xlint', 'xhint', 'ylint', 'yhint', 'jsetrad',
+                 'radius', 'minpts', 'maxpts', 'sigsqr', 'isomod', 'modtyp', 'isearch', 'igeos',
+                 'icircs', 'phi', 'psin', 'pcos', 'jcomvar', 'nlag', 'hmax', 'tolag', 'iwei',
+                 'jigraph', 'jimap', 'CO', 'C1', 'A1', 'C2', 'A2', 'Alfa', 'xside', 'yside',
+                 'lognorm', 'itrend', 'iconvex', 'igrids']
+
+    def __init__(self, *args, **kwargs):
+        self.update(**self.__defaults)
+        self.update(*args, **kwargs)
+
+    def __getitem__(self, key):
+        return dict.__getitem__(self, key)
+
+    def __setitem__(self, key, value):
+        """ check if key is from a predefined list and the value of the correct type
+
+        epsg is an non-vesper key so it is excluded from the keyorder and written at top of file
+        """
+
+        if key not in self.key_order + ['epsg']:
+            raise AttributeError('VesperControl has no attribute {}'.format(key))
+
+        if key in VESPER_OPTIONS.keys():
+            if isinstance(value, basestring):
+                try:
+                    value = VESPER_OPTIONS[key][value]
+                except KeyError:
+                    raise ValueError('{} is an invalid option for {}. Options are {}'.format(
+                        value, key, VESPER_OPTIONS[key]))
+
+            elif isinstance(value, (int, float, long)):
+                if value not in VESPER_OPTIONS[key].values():
+                    raise ValueError('{} is an invalid option for {}. Options are {}'.format(
+                        value, key, VESPER_OPTIONS[key]))
+
+        if isinstance(self.__defaults[key], float):
+            if not isinstance(value, (int, long, float)):
+                raise ValueError('value for key {} should be a float or int - Got {}'.format(
+                    key, type(value.__name__)))
+
+        elif type(self.__defaults[key]) != type(value):
+            raise ValueError('value for key {} should be a {} - Got {}'.format(
+                key, type(self.__defaults[key]).__name__, type(value).__name__))
+
+        dict.__setitem__(self, key, value)
+
+    def __delitem__(self, key):
+        dict.__setitem__(self, key, self.__defaults[key])
+
+    def __iter__(self):
+        return dict.__iter__(self)
+
+    def __len__(self):
+        return dict.__len__(self)
+
+    def __contains__(self, x):
+        return dict.__contains__(self, x)
+
+    def updated_keys(self):
+        updated_keys = dict(set(self.items()) - set(self.__defaults.items()))
+        return updated_keys
+
+    def write_to_file(self, output_file):
+        if output_file == '':
+            raise ValueError('Output file not specified')
+
+        if not os.path.exists(os.path.dirname(output_file)):
+            raise ValueError('Output folder {} does not exist'.format(os.path.dirname(output_file)))
+
+        with open(output_file, "w") as w_out:
+            # add epsg tag outside the standard vesper file denoted by $vsl and $end
+            w_out.write('epsg={}\n'.format(self['epsg']))
+            w_out.write('$vsl\n')
+            for key in self.key_order:
+                # need to quote the strings
+                if key in ['title', 'datfil', 'gridfile', 'outdir', 'repfil', 'outfil', 'parfil']:
+                    w_out.write("{}='{}'\n".format(key, self[key]))
+                else:
+                    w_out.write('{}={}\n'.format(key, self[key]))
+            w_out.write('$end\n')
 
 
 def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
@@ -151,11 +277,19 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
 
 def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folder,
-                             control_textfile='',
-                             block_size=10, coord_columns=[], epsg=0, display_graphics=False,
-                             vesper_exe=vesper_exe):
+                             control_textfile='', coord_columns=[], epsg=0, display_graphics=False,
+                             control_options=VesperControl(),
+                             block_size=10,
+                             vesper_exe=vesper_exe, ):
     """Prepare data for vesper kriging and create a windows batch file to run outside the
     python/pyprecag environment.
+
+    The input arguments will be used to update the control_options.
+
+    A description of the keys and their options can be found in the VESPER user manual at
+    https://sydney.edu.au/agriculture/pal/documents/Vesper_1.6_User_Manual.pdf
+
+    block_size will be replaced by the xside and yside keys in the VesperControl Object.
 
     Outputs:  The following files will be added to the vesper sub-folder in the output folder.
         *_control_*.txt  - The vesper control file
@@ -170,6 +304,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     to the config.json file.
 
     Args:
+
         in_dataframe (geopandas.geodataframe.GeoDataFrame, pandas.core.frame.DataFrame):
         krig_column (str): The column containing the data to krige.
         grid_filename (str): The vesper grid file.
@@ -181,7 +316,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
                      enepsg column (if exists) will be used.
         display_graphics (bool): Option to display graphics while running vesper kriging.
         vesper_exe (str): The path for the location of the Vesper executable
-
+        control_options (pyprecag.kriging_ops.VesperControl): Vesper control settings parameters
     Returns:
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
@@ -202,6 +337,9 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     if not isinstance(block_size, (int, long)):
         raise TypeError('block_size must be an integer'.format(block_size))
 
+    warnings.warn('block_size is deprecated, use VesperControl xsize and ysize instead',
+                  PendingDeprecationWarning)
+
     if out_folder.strip() in [None, '']:
         raise TypeError('Please specify an output folder')
 
@@ -220,6 +358,9 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     if not isinstance(epsg, (int, long)):
         raise TypeError('EPSG {} must be a integer.'.format(epsg))
+
+    if not isinstance(control_options, VesperControl):
+        raise TypeError('control_options must of type VesperControl')
 
     start_time = time.time()
 
@@ -287,7 +428,8 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     x_field, y_field = coord_columns
 
-    keep_cols = [findCol for findCol in ['EN_EPSG', 'ENEPSG'] if findCol in in_dataframe.columns]
+    keep_cols = [findCol for findCol in ['EN_EPSG', 'ENEPSG', 'EPSG']
+                 if findCol in in_dataframe.columns]
     if epsg == 0 and len(keep_cols) > 0:
         for col in keep_cols:
             if in_dataframe.iloc[0][col] > 0:
@@ -306,98 +448,58 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     i_y_column = df_csv.columns.tolist().index(y_field) + 1
     i_k_column = df_csv.columns.tolist().index(krig_column) + 1
 
-    # ---------------------------------------------------------------------------------------
-    # Write a VESPER control file for LOCAL KRIGING ONLY
-    with open(vesper_ctrlfile, 'w') as wCntrlFile:
-        wCntrlFile.write("$vsl\n")
-        wCntrlFile.write("ivers=16121\n")
-        wCntrlFile.write(
-            "title='kriging of {} configured by pyprecag epsg={}'\n".format(control_textfile, epsg))
+    # update the control_options for the new csv file
+    control_options.update(epsg=epsg,
+                           title="kriging of {} configured by pyprecag".format(control_textfile),
+                           datfil="{}".format(data_file),
+                           gridfile="{}".format(grid_file),
+                           outdir="",  # blank writes to control file_csv folder
+                           repfil="{}".format(report_file),
+                           outfil="{}".format(kriged_file),
+                           parfil="{}".format(param_file),
+                           numcol=len(df_csv.columns),
+                           icol_x=i_x_column,
+                           icol_y=i_y_column,
+                           icol_z=i_k_column,
+                           jigraph=int(display_graphics),  # 1, show graph, otherwise 0
+                           jimap=int(display_graphics),  # 1, show map, otherwise 0)
+                           )
 
-        wCntrlFile.write("datfil='{}'\n".format(data_file))
-        wCntrlFile.write("gridfile='{}'\n".format(grid_file))
-        wCntrlFile.write("outdir=''\n".format(vesper_outdir))
-        wCntrlFile.write("repfil='{}'\n".format(report_file))
-        wCntrlFile.write("outfil='{}'\n".format(kriged_file))
-        wCntrlFile.write("parfil='{}'\n".format(param_file))
+    # high density kriging. fix for pre VesperControl Class
+    control_options.update({"xside": block_size,
+                            "yside": block_size})
 
-        wCntrlFile.write("numcol={}\n".format(len(df_csv.columns)))
-        wCntrlFile.write("icol_x={}\n".format(i_x_column))
-        wCntrlFile.write("icol_y={}\n".format(i_y_column))
-        wCntrlFile.write("icol_z={}\n".format(i_k_column))
-        wCntrlFile.write("jordkrg=1\n")
-        wCntrlFile.write("jpntkrg=0\n")  # 1 = point kriging , 0 = block kriging
-        wCntrlFile.write("jlockrg=1\n")  # 1 = local variogram kriging , 0 = global variogram
-        wCntrlFile.write("nest=10\n")
-        wCntrlFile.write("dstinc=1\n")
-        wCntrlFile.write("valmis=-9999\n")  # missing value
-        wCntrlFile.write("jsetint=0\n")
-        wCntrlFile.write("xlint=0\n")
-        wCntrlFile.write("xhint=0\n")
-        wCntrlFile.write("ylint=0\n")
-        wCntrlFile.write("yhint=0\n")
-        wCntrlFile.write("jsetrad=0\n")  # 1 = set radius, 0 = calculate radius
-        wCntrlFile.write("radius=100\n")  # search radius (when jsetrad=1)
-        wCntrlFile.write("minpts=90\n")  # min. no. of points for interpolation
-        wCntrlFile.write("maxpts=100\n")  # max. no. of points for interpolation
-        wCntrlFile.write("sigsqr=0\n")
-        wCntrlFile.write("isomod=1\n")
-        wCntrlFile.write("modtyp=2\n")
-        wCntrlFile.write("isearch=0\n")
-        wCntrlFile.write("igeos=0\n")
-        wCntrlFile.write("icircs=0\n")
-        wCntrlFile.write("phi=0\n")
-        wCntrlFile.write("psin=0\n")
-        wCntrlFile.write("pcos=0\n")
-        wCntrlFile.write("jcomvar=1\n")
-        wCntrlFile.write("nlag=20\n")
-        wCntrlFile.write("hmax=0\n")
-        wCntrlFile.write("tolag=10\n")
-        wCntrlFile.write("iwei=1\n")
-        wCntrlFile.write(
-            "jigraph={}\n".format(int(display_graphics)))  # 1=show graph of variogram, otherwise 0
-        wCntrlFile.write(
-            "jimap={}\n".format(int(display_graphics)))  # 1=show map of interpolation, otherwise 0
-        wCntrlFile.write("CO=0\n")
-        wCntrlFile.write("C1=1\n")
-        wCntrlFile.write("A1=10\n")
-        wCntrlFile.write("C2=1\n")
-        wCntrlFile.write("A2=1\n")
-        wCntrlFile.write("Alfa=1\n")
-        wCntrlFile.write(
-            "xside={}\n".format(block_size))  # Block size (in x direction) for block kriging
-        wCntrlFile.write(
-            "yside={}\n".format(block_size))  # Block size (in y direction) for block kriging
-        wCntrlFile.write("lognorm=0\n")
-        wCntrlFile.write("itrend=0\n")
-        wCntrlFile.write("iconvex=0\n")
-        wCntrlFile.write("igrids=1\n")
-        wCntrlFile.write("$end\n")
+    # ---------------------------------------------------------------------------------------------
+    # Write a VESPER control file
+    control_options.write_to_file(vesper_ctrlfile)
+
+    bat_file_string = ("@echo off\n"
+                       # "REM enable delayed variable expansion, t\n"
+                       "setlocal enabledelayedexpansion\n"
+                       "echo Processing control files in %CD%\n"
+                       "echo.\n"
+                       "set icount=0\n"
+                       "set tcount=0\n"
+                       "\nREM count the number of control files\n"
+                       "for %%x in (*control*.txt) do set /a tcount+=1'\n"
+                       "echo Found %tcount% control file_csv(s) to process....\n"
+                       "echo.\n"
+                       # suppress newline char and enable 'FINISHED' to be added
+                       # setlocal enabledelayedexpansion and ! instead of % will
+                       # evaluate a variable when they appear instead of when the
+                       # batch is parsed
+                       "FOR %%f IN (*control*) DO (\n"
+                       "   set /a icount+=%icount%+1\n"
+                       "    <nul set /p mystr=Kriging !icount! of %tcount% - %%~nxf \n"
+                       '   start "" /HIGH /WAIT /SHARED \"{exe}\" %%~nxf\n'
+                       "   echo - Finished \n"
+                       ")\n"  # close bracket for for /f do loop
+                       # "echo.\n"
+                       # "pause\n"
+                       .format(exe=vesper_exe))
 
     with open(vesper_batfile, 'w') as wBatFile:
-        wBatFile.write("@echo off\n")
-        # enable delayed variable expansion, t
-        wBatFile.write('setlocal enabledelayedexpansion\n')
-        wBatFile.write("echo Processing control files in %CD%\n")
-        wBatFile.write("echo.\n")
-        wBatFile.write('set icount=0\n')
-        wBatFile.write('set tcount=0\n')
-        wBatFile.write(
-            r'for %%x in (*control*.txt) do set /a tcount+=1' + '\n')  # count of control files
-        wBatFile.write('echo Found %tcount% control file(s) to process....\n')
-        wBatFile.write("echo.\n")
-        wBatFile.write("FOR %%f IN (*control*) DO (" + "\n")
-        wBatFile.write(r'set /a icount+=%icount%+1' + '\n')
-
-        # this will suppress newline char and enable 'FINISHED' to be added to the same line.
-        # setlocal enabledelayedexpansion and ! instead of % will evaluate a variable when
-        # they appear instead of when the batch is parsed
-        wBatFile.write("<nul set /p mystr=Kriging !icount! of %tcount% - %%~nxf " + "\n")
-        wBatFile.write(r'   start "" /HIGH /WAIT /SHARED "{}" %%~nxf'.format(vesper_exe) + "\n")
-        wBatFile.write("    echo - Finished" + "\n")
-        wBatFile.write(")\n")  # close bracket for for /f do loop
-        # wBatFile.write("echo.\n")
-        # wBatFile.write("pause\n")
+        wBatFile.write(bat_file_string)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(
