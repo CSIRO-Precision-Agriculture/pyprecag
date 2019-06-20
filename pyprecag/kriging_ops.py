@@ -39,16 +39,17 @@ def test_for_windows():
 
 # consider enums - https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 # The codes for the variogram. The key is the tag used in the control file_csv
-VESPER_OPTIONS = {
-    "modtyp": {"Spherical": 1, "Exponential": 2, "Gaussian": 3, "Linear with sill": 4,
-               "Stable": 5, "Generalised Cauchy": 6, "Matern": 7, "Double spherical": 8,
-               "Double exponential": 9},
-    'jlockrg': {'Local': 1, 'Global': 0},
-    'jpntkrg': {'Block': 0, 'Point': 1, 'Punctual': 1},
-    'jsetrad': {'Calculate Radius': 0, 'Set Radius': 1},
-    'jcomvar': {'Define Variogram Parameter': 0, 'Compute Variogram': 1},
-    'jigraph': {"Don't Show": 0, 'Show': 1},
-    'jimap': {"Don't Show": 0, 'Show': 1}}
+VESPER_OPTIONS = {"jigraph": {"Don't Show": 0, "Show": 1},
+                  "jimap": {"Don't Show": 0, "Show": 1},
+                  "jlockrg": {"Local": 1, "Global": 0},
+                  "jpntkrg": {"Block": 0, "Point": 1, "Punctual": 1},
+                  "jsetrad": {"Calculate Radius": 0, "Set Radius": 1},
+                  "jcomvar": {"Define Variogram Parameter": 0, "Compute Variogram": 1},
+                  "modtyp": {"Spherical": 1, "Exponential": 2, "Gaussian": 3,
+                             "Linear with sill": 4, "Stable": 5, "Generalised Cauchy": 6,
+                             "Matern": 7, "Double spherical": 8, "Double exponential": 9},
+                  "iwei": {"unity": 0, "No. of pairs": 1, "1/variance": 2, "no_pairs/variance": 3,
+                           "no_pairs/fitted": 4}}
 
 
 class VesperControl(collections.MutableMapping, dict):
@@ -280,7 +281,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
                              control_textfile='', coord_columns=[], epsg=0, display_graphics=False,
                              control_options=VesperControl(),
                              block_size=10,
-                             vesper_exe=vesper_exe, ):
+                             vesper_exe=vesper_exe):
     """Prepare data for vesper kriging and create a windows batch file to run outside the
     python/pyprecag environment.
 
@@ -466,8 +467,9 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
                            )
 
     # high density kriging. fix for pre VesperControl Class
-    control_options.update({"xside": block_size,
-                            "yside": block_size})
+    if block_size != 10:  # only update if not the default variable value
+        control_options.update({"xside": block_size,
+                                "yside": block_size})
 
     # ---------------------------------------------------------------------------------------------
     # Write a VESPER control file

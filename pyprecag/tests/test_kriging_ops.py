@@ -163,6 +163,7 @@ class TestKrigingOps(unittest.TestCase):
                               snap=True,
                               overwrite=True)
 
+        # check using block_size argument - backwards compatible
         global file_ctrl
         file_bat, file_ctrl = prepare_for_vesper_krige(out_gdf, data_col,
                                                        os.path.join(TEMPDIR, 'high_block_v.txt'),
@@ -170,6 +171,42 @@ class TestKrigingOps(unittest.TestCase):
                                                        control_textfile='high_control.txt',
                                                        block_size=30, coord_columns=[],
                                                        epsg=28354)
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper\Do_Vesper.bat')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv')))
+
+        df_csv = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv'))
+
+        x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
+        self.assertEqual('EASTING', x_column.upper())
+        self.assertEqual('NORTHING', y_column.upper())
+        self.assertIn('EN_EPSG', df_csv.columns)
+
+        with open(file_ctrl) as r_file:
+            data = r_file.read()
+
+        self.assertIn("outfil='high_kriged.txt'", data)
+        self.assertIn("outdir=''", data)
+        self.assertIn("jpntkrg=0", data)
+        self.assertIn("jlockrg=1", data)
+        self.assertIn("minpts=90", data)
+        self.assertIn("maxpts=100", data)
+        self.assertIn("modtyp=2", data)
+        self.assertIn("jcomvar=1", data)
+        self.assertIn("iwei=1", data)
+        self.assertIn("xside=30", data)
+        self.assertIn("yside=30", data)
+
+        # check using VesperControl class
+        vc = VesperControl()
+        vc.update(xside=50, yside=50)
+        file_bat, file_ctrl = prepare_for_vesper_krige(out_gdf, data_col,
+                                                       os.path.join(TEMPDIR, 'high_block_v.txt'),
+                                                       TEMPDIR,
+                                                       control_textfile='high_control.txt',
+                                                       coord_columns=[],
+                                                       epsg=28354,
+                                                       control_options=vc)
 
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper\Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_control.txt')))
@@ -181,6 +218,22 @@ class TestKrigingOps(unittest.TestCase):
         self.assertEqual('EASTING', x_column.upper())
         self.assertEqual('NORTHING', y_column.upper())
         self.assertIn('EN_EPSG', df_csv.columns)
+
+        with open(file_ctrl) as r_file:
+            data = r_file.read()
+
+        self.assertIn("outfil='high_kriged.txt'", data)
+        self.assertIn("outdir=''", data)
+        self.assertIn("jpntkrg=0", data)
+        self.assertIn("jlockrg=1", data)
+        self.assertIn("minpts=90", data)
+        self.assertIn("maxpts=100", data)
+        self.assertIn("modtyp=2", data)
+        self.assertIn("jcomvar=1", data)
+        self.assertIn("iwei=1",data)
+        self.assertIn("xside=50", data)
+        self.assertIn("yside=50", data)
+
 
     @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
     def test2_vesperTextToRaster(self):
@@ -235,8 +288,9 @@ class TestKrigingOps(unittest.TestCase):
                           'jlockrg': 0,
                           'minpts': csv_desc.row_count - 2,
                           'maxpts': csv_desc.row_count,
-                          'jcomvar': 1,
-                          'modtyp': 'Exponential',
+                          'jcomvar': 0,
+                          'modtyp': 'Spherical',
+                          'iwei': 'no_pairs/variance',
                           'CO': 92.71,
                           'C1': 277.9,
                           'A1': 116.0,
@@ -266,7 +320,13 @@ class TestKrigingOps(unittest.TestCase):
 
         self.assertIn("outfil='low_kriged.txt'", data)
         self.assertIn("outdir=''", data)
-        self.assertIn("modtyp=2", data)
+        self.assertIn("jpntkrg=1", data)
+        self.assertIn("jlockrg=0", data)
+        self.assertIn("minpts=198", data)
+        self.assertIn("maxpts=200", data)
+        self.assertIn("modtyp=1", data)
+        self.assertIn("jcomvar=0", data)
+        self.assertIn("iwei=3",data)
         self.assertIn("CO=92.71", data)
         del data
 
