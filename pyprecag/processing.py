@@ -2465,9 +2465,6 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
             band_new = band.copy()
 
             # classify bands
-            #band_new[np.where(band >= cutoff)] = (greater_than == True)
-            #band_new[np.where(band < cutoff)] = (greater_than != True)
-
             if greater_than:
                 band_new = np.where(band > cutoff, 1, 0)
             else:
@@ -2588,8 +2585,7 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
         band = src.read(masked=True)
 
         # Greater than test returns boolean which can be converted to 0,1
-        data_u = np.where(~band.mask, (band > upper_cutoff).astype(np.int16), -9999)
-        #data_u = np.where(~band.mask, (band >= upper_cutoff).astype(np.int16), -9999)  #replicate paper results
+        data_u = np.where(~band.mask, (band >= upper_cutoff).astype(np.int16), -9999)
 
     if config.get_debug_mode():
         temp_file_list += [os.path.join(TEMPDIR, out_prefix + '_2gt_upperprob' + out_ext)]
