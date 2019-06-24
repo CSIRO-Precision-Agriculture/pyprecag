@@ -21,7 +21,7 @@ before_install:
   - docker build . --file docs/Dockerfile --tag pyprecag
 
 script:
-  - docker run pyprecag make lint || true
+  #- docker run pyprecag make lint || true
   - sudo mkdir /html
   - docker run --mount type=bind,source=/html,destination=/build/docs/html pyprecag make html
   - sudo touch /html/.nojekyll
