@@ -137,17 +137,18 @@ class TestProcessing(unittest.TestCase):
                                           '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')]
 
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
+
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
-        raster_files.pop(-1)
+        raster_files.remove(os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
-        raster_files.pop(0)
+        raster_files.remove(os.path.realpath(this_dir + '/data/rasters/area1_onebox_NDRE_250cm.tif'))
 
         out_df = kmeans_clustering(raster_files, out_img)
 
