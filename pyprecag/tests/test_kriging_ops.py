@@ -282,9 +282,12 @@ class TestKrigingOps(unittest.TestCase):
         with open(src_ci_file) as src_file, open(out_ci_txt) as test_file:
             self.assertEqual(src_file.readlines()[:2], test_file.readlines()[:2])
 
-    @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
+
     def test4_RunVesper(self):
-        print (g_ctrl_file)
+        # if platform.system() != 'Windows':
+        #     print ('Skipping test4_RunVesper - VESPER only present on Windows')
+        #     return
+
         # for this to work this file needs updating first
         # these are requirements so check first
         self.assertTrue(os.path.exists(g_ctrl_file))
