@@ -43,10 +43,8 @@ class TestBandOps(unittest.TestCase):
     def test_band_mapping(self):
         with self.assertRaises(AttributeError) as msg:
             bm = BandMapping(red=4, green=3, blud=2)
-            self.assertEqual(
-                "BandMapping has no attribute blud. Allowed keys are blue, mask, infrared, "
-                "rededge, green, red",
-                str(msg.exception))
+        self.assertEqual("BandMapping has no attribute blud. Allowed keys are "
+                "blue, mask, infrared, rededge, green, red", str(msg.exception))
 
         self.assertDictEqual(BandMapping(),
                              {'blue': 0, 'mask': 0, 'infrared': 0, 'rededge': 0, 'green': 0,
@@ -92,4 +90,4 @@ class TestBandOps(unittest.TestCase):
 
         with self.assertRaises(KeyError) as msg:
             ci.calculate('NDVIa', file_image, src_nodata=0)
-            self.assertEqual(msg, "KeyError: 'NDVIA'")
+        self.assertEqual("'NDVIA'", str(msg.exception))

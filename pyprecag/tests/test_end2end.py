@@ -21,10 +21,13 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+
 file_csv = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
 fileBox = os.path.realpath(this_dir + "/data/area1_onebox_94mga54.shp")
 fileBoxes = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
-fileImage = os.path.realpath(this_dir + "/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif")
+
+rasters_dir = os.path.realpath(this_dir + "/data/rasters")
+fileImage = os.path.realpath(rasters_dir + "/area1_rgbi_jan_50cm_84sutm54.tif")
 
 epsg = 28354
 
@@ -320,16 +323,14 @@ class TestEnd2End(unittest.TestCase):
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files + [fileImage], out_img)
-            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5),"
-                             " (2.5, 2.5)]", str(msg.exception))
+        self.assertIn("raster_files are of different pixel sizes", str(msg.exception))
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files +
-                                  [os.path.realpath(this_dir + '/data/rasters/'
-                                                               'area1_onebox_NDRE_250cm.tif')]
-                                  , out_img)
-            self.assertEqual("1 raster(s) don't have coordinates systems assigned",
-                             str(msg.exception))
+                                  [os.path.realpath(rasters_dir + '/area1_onebox_NDRE_250cm.tif')],
+                                  out_img)
+
+        self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
 
         out_df = kmeans_clustering(self.gridextract_files, out_img)
 
