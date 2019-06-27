@@ -212,8 +212,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
     krige_textfile = control_textfile.replace('control', 'kriged')
     out_ci_txt = control_textfile.replace('control', 'CI')
 
-    # using pd.read_table takes care of the multiple white space delimiter
-    df_krige = pd.read_table(krige_textfile, delim_whitespace=True)
+    df_krige = pd.read_csv(krige_textfile, delim_whitespace=True)
 
     median_val = df_krige['SE_Pred'].median()
     with open(out_ci_txt, 'w') as ci_file:
