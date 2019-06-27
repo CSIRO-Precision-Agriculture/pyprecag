@@ -158,13 +158,11 @@ class TestKrigingOps(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
-        with open(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv')) as src_file,\
-             open(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')) as test_file:
-            self.assertEqual( src_file.read(), test_file.read())
+        src_df = pd.read_csv(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv'))
+        test_df = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv'))
 
-        with open(os.path.realpath(this_dir +'/VESPER/high_5m_control.txt')) as src_file,\
-             open(file_ctrl) as test_file:
-            self.assertEqual(src_file.readlines()[11:], test_file.readlines()[11:])
+        pd.testing.assert_frame_equal( src_df,test_df)
+
 
     def test1_CreateControlHighDensity_VesperControlClass(self):
         # check using VesperControl class
@@ -191,9 +189,10 @@ class TestKrigingOps(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
-        with open(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv')) as src_file,\
-             open(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')) as test_file:
-            self.assertEqual(src_file.read(), test_file.read())
+        src_df = pd.read_csv(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv'))
+        test_df = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv'))
+
+        pd.testing.assert_frame_equal( src_df,test_df)
 
         with open(os.path.realpath(this_dir + '/VESPER/high_5m_control.txt')) as src_file,\
             open(g_ctrl_file) as test_file:
@@ -244,9 +243,10 @@ class TestKrigingOps(unittest.TestCase):
         self.assertIn("CO=92.71", data)
         del data
 
-        with open(os.path.realpath(this_dir +'/VESPER/low_vesperdata.csv')) as src_file,\
-             open(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv')) as test_file:
-            self.assertEqual(src_file.read(), test_file.read())
+        src_df = pd.read_csv(os.path.realpath(this_dir +'/VESPER/low_vesperdata.csv'))
+        test_df = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv'))
+
+        pd.testing.assert_frame_equal( src_df,test_df)
 
         with open(os.path.realpath(this_dir + '/VESPER/low_control.txt')) as src_file,\
             open(os.path.join(TEMPDIR, 'Vesper', 'test_low_control.txt')) as test_file:
@@ -293,19 +293,19 @@ class TestKrigingOps(unittest.TestCase):
     def test4_RunVesper(self):
         if platform.system() != 'Windows':
             print ('Skipping test4_RunVesper - VESPER only present on Windows')
-            return
+        else:
 
-        # for this to work this file needs updating first
-        # these are requirements so check first
-        self.assertTrue(os.path.exists(g_ctrl_file))
+            # for this to work this file needs updating first
+            # these are requirements so check first
+            self.assertTrue(os.path.exists(g_ctrl_file))
 
-        vesper_exe = kriging_ops.vesper_exe
+            vesper_exe = kriging_ops.vesper_exe
 
-        os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')
-        try:
-            print('Running Vesper, Please wait....')
-            run_vesper(g_ctrl_file)
-        except IOError as msg:
-            self.assertIn('does not exist. Please install and configure for kriging to occur',
-                         str(msg))
+            os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')
+            try:
+                print('Running Vesper, Please wait....')
+                run_vesper(g_ctrl_file)
+            except IOError as msg:
+                self.assertIn('does not exist. Please install and configure for kriging to occur',
+                             str(msg))
 
