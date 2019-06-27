@@ -75,14 +75,15 @@ class VesperControl(collections.MutableMapping, dict):
                       CO=0.0, C1=1.0, A1=10.0, C2=1.0, A2=1.0, Alfa=1.0,
                       xside=10, yside=10, lognorm=0, itrend=0, iconvex=0, igrids=1)
 
-    # epsg is an non-vesper key so it is excluded from the key_order and written at top of file
-    key_order = ['ivers', 'title', 'datfil', 'gridfile', 'outdir', 'repfil', 'outfil', 'parfil',
-                 'numcol', 'icol_x', 'icol_y', 'icol_z', 'jordkrg', 'jpntkrg', 'jlockrg', 'nest',
-                 'dstinc', 'valmis', 'jsetint', 'xlint', 'xhint', 'ylint', 'yhint', 'jsetrad',
-                 'radius', 'minpts', 'maxpts', 'sigsqr', 'isomod', 'modtyp', 'isearch', 'igeos',
-                 'icircs', 'phi', 'psin', 'pcos', 'jcomvar', 'nlag', 'hmax', 'tolag', 'iwei',
-                 'jigraph', 'jimap', 'CO', 'C1', 'A1', 'C2', 'A2', 'Alfa', 'xside', 'yside',
-                 'lognorm', 'itrend', 'iconvex', 'igrids']
+    # key_order is the order the tags will be written to file. epsg is excluded and written first
+    key_order = ['ivers', 'title', 'datfil', 'outdir', 'repfil', 'outfil', 'parfil',
+                 'igrids', 'gridfile', 'jigraph', 'jimap', 'numcol', 'icol_x', 'icol_y', 'icol_z',
+                 'valmis', 'jpntkrg', 'xside', 'yside',
+                 'nest', 'dstinc', 'jsetint', 'xlint', 'xhint', 'ylint', 'yhint',
+                 'jsetrad', 'radius', 'minpts', 'maxpts', 'sigsqr', 'lognorm', 'itrend', 'iconvex',
+                 'jlockrg', 'jcomvar', 'nlag', 'tolag', 'hmax', 'iwei',
+                 'modtyp', 'CO', 'C1', 'A1', 'C2', 'A2', 'Alfa', 'jordkrg',
+                 'isomod', 'isearch', 'igeos', 'icircs', 'phi', 'psin', 'pcos']
 
     def __init__(self, *args, **kwargs):
         self.update(**self.__defaults)
