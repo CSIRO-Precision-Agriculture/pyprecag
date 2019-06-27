@@ -95,6 +95,7 @@ class TestProcessing(unittest.TestCase):
         self.assertTrue(gdf_pts_crs, out_crs)
         self.assertEqual(out_gdf.crs, {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
+        self.assertIn('EN_EPSG', out_gdf.columns)
 
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
@@ -178,27 +179,36 @@ class TestProcessing(unittest.TestCase):
 
         persistor_all_years(raster_files, out_img, True, 10)
         self.assertTrue(os.path.exists(out_img))
-        with rasterio.open(out_img) as src:
-            self.assertEqual(1, src.count)
-            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
-            self.assertEqual(-9999, src.nodata)
-            band1 = src.read(1, masked=True)
+
+        src_img = os.path.realpath(this_dir + '/data/rasters/persistor_allyears.tif')
+        with rasterio.open(src_img) as src, \
+            rasterio.open(os.path.normpath(out_img)) as test:
+            self.assertEqual(src.profile, test.profile)
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test.crs)
+
+            np.testing.assert_array_equal(src.read(), test.read())
+
+            band1 = test.read(1, masked=True)
             self.assertItemsEqual([-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
 
-        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+        out_img = os.path.join(TmpDir, 'persistor_targetprob.tif')
 
-        persistor_target_probability(raster_files,  10, 75,
+        persistor_target_probability(raster_files, 10, 75,
                                      raster_files, -10, 75, out_img)
 
         self.assertTrue(os.path.exists(out_img))
-        with rasterio.open(out_img) as src:
-            self.assertEqual(1, src.count)
-            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
-            self.assertEqual(-9999, src.nodata)
-            band1 = src.read(1, masked=True)
+        src_img = os.path.realpath(this_dir + '/data/rasters/persistor_targetprob.tif')
+        with rasterio.open(src_img) as src, \
+                rasterio.open(os.path.normpath(out_img)) as test:
+            self.assertEqual(src.profile, test.profile)
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test.crs)
+
+            np.testing.assert_array_equal(src.read(), test.read())
+
+            band1 = test.read(1, masked=True)
             self.assertItemsEqual([-9999, -1, 0, 1], np.unique(band1.data).tolist())
 
 
