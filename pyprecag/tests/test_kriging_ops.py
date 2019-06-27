@@ -19,15 +19,10 @@ PY_FILE = os.path.basename(__file__)
 TEMPDIR = tempfile.gettempdir()
 TEMPDIR = os.path.join(TEMPDIR, os.path.splitext(PY_FILE)[0])
 
-this_dir = os.path.abspath(os.path.dirname(__file__))
+this_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data')
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-file_csv = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
-poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
-data_col = r'Yld Mass(Dry)(tonne/ha)'
-
 
 class TestVesperControl(unittest.TestCase):
     def test_updated_keys(self):
@@ -141,176 +136,87 @@ class TestKrigingOps(unittest.TestCase):
         if len(result.failures) > 0 or len(result.errors) > 0:
             test_failed = True
 
-    @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
-    def test1_prepareForVesperKrig_HighDensity(self):
+    def test1a_CreateControlHighDensity_block_size(self):
+        file_csv = os.path.realpath(this_dir + "/area2_high_trimmed.csv")
+        grid_file = os.path.realpath(this_dir + "/rasters/area2_5m_blockgrid_v.txt")
+        data_col = r'Yld Mass(Dry)(tonne/ha)'
 
-        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(file_csv,
-                                                                coord_columns_epsg=4326,
-                                                                out_epsg=28354)
-
-        out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, data_col,
-                                             os.path.join(TEMPDIR, 'high_trimmed.csv'),
-                                             poly, thin_dist_m=2.5)
-
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'high_trimmed.csv')))
-        self.assertEqual({'init': 'epsg:28354', 'no_defs': True}, out_gdf.crs)
-        self.assertEqual(554, len(out_gdf))
-
-        processing.block_grid(in_shapefilename=poly,
-                              pixel_size=5,
-                              out_rasterfilename=os.path.join(TEMPDIR, 'high_block.tif'),
-                              out_vesperfilename=os.path.join(TEMPDIR, 'high_block_v.txt'),
-                              snap=True,
-                              overwrite=True)
+        csv_desc = CsvDescribe(file_csv)
+        df_csv = csv_desc.open_pandas_dataframe()
 
         # check using block_size argument - backwards compatible
-        global file_ctrl
-        file_bat, file_ctrl = prepare_for_vesper_krige(out_gdf, data_col,
-                                                       os.path.join(TEMPDIR, 'high_block_v.txt'),
-                                                       TEMPDIR,
-                                                       control_textfile='high_control.txt',
+        file_bat, file_ctrl = prepare_for_vesper_krige(df_csv, data_col, grid_file, TEMPDIR,
+                                                       control_textfile='test_high_5m_control.txt',
                                                        block_size=30, coord_columns=[],
                                                        epsg=28354)
+
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper\Do_Vesper.bat')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
-        df_csv = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv'))
+        with open(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv')) as src_file,\
+             open(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')) as test_file:
+            self.assertEqual( src_file.read(), test_file.read())
 
-        x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
-        self.assertEqual('EASTING', x_column.upper())
-        self.assertEqual('NORTHING', y_column.upper())
-        self.assertIn('EN_EPSG', df_csv.columns)
+        with open(os.path.realpath(this_dir +'/VESPER/high_5m_control.txt')) as src_file,\
+             open(file_ctrl) as test_file:
+            self.assertEqual(src_file.readlines()[11:], test_file.readlines()[11:])
 
-        with open(file_ctrl) as r_file:
-            data = r_file.read()
-
-        self.assertIn("outfil='high_kriged.txt'", data)
-        self.assertIn("outdir=''", data)
-        self.assertIn("jpntkrg=0", data)
-        self.assertIn("jlockrg=1", data)
-        self.assertIn("minpts=90", data)
-        self.assertIn("maxpts=100", data)
-        self.assertIn("modtyp=2", data)
-        self.assertIn("jcomvar=1", data)
-        self.assertIn("iwei=1", data)
-        self.assertIn("xside=30", data)
-        self.assertIn("yside=30", data)
-
+    def test1_CreateControlHighDensity_VesperControlClass(self):
         # check using VesperControl class
+        file_csv = os.path.realpath(this_dir + "/area2_high_trimmed.csv")
+        grid_file = os.path.realpath(this_dir + "/rasters/area2_5m_blockgrid_v.txt")
+        data_col = r'Yld Mass(Dry)(tonne/ha)'
+
+        csv_desc = CsvDescribe(file_csv)
+        df_csv = csv_desc.open_pandas_dataframe()
+
         vc = VesperControl()
-        vc.update(xside=50, yside=50)
-        file_bat, file_ctrl = prepare_for_vesper_krige(out_gdf, data_col,
-                                                       os.path.join(TEMPDIR, 'high_block_v.txt'),
-                                                       TEMPDIR,
-                                                       control_textfile='high_control.txt',
+        vc.update(xside=30, yside=30)
+        global g_ctrl_file
+        file_bat, g_ctrl_file = prepare_for_vesper_krige(df_csv, data_col, grid_file, TEMPDIR,
+                                                       control_textfile='test_high_5m_control.txt',
                                                        coord_columns=[],
                                                        epsg=28354,
                                                        control_options=vc)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper\Do_Vesper.bat')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper/Do_Vesper.bat')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
-        df_csv = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'high_vesperdata.csv'))
+        with open(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv')) as src_file,\
+             open(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')) as test_file:
+            self.assertEqual(src_file.read(), test_file.read())
 
-        x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
-        self.assertEqual('EASTING', x_column.upper())
-        self.assertEqual('NORTHING', y_column.upper())
-        self.assertIn('EN_EPSG', df_csv.columns)
+        with open(os.path.realpath(this_dir + '/VESPER/high_5m_control.txt')) as src_file,\
+            open(g_ctrl_file) as test_file:
+            self.assertEqual(src_file.readlines()[11:], test_file.readlines()[11:])
 
-        with open(file_ctrl) as r_file:
-            data = r_file.read()
-
-        self.assertIn("outfil='high_kriged.txt'", data)
-        self.assertIn("outdir=''", data)
-        self.assertIn("jpntkrg=0", data)
-        self.assertIn("jlockrg=1", data)
-        self.assertIn("minpts=90", data)
-        self.assertIn("maxpts=100", data)
-        self.assertIn("modtyp=2", data)
-        self.assertIn("jcomvar=1", data)
-        self.assertIn("iwei=1",data)
-        self.assertIn("xside=50", data)
-        self.assertIn("yside=50", data)
-
-
-    @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
-    def test2_vesperTextToRaster(self):
-        file_ctrl = os.path.join(TEMPDIR, 'Vesper', 'high_control.txt')
-        block_tif = os.path.join(TEMPDIR, 'high_block.tif')
-
-        # these are requirements so check first
-        self.assertTrue(os.path.exists(file_ctrl))
-        self.assertTrue(os.path.exists(block_tif))
-
-        vesper_exe = kriging_ops.vesper_exe
-        self.assertTrue(os.path.exists(vesper_exe))
-        os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')
-        if not os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')):
-            print('Running Vesper, Please wait....')
-            run_vesper(file_ctrl)
-
-        out_pred_tif, out_se_tif, out_ci_txt = vesper_text_to_raster(file_ctrl, 28354)
-        for eaFile in [out_pred_tif, out_se_tif, out_ci_txt]:
-            self.assertTrue(os.path.exists(eaFile))
-
-        with rasterio.open(os.path.normpath(out_pred_tif)) as dataset:
-            self.assertEqual(1, dataset.count, 1)
-            self.assertEqual(47, dataset.width, 47)
-            self.assertEqual(25, dataset.height, 25)
-            self.assertEqual((-9999.0,), dataset.nodatavals)
-            self.assertEqual(('float32',), dataset.dtypes)
-            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), dataset.crs, )
-
-        with rasterio.open(os.path.normpath(out_se_tif)) as dataset:
-            self.assertEqual(1, dataset.count, 1)
-            self.assertEqual(47, dataset.width, 47)
-            self.assertEqual(25, dataset.height, 25)
-            self.assertEqual((-9999.0,), dataset.nodatavals)
-            self.assertEqual(('float32',), dataset.dtypes)
-            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), dataset.crs, )
-
-    def test3_prepareForVesperKrig_LowDensity(self):
-        file_csv = os.path.realpath(this_dir + '/data/area2_lowdensity_points.csv')
-
-        processing.block_grid(in_shapefilename=poly,
-                              pixel_size=5,
-                              out_rasterfilename=os.path.join(TEMPDIR, 'low_block.tif'),
-                              out_vesperfilename=os.path.join(TEMPDIR, 'low_block_v.txt'),
-                              snap=True,
-                              overwrite=True)
+    def test2_prepareForVesperKrig_LowDensity(self):
+        file_csv = os.path.realpath(this_dir + '/area2_lowdensity_points.csv')
+        grid_file = os.path.realpath(this_dir + "/rasters/area2_5m_blockgrid_v.txt")
+        data_col = 'Hand_Sample'
 
         csv_desc = CsvDescribe(file_csv)
 
         ctrl_para = VesperControl()
-        ctrl_para.update({'jpntkrg': 1,
-                          'jlockrg': 0,
-                          'minpts': csv_desc.row_count - 2,
-                          'maxpts': csv_desc.row_count,
-                          'jcomvar': 0,
-                          'modtyp': 'Spherical',
-                          'iwei': 'no_pairs/variance',
-                          'CO': 92.71,
-                          'C1': 277.9,
-                          'A1': 116.0,
-                          })
+        ctrl_para.update({'jpntkrg': 1, 'jlockrg': 0, 'minpts': csv_desc.row_count - 2,
+                          'maxpts': csv_desc.row_count, 'jcomvar': 0, 'modtyp': 'Spherical',
+                          'iwei': 'no_pairs/variance', 'CO': 92.71, 'C1': 277.9, 'A1': 116.0 })
 
         file_bat, file_ctrl = prepare_for_vesper_krige(csv_desc.open_pandas_dataframe(),
-                                                       'Hand_Sample',
-                                                       os.path.join(TEMPDIR, 'low_block_v.txt')
-                                                       , TEMPDIR,
-                                                       control_textfile='low_control.txt',
+                                                       data_col, grid_file , TEMPDIR,
+                                                       control_textfile='test_low_control.txt',
                                                        control_options=ctrl_para,
                                                        coord_columns=[], epsg=28354)
-        print('Running Vesper, Please wait....')
-        run_vesper(file_ctrl)
+        #print('Running Vesper, Please wait....')
+        #run_vesper(file_ctrl)
 
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'Do_Vesper.bat')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'low_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'low_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'test_low_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'test_low_vesperdata.csv')))
 
-        df_csv = pd.read_csv(os.path.join(TEMPDIR, r'Vesper', 'low_vesperdata.csv'))
+        df_csv = pd.read_csv(os.path.join(TEMPDIR, r'Vesper', 'test_low_vesperdata.csv'))
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
         self.assertEqual('EASTING', x_column.upper())
         self.assertEqual('NORTHING', y_column.upper())
@@ -318,7 +224,7 @@ class TestKrigingOps(unittest.TestCase):
         with open(file_ctrl) as r_file:
             data = r_file.read()
 
-        self.assertIn("outfil='low_kriged.txt'", data)
+        self.assertIn("outfil='test_low_kriged.txt'", data)
         self.assertIn("outdir=''", data)
         self.assertIn("jpntkrg=1", data)
         self.assertIn("jlockrg=0", data)
@@ -330,22 +236,62 @@ class TestKrigingOps(unittest.TestCase):
         self.assertIn("CO=92.71", data)
         del data
 
-        out_pred_tif, out_se_tif, out_ci_txt = vesper_text_to_raster(file_ctrl, 28354)
+        with open(os.path.realpath(this_dir +'/VESPER/low_vesperdata.csv')) as src_file,\
+             open(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv')) as test_file:
+            self.assertEqual(src_file.read(), test_file.read())
+
+        with open(os.path.realpath(this_dir + '/VESPER/low_control.txt')) as src_file,\
+            open(os.path.join(TEMPDIR, 'Vesper', 'test_low_control.txt')) as test_file:
+            self.assertEqual(src_file.readlines()[11:], test_file.readlines()[11:])
+
+    def test3_vesperTextToRaster(self):
+        # copy the test data to temp.
+        for ea_file in glob.glob(os.path.realpath(this_dir +'/VESPER/high_5m*' )):
+            shutil.copy(ea_file, TEMPDIR)
+
+        ctrl_file = os.path.realpath(TEMPDIR +'/high_5m_control.txt')
+        # these are requirements so check first
+        self.assertTrue(os.path.exists(ctrl_file))
+
+        out_pred_tif, out_se_tif, out_ci_txt = vesper_text_to_raster(ctrl_file, 28354)
         for eaFile in [out_pred_tif, out_se_tif, out_ci_txt]:
             self.assertTrue(os.path.exists(eaFile))
 
-        with rasterio.open(os.path.normpath(out_pred_tif)) as dataset:
-            self.assertEqual(1, dataset.count, 1)
-            self.assertEqual(47, dataset.width, 47)
-            self.assertEqual(25, dataset.height, 25)
-            self.assertEqual((-9999.0,), dataset.nodatavals)
-            self.assertEqual(('float32',), dataset.dtypes)
-            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), dataset.crs, )
+        src_pred_file = os.path.realpath(this_dir +'/VESPER/'+os.path.basename(out_pred_tif))
+        src_se_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_se_tif))
+        src_ci_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_ci_txt))
 
-        with rasterio.open(os.path.normpath(out_se_tif)) as dataset:
-            self.assertEqual(1, dataset.count, 1)
-            self.assertEqual(47, dataset.width, 47)
-            self.assertEqual(25, dataset.height, 25)
-            self.assertEqual((-9999.0,), dataset.nodatavals)
-            self.assertEqual(('float32',), dataset.dtypes)
-            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), dataset.crs, )
+        with rasterio.open( src_pred_file ) as src_pred,\
+             rasterio.open(os.path.normpath(out_pred_tif)) as test_pred:
+
+            self.assertEqual(src_pred.profile,test_pred.profile)
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test_pred.crs)
+
+            import numpy as np
+            np.testing.assert_array_equal(src_pred.read(), test_pred.read())
+
+        with rasterio.open(src_se_file) as src_pred, \
+                rasterio.open(os.path.normpath(out_se_tif)) as test_pred:
+            self.assertEqual(src_pred.profile, test_pred.profile)
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test_pred.crs)
+
+            import numpy as np
+            np.testing.assert_array_equal(src_pred.read(), test_pred.read())
+
+        with open(src_ci_file) as src_file, open(out_ci_txt) as test_file:
+            self.assertEqual(src_file.readlines()[:2], test_file.readlines()[:2])
+
+    @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
+    def test4_RunVesper(self):
+        print (g_ctrl_file)
+        # for this to work this file needs updating first
+        # these are requirements so check first
+        self.assertTrue(os.path.exists(g_ctrl_file))
+
+        vesper_exe = kriging_ops.vesper_exe
+        self.assertTrue(os.path.exists(vesper_exe))
+        os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')
+        if not os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')):
+            print('Running Vesper, Please wait....')
+            run_vesper(g_ctrl_file)
+
