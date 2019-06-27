@@ -33,7 +33,7 @@ vesper_exe = r"C:\Program Files (x86)\Vesper\Vesper1.6.exe"
 
 
 def test_for_windows():
-    if platform.system() != 'Windows':
+    if platform.system() != 'Windows' and os.path.exists(vesper_exe):
         raise IOError("Kriging currently only available on Windows with Vesper installed")
 
 
@@ -324,11 +324,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     """
 
     # Vesper only works with Windows
-    test_for_windows()
-
-    if not os.path.exists(vesper_exe):
-        raise IOError('Vesper*.exe at "{}"'.format(vesper_exe)
-                      + ' does not exist. Please install and configure for kriging to occur')
+    # test_for_windows()
 
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')
@@ -400,7 +396,6 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     vesper_ctrlfile = os.path.join(vesper_outdir, control_textfile)
     vesper_datafile = os.path.join(vesper_outdir, data_file)
     vesper_gridfile = os.path.join(vesper_outdir, grid_file)
-    vesper_batfile = os.path.join(vesper_outdir, "Do_Vesper.bat")
 
     if not os.path.exists(vesper_outdir):
         os.mkdir(vesper_outdir)
@@ -475,34 +470,41 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     # ---------------------------------------------------------------------------------------------
     # Write a VESPER control file
     control_options.write_to_file(vesper_ctrlfile)
+    if not os.path.exists(vesper_exe):
+        vesper_batfile = ''
+        warnings.warn('Vesper*.exe at "{exe}" does not exist. '
+                      'Batch file not created'.format(exe=vesper_exe))
 
-    bat_file_string = ("@echo off\n"
-                       # "REM enable delayed variable expansion, t\n"
-                       "setlocal enabledelayedexpansion\n"
-                       "echo Processing control files in %CD%\n"
-                       "echo.\n"
-                       "set icount=0\n"
-                       "set tcount=0\n"
-                       "\nREM count the number of control files\n"
-                       "for %%x in (*control*.txt) do set /a tcount+=1'\n"
-                       "echo Found %tcount% control file_csv(s) to process....\n"
-                       "echo.\n"
-                       # suppress newline char and enable 'FINISHED' to be added
-                       # setlocal enabledelayedexpansion and ! instead of % will
-                       # evaluate a variable when they appear instead of when the
-                       # batch is parsed
-                       "FOR %%f IN (*control*) DO (\n"
-                       "   set /a icount+=%icount%+1\n"
-                       "    <nul set /p mystr=Kriging !icount! of %tcount% - %%~nxf \n"
-                       '   start "" /HIGH /WAIT /SHARED \"{exe}\" %%~nxf\n'
-                       "   echo - Finished \n"
-                       ")\n"  # close bracket for for /f do loop
-                       # "echo.\n"
-                       # "pause\n"
-                       .format(exe=vesper_exe))
+    else:
+        vesper_batfile = os.path.join(vesper_outdir, "Do_Vesper.bat")
 
-    with open(vesper_batfile, 'w') as wBatFile:
-        wBatFile.write(bat_file_string)
+        bat_file_string = ("@echo off\n"
+                           # "REM enable delayed variable expansion, t\n"
+                           "setlocal enabledelayedexpansion\n"
+                           "echo Processing control files in %CD%\n"
+                           "echo.\n"
+                           "set icount=0\n"
+                           "set tcount=0\n"
+                           "\nREM count the number of control files\n"
+                           "for %%x in (*control*.txt) do set /a tcount+=1'\n"
+                           "echo Found %tcount% control file_csv(s) to process....\n"
+                           "echo.\n"
+                           # suppress newline char and enable 'FINISHED' to be added
+                           # setlocal enabledelayedexpansion and ! instead of % will
+                           # evaluate a variable when they appear instead of when the
+                           # batch is parsed
+                           "FOR %%f IN (*control*) DO (\n"
+                           "   set /a icount+=%icount%+1\n"
+                           "    <nul set /p mystr=Kriging !icount! of %tcount% - %%~nxf \n"
+                           '   start "" /HIGH /WAIT /SHARED \"{exe}\" %%~nxf\n'
+                           "   echo - Finished \n"
+                           ")\n"  # close bracket for for /f do loop
+                           # "echo.\n"
+                           # "pause\n"
+                           .format(exe=vesper_exe))
+
+        with open(vesper_batfile, 'w') as wBatFile:
+            wBatFile.write(bat_file_string)
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=datetime.timedelta(

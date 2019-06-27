@@ -150,8 +150,11 @@ class TestKrigingOps(unittest.TestCase):
                                                        control_textfile='test_high_5m_control.txt',
                                                        block_size=30, coord_columns=[],
                                                        epsg=28354)
+        if os.path.exists(kriging_ops.vesper_exe):
+            self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
+        else:
+            self.assertEqual('', file_bat)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
@@ -180,8 +183,11 @@ class TestKrigingOps(unittest.TestCase):
                                                        coord_columns=[],
                                                        epsg=28354,
                                                        control_options=vc)
+        if os.path.exists(kriging_ops.vesper_exe):
+            self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
+        else:
+            self.assertEqual('', file_bat)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
@@ -210,10 +216,11 @@ class TestKrigingOps(unittest.TestCase):
                                                        control_textfile='test_low_control.txt',
                                                        control_options=ctrl_para,
                                                        coord_columns=[], epsg=28354)
-        #print('Running Vesper, Please wait....')
-        #run_vesper(file_ctrl)
+        if os.path.exists(kriging_ops.vesper_exe):
+            self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
+        else:
+            self.assertEqual('', file_bat)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_low_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv')))
 
@@ -284,18 +291,21 @@ class TestKrigingOps(unittest.TestCase):
 
 
     def test4_RunVesper(self):
-        # if platform.system() != 'Windows':
-        #     print ('Skipping test4_RunVesper - VESPER only present on Windows')
-        #     return
+        if platform.system() != 'Windows':
+            print ('Skipping test4_RunVesper - VESPER only present on Windows')
+            return
 
         # for this to work this file needs updating first
         # these are requirements so check first
         self.assertTrue(os.path.exists(g_ctrl_file))
 
         vesper_exe = kriging_ops.vesper_exe
-        self.assertTrue(os.path.exists(vesper_exe))
+
         os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')
-        if not os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')):
+        try:
             print('Running Vesper, Please wait....')
             run_vesper(g_ctrl_file)
+        except IOError as msg:
+            self.assertIn('does not exist. Please install and configure for kriging to occur',
+                         str(msg))
 
