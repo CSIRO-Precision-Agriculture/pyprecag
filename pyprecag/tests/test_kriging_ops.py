@@ -1,3 +1,4 @@
+import glob
 import logging
 import os
 import platform
@@ -29,7 +30,7 @@ class TestVesperControl(unittest.TestCase):
         vc = VesperControl(title='This is a test tile')
         self.assertEqual(1, len(vc.updated_keys()))
         vc.update({'datfil': 'MyDataFile.txt',
-                   'outdir': 'c:\data\temp'})
+                   'outdir': 'c:/data/temp'})
 
         self.assertEqual(3, len(vc.updated_keys()))
 
@@ -59,7 +60,7 @@ class TestVesperControl(unittest.TestCase):
         self.assertEqual(7, vc['modtyp'])
 
         vc.update({'datfil': 'MyDataFile.txt',
-                   'outdir': "'c:\\data\\temp'",
+                   'outdir': "'c:/data/temp'",
                    'modtyp': 'Exponential',
                    'minpts': 150,
                    'maxpts': 200})
@@ -78,14 +79,14 @@ class TestVesperControl(unittest.TestCase):
 
     def test_write_to_file(self):
         vc = VesperControl(datfil="MyDataFile.txt",
-                           outdir='c:\\data\\temp',
+                           outdir='c:/data/temp',
                            modtyp='Exponential',
                            minpts=150,
                            maxpts=200)
 
         with self.assertRaises(ValueError) as msg:
-            vc.write_to_file(os.path.join(r'c:\nonexistent\path', 'test_control.txt'))
-        self.assertEqual(r'Output folder c:\nonexistent\path does not exist',
+            vc.write_to_file(os.path.join('c:/nonexistent/path', 'test_control.txt'))
+        self.assertEqual('Output folder c:/nonexistent/path does not exist',
                          str(msg.exception))
 
         out_file = os.path.join(tempfile.gettempdir(), 'test_control.txt')
@@ -97,7 +98,7 @@ class TestVesperControl(unittest.TestCase):
             data = r_file.read()
 
         self.assertIn("datfil='MyDataFile.txt'", data)
-        self.assertIn("outdir='c:\\data\\temp'", data)
+        self.assertIn("outdir='c:/data/temp'", data)
         self.assertIn("modtyp=2", data)
         self.assertIn("minpts=150", data)
 
@@ -150,7 +151,7 @@ class TestKrigingOps(unittest.TestCase):
                                                        block_size=30, coord_columns=[],
                                                        epsg=28354)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper\Do_Vesper.bat')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
@@ -180,7 +181,7 @@ class TestKrigingOps(unittest.TestCase):
                                                        epsg=28354,
                                                        control_options=vc)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper/Do_Vesper.bat')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
         self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
@@ -212,11 +213,11 @@ class TestKrigingOps(unittest.TestCase):
         #print('Running Vesper, Please wait....')
         #run_vesper(file_ctrl)
 
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'Do_Vesper.bat')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'test_low_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'test_low_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'Do_Vesper.bat')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_low_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv')))
 
-        df_csv = pd.read_csv(os.path.join(TEMPDIR, r'Vesper', 'test_low_vesperdata.csv'))
+        df_csv = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'test_low_vesperdata.csv'))
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
         self.assertEqual('EASTING', x_column.upper())
         self.assertEqual('NORTHING', y_column.upper())
@@ -257,7 +258,7 @@ class TestKrigingOps(unittest.TestCase):
         for eaFile in [out_pred_tif, out_se_tif, out_ci_txt]:
             self.assertTrue(os.path.exists(eaFile))
 
-        src_pred_file = os.path.realpath(this_dir +'/VESPER/'+os.path.basename(out_pred_tif))
+        src_pred_file = os.path.realpath(this_dir + '/VESPER/' +os.path.basename(out_pred_tif))
         src_se_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_se_tif))
         src_ci_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_ci_txt))
 
@@ -290,8 +291,8 @@ class TestKrigingOps(unittest.TestCase):
 
         vesper_exe = kriging_ops.vesper_exe
         self.assertTrue(os.path.exists(vesper_exe))
-        os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')
-        if not os.path.exists(os.path.join(TEMPDIR, r'Vesper', 'high_kriged.tif')):
+        os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')
+        if not os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'high_kriged.tif')):
             print('Running Vesper, Please wait....')
             run_vesper(g_ctrl_file)
 
