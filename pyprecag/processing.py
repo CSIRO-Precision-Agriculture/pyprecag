@@ -1626,7 +1626,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
             try:
                 results_df = new_row.append(results_df, ignore_index=True, sort=False)
-            except:
+            except TypeError:
                 results_df = new_row.append(results_df, ignore_index=True)
 
         # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
@@ -2207,10 +2207,10 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                                                                                   offset_subst))
 
             df_statstable, control_mean = calculate_strip_stats(df_subtable.drop(columns=dropcols),
-                                                  column_names['Value'][0],
-                                                  control_col, size=size)
+                                                                column_names['Value'][0],
+                                                                control_col, size=size)
 
-            df_statstable.drop(columns=['FID','TrialPtID'],axis=1).to_csv(
+            df_statstable.drop(columns=['FID', 'TrialPtID'], axis=1).to_csv(
                 file_path_noext + '.csv', index=False)
 
             if config.get_debug_mode():
@@ -2409,9 +2409,9 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
     """Determine the performance persistence of yield by across multiple years as described in
     Bramley and Hamilton (2005)
 
-    The "All Years" method identifies cells for each raster within the target percentage above or
-    below the mean. These are then summed to create a count representing the number of years
-    the criteria was met.
+    The "Target over all years" method assigns a value to each pixel to indicate the number of
+    instances (in the raster list) in which that pixel was either less than or greater than
+    the mean (+/- a nominated percentage) of that raster.
 
      All input rasters MUST overlap and have the same coordinate system and pixel size.
 
@@ -2426,8 +2426,8 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
         raster_files (List[str]): List of rasters to use as inputs
         output_tif (str): Output TIF file
         greater_than (bool): if true test above (gt) the mean
-        target_percentage (int): the percent variation either above/below the mean. This should be
-                   a integer between -50 and 50
+        target_percentage (int): the percent variation either above/below the mean.
+                   This should be a integer between -50 and 50
 
     Returns:
         str: The output tif name
@@ -2503,18 +2503,19 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
 def persistor_target_probability(upper_raster_files, upper_percentage, upper_probability,
                                  lower_raster_files, lower_percentage, lower_probability,
                                  output_tif):
-    """Determine the probability of a performance being exceeded or not being met as described in
-    Bramley and Hamilton (2005).
+    """Determine the probability of a performance being exceeded or not being met with an upper and
+     lower limit as described in Bramley and Hamilton (2005).
 
-    The "Target probability" method analysis and combines two categories (UPPER and LOWER) of
-    rasters and rules to determine which cells meet a higher performance rule (Upper category),
-    or a lower performance rule (Lower category) as described in Bramley and Hamilton (2005).
-    This is typically applied to data such as yield maps with one yield raster per year.
+    The "Target probability" method builds on the target over all years method, in that it includes
+    an upper range (i.e. cells with a given frequency of values that are above the mean +/- a
+     given percentage) and a lower range (i.e. cells with a given frequency of values that are
+     below the mean +/- a given percentage).
 
-    Each pixel of the output raster is assigned a value as follows:
-        a) 1 if the upper category rasters meet the upper category rule,
-        b) -1 if the lower category rasters meet the lower category rule
-        c) zero otherwise
+    A value is assigned to each pixel which indicates whether the performance in that pixel over
+    a given proportion of years is:
+        a)	Greater than the mean plus or minus the nominated percentage (value = 1)
+        b)	Less than the mean plus or minus the nominated percentage (value = -1)
+        The remaining pixels which do not fall into category a) or b) are given a value of 0.
 
     All input rasters MUST overlap and have the same coordinate system and pixel size.
 
@@ -2569,7 +2570,6 @@ def persistor_target_probability(upper_raster_files, upper_percentage, upper_pro
         raise IOError('Output directory {} does not exist'.format(os.path.dirname(output_tif)))
 
     start_time = time.time()
-    temp_file_list = []
     out_prefix, out_ext = os.path.splitext(os.path.basename(output_tif))
 
     # Process upper ------------------------------------------------------------------------------
