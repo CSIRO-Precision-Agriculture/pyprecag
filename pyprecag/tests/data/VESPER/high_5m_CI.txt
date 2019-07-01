@@ -1,0 +1,5 @@
+Median Prediction SE    : 0.04318
+95% Confidence Interval : 0.16925
+
+Date/time : 21-Jun-2019 18:26
+Username  : XXX

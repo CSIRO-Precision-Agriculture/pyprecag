@@ -21,21 +21,24 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+
 file_csv = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
 fileBox = os.path.realpath(this_dir + "/data/area1_onebox_94mga54.shp")
 fileBoxes = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
-fileImage = os.path.realpath(this_dir + "/data/area1_rgbi_jan_50cm_84sutm54.tif")
+
+rasters_dir = os.path.realpath(this_dir + "/data/rasters")
+fileImage = os.path.realpath(rasters_dir + "/area1_rgbi_jan_50cm_84sutm54.tif")
 
 epsg = 28354
 
 
-class test_End2End(unittest.TestCase):
+class TestEnd2End(unittest.TestCase):
     gridextract_files = []
 
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(test_End2End, cls).setUpClass()
+        super(TestEnd2End, cls).setUpClass()
         if os.path.exists(TmpDir):
             print 'Folder Exists.. Deleting {}'.format(TmpDir)
             shutil.rmtree(TmpDir)
@@ -75,12 +78,15 @@ class test_End2End(unittest.TestCase):
 
     def test02_createPolygonFromPointTrail(self):
         global filePoints, filePoly
-        filePoints = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_points.shp')
-        filePoly = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_poly.shp')
+        filePoints = os.path.join(TmpDir,
+                                  os.path.splitext(os.path.basename(file_csv))[0] + '_points.shp')
+        filePoly = os.path.join(TmpDir,
+                                os.path.splitext(os.path.basename(file_csv))[0] + '_poly.shp')
 
         if not os.path.exists(filePoly):
             gdf_points, gdf_pts_crs = convert.convert_csv_to_points(file_csv, filePoints,
-                                                                    coord_columns_epsg=4326, out_epsg=epsg)
+                                                                    coord_columns_epsg=4326,
+                                                                    out_epsg=epsg)
 
             create_polygon_from_point_trail(gdf_points, gdf_pts_crs, filePoly,
                                             thin_dist_m=2.5,
@@ -109,8 +115,10 @@ class test_End2End(unittest.TestCase):
     def test04_blockGrid(self):
 
         global fileBlockTif, file_block_txt
-        fileBlockTif = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block.tif')
-        file_block_txt = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block_v.txt')
+        fileBlockTif = os.path.join(TmpDir, os.path.splitext(
+            os.path.basename(file_csv))[0] + '_block.tif')
+        file_block_txt = os.path.join(TmpDir, os.path.splitext(
+            os.path.basename(file_csv))[0] + '_block_v.txt')
 
         if not os.path.exists(fileBlockTif):
             block_grid(in_shapefilename=fileBox,
@@ -138,15 +146,22 @@ class test_End2End(unittest.TestCase):
 
     def test05_cleanTrimPoints(self):
         global fileTrimmed, data_col
-        fileTrimmed = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_normtrimmed.csv')
-        file_shp = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_normtrimmed.shp')
-        file_removed = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_remove.shp')
+        fileTrimmed = os.path.join(TmpDir, os.path.splitext(
+            os.path.basename(file_csv))[0] + '_normtrimmed.csv')
+        file_shp = os.path.join(TmpDir, os.path.splitext(
+            os.path.basename(file_csv))[0] + '_normtrimmed.shp')
+        file_removed = os.path.join(TmpDir, os.path.splitext(
+            os.path.basename(file_csv))[0] + '_remove.shp')
 
         data_col = r'Yield'
 
-        gdf_points, gdfpts_crs = convert.convert_csv_to_points(file_csv, coord_columns_epsg=4326, out_epsg=epsg)
-        gdf_out, crs_out = clean_trim_points(gdf_points, gdfpts_crs, data_col, fileTrimmed, out_keep_shapefile=file_shp,
-                                             out_removed_shapefile=file_removed, boundary_polyfile=fileBox,
+        gdf_points, gdfpts_crs = convert.convert_csv_to_points(file_csv,
+                                                               coord_columns_epsg=4326,
+                                                               out_epsg=epsg)
+        gdf_out, crs_out = clean_trim_points(gdf_points, gdfpts_crs, data_col, fileTrimmed,
+                                             out_keep_shapefile=file_shp,
+                                             out_removed_shapefile=file_removed,
+                                             boundary_polyfile=fileBox,
                                              thin_dist_m=2.5)
 
         self.assertTrue(os.path.exists(fileTrimmed))
@@ -172,15 +187,18 @@ class test_End2End(unittest.TestCase):
         file_control = sub_file + '_control_' + data_col + '.txt'
 
         if not os.path.exists(file_control):
-            bat_file, file_control = prepare_for_vesper_krige(df_csv, data_col, file_block_txt, TmpDir, block_size=30,
+            bat_file, file_control = prepare_for_vesper_krige(df_csv, data_col, file_block_txt,
+                                                              TmpDir, block_size=30,
                                                               control_textfile=file_control,
                                                               coord_columns=[], epsg=epsg)
 
             self.assertTrue(os.path.exists(bat_file))
             self.assertTrue(os.path.exists(file_control))
 
-        self.assertTrue(os.path.exists(os.path.join(TmpDir, r'Vesper', sub_file + '_vesperdata_' + data_col + '.csv')))
-        df_csv = pd.read_csv(os.path.join(TmpDir, r'Vesper', sub_file + '_vesperdata_' + data_col + '.csv'))
+        self.assertTrue(os.path.exists(os.path.join(TmpDir, r'Vesper',
+                                                    sub_file + '_vesperdata_' + data_col + '.csv')))
+        df_csv = pd.read_csv(os.path.join(TmpDir, r'Vesper',
+                                          sub_file + '_vesperdata_' + data_col + '.csv'))
 
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
         self.assertEqual(x_column.upper(), 'EASTING')
@@ -217,11 +235,13 @@ class test_End2End(unittest.TestCase):
 
     def test08_randomPixelSelection(self):
         global rand_gdf, rand_crs
-        out_randompts = os.path.join(TmpDir, os.path.basename(fileBlockTif).replace('.tif', '_randpts.shp'))
+        out_randompts = os.path.join(TmpDir,
+                                     os.path.basename(fileBlockTif).replace('.tif', '_randpts.shp'))
         rast_crs = crs.getCRSfromRasterFile(fileBlockTif)
 
         with rasterio.open(os.path.normpath(fileBlockTif)) as raster:
-            rand_gdf, rand_crs = random_pixel_selection(raster, rast_crs, 50, out_shapefile=out_randompts)
+            rand_gdf, rand_crs = random_pixel_selection(raster, rast_crs,
+                                                        50, out_shapefile=out_randompts)
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_randompts))
         self.assertEqual(rast_crs.epsg, rand_gdf.crs)
@@ -232,8 +252,8 @@ class test_End2End(unittest.TestCase):
             os.mkdir(out_fold)
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
         indices = CalculateIndices(**bm).valid_indices()
-        files = calc_indices_for_block(fileImage, 2.5, bm, out_fold, indices, image_nodata=0, image_epsg=32754,
-                                       polygon_shapefile=fileBox, out_epsg=28354)
+        files = calc_indices_for_block(fileImage, 2.5, bm, out_fold, indices, image_nodata=0,
+                                       image_epsg=32754, polygon_shapefile=fileBox, out_epsg=28354)
 
         self.gridextract_files += files
 
@@ -251,7 +271,8 @@ class test_End2End(unittest.TestCase):
         if not os.path.exists(out_fold):
             os.mkdir(out_fold)
 
-        files = resample_bands_to_block(fileImage, 2.5, out_fold, band_nums=[6], image_nodata=0, image_epsg=32754,
+        files = resample_bands_to_block(fileImage, 2.5, out_fold, band_nums=[6],
+                                        image_nodata=0, image_epsg=32754,
                                         polygon_shapefile=fileBox, out_epsg=28354)
 
         self.gridextract_files += files
@@ -278,11 +299,13 @@ class test_End2End(unittest.TestCase):
         out_meta['count'] = 1  # contains only one band
         out_meta['dtype'] = np.float32
 
-        out_rescale = os.path.join(TmpDir, os.path.basename(in_file).replace('.tif', '_rescale0-255.tif'))
+        out_rescale = os.path.join(TmpDir,
+                                   os.path.basename(in_file).replace('.tif', '_rescale0-255.tif'))
         with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
             out.write_band(1, rescaled)
 
-        out_normalised = os.path.join(TmpDir, os.path.basename(in_file).replace('.tif', '_normalised.tif'))
+        out_normalised = os.path.join(TmpDir,
+                                      os.path.basename(in_file).replace('.tif', '_normalised.tif'))
         with rasterio.open(os.path.normpath(out_normalised), 'w', **out_meta) as out:
             out.write_band(1, rescaled2)
 
@@ -300,12 +323,14 @@ class test_End2End(unittest.TestCase):
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files + [fileImage], out_img)
-            self.assertEqual("Pixel Sizes Don't Match - [(0.5, 0.5), (2.5, 2.5)]", str(msg.exception))
+        self.assertIn("raster_files are of different pixel sizes", str(msg.exception))
 
         with self.assertRaises(TypeError) as msg:
-            _ = kmeans_clustering(
-                self.gridextract_files + [os.path.realpath(this_dir + '/data/area1_onebox_NDRE_250cm.tif')], out_img)
-            self.assertEqual("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
+            _ = kmeans_clustering(self.gridextract_files +
+                                  [os.path.realpath(rasters_dir + '/area1_onebox_NDRE_250cm.tif')],
+                                  out_img)
+
+        self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
 
         out_df = kmeans_clustering(self.gridextract_files, out_img)
 
@@ -325,11 +350,9 @@ class test_End2End(unittest.TestCase):
         if not os.path.exists(out_fold):
             os.mkdir(out_fold)
         global rand_gdf, rand_crs
-        stats_gdf, stats_crs = extract_pixel_statistics_for_points(rand_gdf, rand_crs, self.gridextract_files,
-                                                                   function_list=[np.nanmean, np.nanstd],
-                                                                   size_list=[1, 3],
-                                                                   output_csvfile=os.path.join(out_fold,
-                                                                                               'grid_extract.csv'))
+        stats_gdf, stats_crs = extract_pixel_statistics_for_points(
+            rand_gdf, rand_crs, self.gridextract_files, function_list=[np.nanmean, np.nanstd],
+            size_list=[1, 3], output_csvfile=os.path.join(out_fold, 'grid_extract.csv'))
 
         self.assertEqual(len(stats_gdf.columns), 17)
         self.assertEqual(stats_gdf['std3x3_Band6_250cm'].isna().sum(), 0)

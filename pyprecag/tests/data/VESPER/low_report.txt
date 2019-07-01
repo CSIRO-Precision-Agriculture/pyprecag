@@ -1,0 +1,74 @@
+     Date: 21/ 6/2019                    Time: 17:59: 3
+
+
+          ******************    VESPER   *******************
+           version 1.6.3  [20.10.05]
+
+           Variogram Estimation and Spatial Prediction
+           (c) MMIII The Australian Centre for Precision Agriculture
+           http://www.usyd.edu.au/su/agric/acpa/
+
+
+          kriging of low_control.txt configured by pyprecag                                                   
+
+          ORDINARY KRIGING
+ 
+   Data File :
+ low_vesperdata.csv                                                             
+                                                                                
+                                           
+ 
+   Grid File :
+ low_vespergrid.txt                                                             
+                                                                                
+                                           
+
+          DATA RECTANGLE
+                    MINIMUM X  598977.500     MAXIMUM X  599207.500
+                    MINIMUM Y 6054107.500     MAXIMUM Y 6054222.500
+          INTERPOLATION RECTANGLE
+                    MINIMUM X  598977.500     MAXIMUM X  599207.500
+                    MINIMUM Y 6054107.500     MAXIMUM Y 6054227.500
+
+
+          NUMBER OF DATA POINTS :        200
+
+
+
+          GENERAL MEAN . . .          1.5392
+          VARIANCE   . . . .          0.1602
+          Min        . . . .          0.8745
+          Max        . . . .          2.3348
+
+
+
+          Sigma square (uncertainty in data) =       0.0000
+
+
+          Variogram Model : SPHERICAL           
+
+
+          PARAMETERS :
+                           C0 =   92.710    
+                           C1 =   277.90    
+                           A1 =   116.00    
+
+                              ISOTROPIC VARIATION
+
+          SEARCH RADIUS     0.130E+04
+
+          MINIMUM NUMBER OF DATA POINTS REQUIRED PER INTERPOLATION       198
+          MAXIMUM NUMBER OF DATA POINTS REQUIRED PER INTERPOLATION       201
+
+
+          PUNCTUAL KRIGING
+
+          Number of Interpolations :       1032
+
+
+          Elapsed time (seconds) :         3
+
+
+   Disclaimer
+   The program VESPER is supplied as is.
+   The ACPA assumes no liability for damages, direct or consequential which may result from the use of this program.

@@ -1,0 +1,66 @@
+     Date: 21/ 6/2019                    Time: 17:18:30
+
+
+          ******************    VESPER   *******************
+           version 1.6.3  [20.10.05]
+
+           Variogram Estimation and Spatial Prediction
+           (c) MMIII The Australian Centre for Precision Agriculture
+           http://www.usyd.edu.au/su/agric/acpa/
+
+
+          kriging of high_5m_bs30_control.txt configured by pyprecag                                          
+
+          ORDINARY KRIGING
+ 
+   Data File :
+ high_5m_bs30_vesperdata.csv                                                    
+                                                                                
+                                           
+ 
+   Grid File :
+ high_5m_bs30_vespergrid.txt                                                    
+                                                                                
+                                           
+
+          DATA RECTANGLE
+                    MINIMUM X  598977.750     MAXIMUM X  599203.688
+                    MINIMUM Y 6054104.000     MAXIMUM Y 6054226.500
+          INTERPOLATION RECTANGLE
+                    MINIMUM X  598977.500     MAXIMUM X  599207.500
+                    MINIMUM Y 6054107.500     MAXIMUM Y 6054227.500
+
+
+          NUMBER OF DATA POINTS :        554
+
+
+
+          GENERAL MEAN . . .          1.5564
+          VARIANCE   . . . .          0.2840
+          Min        . . . .          0.3800
+          Max        . . . .          3.0900
+
+
+
+          Sigma square (uncertainty in data) =       0.0000
+
+
+          Variogram Model : EXPONENTIAL         
+
+                              ISOTROPIC VARIATION
+
+          SEARCH RADIUS      566.    
+
+          MINIMUM NUMBER OF DATA POINTS REQUIRED PER INTERPOLATION        90
+          MAXIMUM NUMBER OF DATA POINTS REQUIRED PER INTERPOLATION       100
+
+
+          Number of Interpolations :       1032
+
+
+          Elapsed time (seconds) :         5
+
+
+   Disclaimer
+   The program VESPER is supplied as is.
+   The ACPA assumes no liability for damages, direct or consequential which may result from the use of this program.

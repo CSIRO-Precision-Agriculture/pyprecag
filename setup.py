@@ -83,7 +83,8 @@ setup(
         'unidecode',
         'scipy',
         'chardet',
-    ],
+        'matplotlib',
+        ],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies).
@@ -122,7 +123,8 @@ setup(
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
-    # Delete either or both of these if not required (and remove the corresponding imports in the package __init__.py
+    # Delete either or both of these if not required (and remove the corresponding imports in
+    # the package __init__.py
     entry_points={
 
     },
