@@ -1,12 +1,12 @@
 Changelog
 =========
 **0.3.0 (2019-06-30)**
- New Tools:
-  \\#24 Persistor.  
-  \# 22 t-test analysis of strip trials.  
- Enhanced Tools:
-    #30 low spatial density kriging using VESPER.  
-    #22 Updated processing.create_points_along_line to allow for line offset to use compass points instead of Offset 1 etc.
+ New Tools
+  * #24 Persistor.  
+  * #22 t-test analysis of strip trials.  
+ Enhanced Tools
+  * #30 low spatial density kriging using VESPER.  
+  * #22 Updated processing.create_points_along_line to allow for line offset to use compass points instead of Offset 1 etc.
     Minor Bug Fixes
 
 **0.2.2 (2019-02-27)**
