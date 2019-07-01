@@ -3,7 +3,7 @@ Changelog
 **0.3.0 (2019-06-30)**
  New Tools
   * #24 Persistor.  
-  * #22 _t_-test analysis of strip trials.  
+  * #22 *t*-test analysis of strip trials.  
  Enhancements
   * #30 Low spatial density kriging using VESPER.  
   * #22 Updated processing.create_points_along_line to allow for line offset to use compass points instead of Offset 1 etc.
@@ -22,7 +22,7 @@ Changelog
  * New Feature - Create points for a strip trial along a central line and offset left and right at distance.
 
 **0.1.1 (2019-01-22)**
- * New Feature - Create zones using _k_-means clustering.
+ * New Feature - Create zones using *k*-means clustering.
 
 **0.0.4 (2018-12-20)**
  * Initial load into GitHub.
