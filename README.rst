@@ -12,7 +12,7 @@ A suite of tools for Precision Agriculture
 pyprecag supports Python version 2.7
 
 
-.. include:: ./installation.rst
+.. include:: ./doc/installation.rst
 
 Development
 ===========
