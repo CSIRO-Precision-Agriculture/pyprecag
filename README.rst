@@ -42,4 +42,4 @@ Dependencies
 * `GDAL <https://www.gdal.org/>`_
 * `Fiona <https://github.com/Toblerity/Fiona>`_
 * `Rasterio <https://github.com/mapbox/rasterio>`_
-* `Vesper <https://sydney.edu.au/agriculture/pal/software/vesper.shtml>`_ (for Kriging)
+* `VESPER <https://sydney.edu.au/agriculture/pal/software/vesper.shtml>`_ (for Kriging)
