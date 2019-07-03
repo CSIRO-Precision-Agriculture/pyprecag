@@ -9,7 +9,14 @@ here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the relevant file
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    long_description = f.read()
+    # Twine and PyPI don't seem to like include directives, so do as GitHub does
+    # and strip them out of the long_description. They are still used to build the
+    # more comprehensive Sphinx documentation.
+    filtered_lines = []
+    for line in f:
+        if line.find('.. include') != 0:
+            filtered_lines.append(line)
+    long_description = ''.join(filtered_lines)
 
 setup(
     name='pyprecag',
