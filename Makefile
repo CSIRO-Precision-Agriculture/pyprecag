@@ -27,7 +27,7 @@ help:
 	echo '  * upload-test: uploads a test version to https://test.pypi.org/project/pyprecag'
 
 .PHONY: twine_check
-twine_check: sdist
+twine_check: sdist bdist_wheel
 	twine check ./dist/*
 
 .PHONY: test
