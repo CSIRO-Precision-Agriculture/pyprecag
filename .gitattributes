@@ -1,0 +1,6 @@
+# set all files to use unix line endings
+# https://stackoverflow.com/a/42136008
+* text=auto eol=lf
+
+# ignore the data folder
+test/data/**   -text
