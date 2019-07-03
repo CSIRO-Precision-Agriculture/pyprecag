@@ -16,6 +16,7 @@ setup(
     version='0.3.0',
     description='A suite of tools for Precision Agriculture',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
 
     # The project's main homepage.
     url='https://github.com/CSIRO-Precision-Agriculture/pyprecag',

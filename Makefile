@@ -15,6 +15,7 @@ help:
 	echo '  * develop: installs pyprecag in development mode.'
 	echo '  * uninstall: removes the development package from pip.'
 	echo '  * test: runs all unit tests.'
+	echo '  * twine_check: Run `twine check`.'
 	echo '  * lint: runs pylint.'
 	echo '  * html: builds the HTML documentation.'
 	echo '  * pdf: builds the documentation in PDF format.'
@@ -24,6 +25,10 @@ help:
 	echo '  * bdist_wheel: builds a universal wheel distribution.'
 	echo '  * upload: uploads the source distribution and wheels to PyPI'
 	echo '  * upload-test: uploads a test version to https://test.pypi.org/project/pyprecag'
+
+.PHONY: twine_check
+twine_check: sdist
+	twine check ./dist/*
 
 .PHONY: test
 test:
