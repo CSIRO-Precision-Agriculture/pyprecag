@@ -44,7 +44,7 @@ setup(
         #   4 - Beta
         #   5 - Production/Stable
         #   6 - Mature
-        'Development Status ::4 - Beta',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         # 'Intended Audience :: ',
