@@ -44,7 +44,7 @@ setup(
         #   4 - Beta
         #   5 - Production/Stable
         #   6 - Mature
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status ::4 - Beta',
 
         # Indicate who your project is intended for
         # 'Intended Audience :: ',
@@ -109,6 +109,7 @@ setup(
             'sphinx_rtd_theme',
             'wheel',
             'twine',
+            'readme_renderer',
         ],
         'test': [
             'pylint',
