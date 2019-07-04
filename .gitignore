@@ -36,3 +36,4 @@ notebooks/
 .vscode/
 Pipfile
 Pipfile.lock
+.python-version

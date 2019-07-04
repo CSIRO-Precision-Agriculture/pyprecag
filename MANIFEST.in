@@ -1,5 +1,4 @@
 # Directories to include
-graft pyprecag/tests/examples
 graft pyprecag/tests/data
 
 # Directories to exclude
@@ -11,6 +10,7 @@ include pylintrc
 include AUTHORS.rst
 include CHANGELOG.rst
 include CONTRIBUTING.rst
+include CITATION.rst
 include LICENSE
 include README.rst
 include pyprecag/config.json

@@ -1,18 +1,32 @@
-===============================
+========
 pyprecag
-===============================
+========
 
-A suite of tools for Precision Agriculture
+A suite of tools for Precision Agriculture data analysis
 
-* Free software: CSIRO Open Source Software License Agreement
+.. image:: https://travis-ci.com/CSIRO-Precision-Agriculture/pyprecag.svg?branch=master
+   :target: https://travis-ci.com/CSIRO-Precision-Agriculture/pyprecag
+
 * Homepage: https://github.com/CSIRO-Precision-Agriculture/pyprecag
 * Documentation: https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs
+* `Installation <https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation>`__
 * Version: 0.3.0
+* License: `CSIRO Open Source Software License Agreement <https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE>`__
 
-pyprecag supports Python version 2.7
+pyprecag is currently supported only on Python version 2.7
 
+.. include:: ./CITATION.rst
 
-.. include:: ./installation.rst
+Dependencies
+------------
+
+* Python version 2.7
+* `GDAL <https://www.gdal.org/>`_
+* `Fiona <https://github.com/Toblerity/Fiona>`_
+* `Rasterio <https://github.com/mapbox/rasterio>`_
+* `VESPER <https://sydney.edu.au/agriculture/pal/software/vesper.shtml>`_ (for Kriging)
+
+.. include:: ./docs/installation.rst
 
 Development
 ===========
@@ -35,11 +49,4 @@ Version numbers follow the `Semantic versioning guidelines <semver.org>`_.
 
 .. include:: ./contributing.rst
 
-Dependencies
-============
 
-* Python version 2.7
-* `GDAL <https://www.gdal.org/>`_
-* `Fiona <https://github.com/Toblerity/Fiona>`_
-* `Rasterio <https://github.com/mapbox/rasterio>`_
-* `Vesper <https://sydney.edu.au/agriculture/pal/software/vesper.shtml>`_ (for Kriging)
