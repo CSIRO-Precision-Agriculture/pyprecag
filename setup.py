@@ -88,6 +88,7 @@ setup(
         'rasterio>1,<=1.0.13', # Required Numpy
         'geopandas>=0.4.0,<0.6.0',
         'pyproj<2.2.0',
+        'six',
         # These were included to prevent import errors:
         'unidecode',
         'chardet',
