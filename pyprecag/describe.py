@@ -14,6 +14,7 @@ import fiona
 import geopandas
 import numpy as np
 import pandas as pd
+import six
 from geopandas import GeoDataFrame
 from osgeo import gdal
 
@@ -161,14 +162,17 @@ class CsvDescribe:
     def describe_file(self):
         """Describe a CSV File and set class properties
         """
-        with open(self.source, 'r') as f:
+        with open(self.source, 'rb') as f:
             # sniff into 10KB of the file to check its dialect
             # this will sort out the delimiter and quote character.
-            self.dialect = csv.Sniffer().sniff(f.read(10 * 1024))
+            source_bytes = f.read(10 * 1024)
+            encoding = chardet.detect(source_bytes)['encoding']
+            decoded_string=source_bytes.decode(encoding=encoding)
+            self.dialect = csv.Sniffer().sniff(decoded_string)
             f.seek(0)  # reset read to start of file
 
             # read header based on the 10k of file.
-            header = csv.Sniffer().has_header(f.read(10 * 1024))
+            header = csv.Sniffer().has_header(decoded_string)
             f.seek(0)  # reset read to start of file
             if not header:
                 warnings.warn("The CSV file doesn't appear to contain column headers")
@@ -310,18 +314,19 @@ def get_column_properties(dataframe):
     column_desc = OrderedDict()
 
     for col, _type in zip(dataframe.columns, dataframe.dtypes):
-        if col.lower() == 'geometry' or _type.name == 'geometry':
-            fldtype = 'geometry'
-        elif _type.name == 'object':
+        if _type == object:
             fldtype = type(dataframe.iloc[0][col]).__name__
             if fldtype == 'unicode':
                 fldtype = 'str'
         else:
-            fldtype = type(np.zeros(1, _type).item()).__name__
+            fldtype = type(np.asscalar(np.zeros(1, _type))).__name__
             if fldtype == 'long':
                 fldtype = 'int'
 
-        if isinstance(col, unicode):
+        if col.lower() == 'geometry':
+            fldtype = 'geometry'
+
+        if isinstance(col, six.text_type):
             aliasFld = unidecode(unicode(col))
         else:
             aliasFld = col
