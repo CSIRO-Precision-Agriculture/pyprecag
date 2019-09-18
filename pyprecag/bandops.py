@@ -31,7 +31,9 @@ class BandMapping(collections.MutableMapping, dict):
 
         if key not in allowed_keys:
             raise AttributeError(
-                'BandMapping has no attribute {}. Allowed keys are {}'.format(key, ', '.join(self.__defaults.keys())))
+                'BandMapping has no attribute {}. Allowed keys are {}'.format(
+                    key, ', '.join(sorted(self.__defaults.keys())))
+                )
 
         if not isinstance(value, int):
             raise ValueError('{v} is not an integer'.format(v=value))

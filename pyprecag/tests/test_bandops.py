@@ -44,7 +44,7 @@ class TestBandOps(unittest.TestCase):
         with self.assertRaises(AttributeError) as msg:
             bm = BandMapping(red=4, green=3, blud=2)
         self.assertEqual("BandMapping has no attribute blud. Allowed keys are "
-                "blue, mask, infrared, rededge, green, red", str(msg.exception))
+                "blue, green, infrared, mask, red, rededge", str(msg.exception))
 
         self.assertDictEqual(BandMapping(),
                              {'blue': 0, 'mask': 0, 'infrared': 0, 'rededge': 0, 'green': 0,
