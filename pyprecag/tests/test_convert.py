@@ -27,7 +27,7 @@ class TestConvert(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestConvert, cls).setUpClass()
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)

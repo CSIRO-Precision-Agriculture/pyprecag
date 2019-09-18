@@ -110,7 +110,7 @@ class TestKrigingOps(unittest.TestCase):
         super(TestKrigingOps, cls).setUpClass()
 
         if os.path.exists(TEMPDIR):
-            print 'Folder Exists.. Deleting {}'.format(TEMPDIR)
+            print('Folder Exists.. Deleting {}'.format(TEMPDIR))
             shutil.rmtree(TEMPDIR)
 
         os.mkdir(TEMPDIR)

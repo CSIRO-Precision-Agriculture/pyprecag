@@ -21,7 +21,7 @@ class test_rasterOps(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(test_rasterOps, cls).setUpClass()
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)

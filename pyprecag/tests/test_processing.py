@@ -27,7 +27,7 @@ class TestProcessing(unittest.TestCase):
         super(TestProcessing, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -219,7 +219,7 @@ class TestStripTrials(unittest.TestCase):
         super(TestStripTrials, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -479,7 +479,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestCalculateImageIndices, cls).setUpClass()
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.makedirs(TmpDir)
@@ -638,7 +638,7 @@ class TestResampleToBlock(unittest.TestCase):
         super(TestResampleToBlock, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.makedirs(TmpDir)

@@ -73,7 +73,7 @@ class TestCrsClass(TestCase):
         super(TestCrsClass, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
