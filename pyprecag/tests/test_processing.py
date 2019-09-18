@@ -398,7 +398,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         super(TestExtractRasterStatisticsForPoints, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
