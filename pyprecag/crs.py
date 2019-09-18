@@ -4,8 +4,8 @@ import logging
 import os
 import socket
 import warnings
-from urllib import urlencode
-import urllib2
+from six.moves.urllib_parse import urlencode
+from six.moves.urllib_request import urlopen
 
 from fiona.crs import from_string, from_epsg
 from osgeo import osr, gdal
@@ -179,7 +179,7 @@ class crs:
                 crsURL = config.get_config_key('crsLookupURL')
                 LOGGER.debug('Checking against OpenGeo service ({})'.format(crsURL))
 
-                webres = urllib2.urlopen(crsURL, query,timeout=10)
+                webres = urlopen(crsURL, query,timeout=10)
                 LOGGER.debug('Connection to {} Successful'.format(crsURL))
 
             except socket.timeout:
