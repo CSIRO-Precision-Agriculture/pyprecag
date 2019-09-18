@@ -82,6 +82,7 @@ setup(
     # https://packaging.python.org/en/latest/technical.html#install-requires-vs-requirements-files
     install_requires=[
         'future',
+        'scipy',
         'fiona',
         'gdal', # Required Microsoft Visual C++ Compiler for Python 2.7
         'rasterio>1,<=1.0.13', # Required Numpy
@@ -89,7 +90,6 @@ setup(
         'pyproj<2.2.0',
         # These were included to prevent import errors:
         'unidecode',
-        'scipy',
         'chardet',
         'matplotlib',
         ],
