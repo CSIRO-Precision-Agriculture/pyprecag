@@ -72,8 +72,8 @@ for PYTHON in "${TARGET_PYTHONS[@]}" ; do
   install_gdal "${_pip}"
   install_pvtools "${_pip}"
   _python="${TEMPDIR}/${PYTHON}/bin/python"
-  #run_tests "${_python}"
-  run_single_tests "${_python}"
+  run_tests "${_python}"
+  #run_single_tests "${_python}"
 done
 
 #find "${TEMPDIR}" -maxdepth 2
