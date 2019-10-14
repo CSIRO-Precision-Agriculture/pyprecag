@@ -45,7 +45,7 @@ function install_gdal {
 
 function install_pvtools {
     _pip=$1
-    "${_pip}" install -e .[dev,test]
+    "${_pip}" install -e .[dev,test] || exit 1
 }
 
 
