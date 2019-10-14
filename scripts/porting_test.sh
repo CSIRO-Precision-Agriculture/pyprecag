@@ -56,8 +56,6 @@ function run_tests {
     _pip="${venv_directory}/bin/pip"
     "${_pip}" freeze
     "${_python}" --version
-    #timeout 150s time "${_python}" -m unittest discover -s pyprecag/tests -p "*test*.py" -v --buffer
-    #timeout 150s time "${_python}" -m unittest discover -s pyprecag/tests -p "*test*.py" --buffer
     timeout 600s time "${_python}" -m unittest discover -s pyprecag/tests -p "*test*.py" -v
 }
 
