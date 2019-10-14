@@ -75,17 +75,18 @@ function build_virtualenv {
   mkdir -p ".venv"
   PYTHON=$1
   venv_directory=".venv/${PYTHON}"
-  _pip="${TEMPDIR}/${PYTHON}/bin/pip"
+  _pip="${venv_directory}/bin/pip"
   echo "testing python virtualenv directory ${venv_directory}"
   if  test ! -r "${venv_directory}/bin/activate"; then
       echo virtual environment not found, creating
       python3 -m virtualenv -p "${PYTHON}" ".venv/${PYTHON}"
-      _pip="${venv_directory}/bin/pip"
       "${_pip}" install --upgrade pip
       install_gdal "${_pip}" >/dev/null
       install_pvtools "${_pip}" >/dev/null
+  else
+      echo "virtual env found; not installing anything."
   fi
-  #${_pip} freeze
+  ${_pip} freeze
 }
 
 
