@@ -71,7 +71,12 @@ function run_tests {
     _pip="${venv_directory}/bin/pip"
     "${_pip}" freeze
     "${_python}" --version
-    timeout 600s time "${_python}" -m unittest discover -s pyprecag/tests -p "*test*.py" -v
+    (
+        set -x
+        timeout 600s \
+            time "${_python}" -m unittest discover -s pyprecag/tests \
+            -p "*test*.py" "${VERBOSE_FLAG}"
+    )
 }
 
 function run_single_tests {
