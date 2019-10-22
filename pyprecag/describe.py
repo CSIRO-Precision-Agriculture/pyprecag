@@ -1,6 +1,7 @@
 import csv
 import datetime
 import difflib
+import io
 import logging
 import os
 import re
@@ -42,7 +43,6 @@ class VectorDescribe:
             input_data (str):The input file
         """
         self.source = None
-        self.file_encoding = None
         self.column_properties = None
         self.geometry_type = None
         self.is_mz_aware = None
@@ -73,7 +73,7 @@ class VectorDescribe:
             self.crs.getFromWKT(fio_coll.crs_wkt)
 
         # No idea why this works but it does so use it.
-        exec ('rawstring = "{}"'.format(repr(','.join(gdf.columns.values))))
+        exec('rawstring = "{}"'.format(repr(','.join(gdf.columns.values))))
         result = chardet.detect(rawstring)
         self.file_encoding = result['encoding']
 
@@ -162,32 +162,24 @@ class CsvDescribe:
     def describe_file(self):
         """Describe a CSV File and set class properties
         """
-        with open(self.source, 'rb') as f:
-            # sniff into 10KB of the file to check its dialect
+        with io.open(self.source, 'rb') as f:
+            # sniff into 1MB of the file to check its dialect
             # this will sort out the delimiter and quote character.
-            source_bytes = f.read(10 * 1024)
-            encoding = chardet.detect(source_bytes)['encoding']
-            decoded_string=source_bytes.decode(encoding=encoding)
-            self.dialect = csv.Sniffer().sniff(decoded_string)
-            f.seek(0)  # reset read to start of file
+            source_bytes = f.read(1024 * 1024)
 
-            # read header based on the 10k of file.
-            header = csv.Sniffer().has_header(decoded_string)
-            f.seek(0)  # reset read to start of file
-            if not header:
-                warnings.warn("The CSV file doesn't appear to contain column headers")
-                self.has_column_header = False
+        self.file_encoding = chardet.detect(source_bytes)['encoding']
 
-            f.seek(0)  # reset read to start of file
+        # reopen the file as text, using the detected encoding
+        with io.open(self.source, mode='rt', encoding=self.file_encoding) as f:
+            text = six.ensure_str(f.read(10240))
+        self.dialect = csv.Sniffer().sniff(text)
+        # read header based on the decoded text
+        # import pdb; pdb.set_trace()
+        header = csv.Sniffer().has_header(text)
+        if not header:
+            warnings.warn("The CSV file doesn't appear to contain column headers")
+            self.has_column_header = False
 
-        detector = chardet.UniversalDetector()
-        with open(self.source, 'rb') as eaop:
-            for line in eaop.readlines(100):
-                detector.feed(line)
-                if detector.done:
-                    break
-            detector.close()
-        self.file_encoding = detector.result['encoding']
 
         pandas_df = self.open_pandas_dataframe()
         self.row_count = len(pandas_df)
@@ -327,7 +319,7 @@ def get_column_properties(dataframe):
             fldtype = 'geometry'
 
         if isinstance(col, six.text_type):
-            aliasFld = unidecode(unicode(col))
+            aliasFld = six.ensure_str(col)
         else:
             aliasFld = col
 
@@ -371,7 +363,8 @@ def predictCoordinateColumnNames(column_names):
                     seqMatchDict[guess] = difflib.SequenceMatcher(None, eaFld.upper(), guess.upper(), True).ratio()
 
                 # create short list of matches and ratios
-                valList.append(max(seqMatchDict.iteritems(), key=lambda x: x[1]))
+                iter_items = six.iteritems(seqMatchDict)
+                valList.append(max(iter_items, key=lambda x: x[1]))
 
         # select the largest ratio as the best match
         if len(valList) > 0:
