@@ -2,9 +2,15 @@
 
 # porting_test.sh
 
+
+
 # check the system dependencies for pyprecag are installed.
 # build a temporary virtual environment for python 2 and for
 # python 3 and attempt installation in each.
+
+# set to anything other than "true" to disable verbose testing.
+#VERBOSE="true"
+VERBOSE="false"
 
 if [[ "$1" == "2" ]] ; then
     TARGET_PYTHONS=("python2.7")
@@ -13,6 +19,15 @@ elif [[ "$1" == "3" ]] ; then
 else
     TARGET_PYTHONS=("python2.7" "python3.6")
 fi
+
+
+if [[ ${VERBOSE} == "true" ]] ; then
+    VERBOSE_FLAG="-v"
+else
+    VERBOSE_FLAG=""
+fi
+
+
 
 #set -x
 
