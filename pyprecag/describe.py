@@ -43,6 +43,7 @@ class VectorDescribe:
             input_data (str):The input file
         """
         self.source = None
+        self.file_encoding = None
         self.column_properties = None
         self.geometry_type = None
         self.is_mz_aware = None
@@ -174,7 +175,6 @@ class CsvDescribe:
             text = six.ensure_str(f.read(10240))
         self.dialect = csv.Sniffer().sniff(text)
         # read header based on the decoded text
-        # import pdb; pdb.set_trace()
         header = csv.Sniffer().has_header(text)
         if not header:
             warnings.warn("The CSV file doesn't appear to contain column headers")
