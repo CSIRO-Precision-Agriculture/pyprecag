@@ -376,7 +376,10 @@ def predictCoordinateColumnNames(column_names):
         # select the largest ratio as the best match
         if len(valList) > 0:
             best_match = max(valList, key=itemgetter(1))[0]
-            exec ('{}_column = "{}"'.format(eaVal, best_match))
+            if eaVal == 'x':
+                x_column = best_match
+            else:
+                y_column = best_match
 
     LOGGER.debug('GeoCSV Columns:     x = {}, y = {}'.format(x_column, y_column))
     return [x_column, y_column]
