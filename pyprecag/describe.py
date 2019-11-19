@@ -348,6 +348,11 @@ def predictCoordinateColumnNames(column_names):
     """
     x_column = None
     y_column = None
+
+    # under python 3, column_names is returned as an 'odict_keys' ie an
+    # iterator of ordered dict keys. This does not support all the methods of a
+    # list, so coerce to list. Should be a noop under py2.
+    column_names = [cn for cn in column_names]
     for eaVal in ['y', 'x']:
 
         valList = []
