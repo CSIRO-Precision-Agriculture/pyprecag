@@ -58,6 +58,12 @@ class VectorDescribe:
 
         return
 
+    @staticmethod
+    def get_character_encoding(filename):
+        with io.open(filename, 'rb') as f:
+           data = f.read(1024 * 100)
+        return chardet.detect(data)['encoding']
+
     def open_geo_dataframe(self):
         """Create geopandas from file"""
         return GeoDataFrame.from_file(self.source, encoding=self.file_encoding)
@@ -67,16 +73,12 @@ class VectorDescribe:
         Describe a vector File and set class properties
         """
 
+        self.file_encoding = self.get_character_encoding(self.source)
         # Use this open so as to not hold open and use up memory
         gdf = GeoDataFrame.from_file(self.source, encoding=self.file_encoding)
 
         with fiona.open(self.source) as fio_coll:
             self.crs.getFromWKT(fio_coll.crs_wkt)
-
-        # No idea why this works but it does so use it.
-        exec('rawstring = "{}"'.format(repr(','.join(gdf.columns.values))))
-        result = chardet.detect(rawstring)
-        self.file_encoding = result['encoding']
 
         self.feature_count = len(gdf)
         self.extent = list(gdf.total_bounds)
