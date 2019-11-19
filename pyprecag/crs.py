@@ -2,6 +2,7 @@ import json
 import logging
 
 import os
+import six
 import socket
 import warnings
 from six.moves.urllib_parse import urlencode
@@ -98,13 +99,13 @@ class crs:
             osgeo.osr.SpatialReference: The Spatial Reference Object for the input EPSG
 
         """
-        if isinstance(epsg, (str, unicode)):
+        if isinstance(epsg, six.string_types):
             try:
                 epsg = int(epsg.replace('EPSG:', ''))
             except:
                 raise TypeError('EPSG must be a number. Got - {}'.format(epsg))
 
-        if not isinstance(epsg, (int, long)):
+        if not isinstance(epsg, six.integer_types):
             raise TypeError('EPSG must be a number. Got - {}'.format(epsg))
 
         if epsg is None or epsg == 0:
@@ -425,7 +426,7 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
         if not isinstance(argCheck[1], float):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
-    if not isinstance(distance_metres, (int, long, float)):
+    if not isinstance(distance_metres, six.integer_types + (float, )):
         raise TypeError('distance_metres must be a floating number.')
 
     # get the required Spatial reference systems
