@@ -1005,7 +1005,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         poly_epsg = desc_poly.crs.epsg_number
         if poly_epsg != image_epsg:
             # we have to reproject the vector points to match the raster
-            print 'WARNING: Projecting points from {} to {}'.format(desc_poly.crs.epsg, image_epsg)
+            print('WARNING: Projecting points from {} to {}'.format(desc_poly.crs.epsg, image_epsg))
             gdf_poly.to_crs(epsg=image_epsg, inplace=True)
             poly_epsg = image_epsg
 
