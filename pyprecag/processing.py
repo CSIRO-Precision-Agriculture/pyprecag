@@ -4,7 +4,7 @@ import inspect
 import re
 from collections import defaultdict
 
-from itertools import izip
+from six.moves import zip as izip
 import logging
 import os
 
