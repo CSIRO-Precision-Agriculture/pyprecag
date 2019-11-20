@@ -192,7 +192,9 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            self.assertItemsEqual([-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
+            six.assertCountEqual(
+                self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist()
+            )
 
     def test_PersistorTargetProb(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
@@ -212,7 +214,9 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            self.assertItemsEqual([-9999, -1, 0, 1], np.unique(band1.data).tolist())
+            six.assertCountEqual(
+                self, [-9999, -1, 0, 1], np.unique(band1.data).tolist()
+            )
 
 
 class TestStripTrials(unittest.TestCase):
