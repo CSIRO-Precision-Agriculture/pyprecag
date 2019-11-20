@@ -16,6 +16,7 @@ from rasterio.warp import calculate_default_transform, reproject
 from rasterio.windows import get_data_window, from_bounds, intersection
 
 from scipy.ndimage import generic_filter
+import six
 from . import crs as pyprecag_crs
 from .bandops import CalculateIndices
 from . import config, TEMPDIR
@@ -47,7 +48,7 @@ def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffe
     if not isinstance(bounds, (tuple, list)):
         raise TypeError('Bounds should be a tuple or list for xmin, ymin, xmax, ymax')
 
-    if not isinstance(pixel_size, (int, long, float)):
+    if not isinstance(pixel_size, six.integer_types + (float, )):
         raise TypeError('pixel_size must be numeric number.')
     if not isinstance(snap_extent_to_pixel, (int, bool)):
         raise TypeError('snap_extent_to_pixel must be boolean.')
@@ -99,7 +100,7 @@ def raster_snap_extent(x_min, y_min, x_max, y_max, pixel_size):
 
     for argCheck in [('x_min', x_min), ('y_min', y_min), ('x_max', x_max), ('y_max', y_max),
                      ('pixel_size', pixel_size)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], six.integer_types + (float, )):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     b_box = [x_min - (x_min % pixel_size),  # calc new xMin
@@ -139,7 +140,7 @@ def rescale(raster, min_value, max_value, band_num=1, ignore_nodata=True):
                         "rasterio.open(os.path.normpath())")
 
     for argCheck in [('min_value', min_value), ('max_value', max_value)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], six.integer_types + (float, )):
             raise TypeError('{} must be numeric.'.format(argCheck[0]))
 
     band = raster.read(band_num, masked=ignore_nodata)
