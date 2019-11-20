@@ -4,9 +4,10 @@ import inspect
 import re
 from collections import defaultdict
 
-from six.moves import zip as izip
 import logging
 import os
+import six
+from six.moves import zip as izip
 
 import random
 import time
@@ -52,6 +53,7 @@ from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproje
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
+number_types = six.integer_types + (float, )
 
 def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
                out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
@@ -79,10 +81,10 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
             See post: https://gis.stackexchange.com/q/139336
     """
 
-    if not isinstance(pixel_size, (int, long, float)):
+    if not isinstance(pixel_size, number_types):
         raise TypeError('Pixel size must be an integer or floating number.')
 
-    if not isinstance(nodata_val, (int, long)):
+    if not isinstance(nodata_val, six.integer_types):
         raise TypeError('Nodata value must be an integer.')
 
     desc_poly_shp = VectorDescribe(in_shapefilename)
@@ -148,7 +150,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(points_geodataframe, GeoDataFrame):
@@ -352,7 +354,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             raise IOError('Output folder does not exist: {}'.format(os.path.dirname(argCheck)))
 
     for argCheck in [('thinDist_m', thin_dist_m), ('stdev', stdevs)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a integer or floating number.'.format(argCheck[0]))
 
     if process_column not in points_geodataframe.columns:
@@ -619,7 +621,7 @@ def random_pixel_selection(raster, raster_crs, num_points, out_shapefile=None):
         raise TypeError("Input should be a rasterio.DatasetReader created "
                         "using rasterio.open(os.path.normpath())")
 
-    if not isinstance(num_points, (int, long)):
+    if not isinstance(num_points, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
     if not isinstance(raster_crs, pyprecag_crs.crs):
@@ -916,10 +918,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
     for ea_arg in [('pixel_size', pixel_size), ('image_nodata', image_nodata)]:
-        if not isinstance(ea_arg[1], (int, long, float)):
+        if not isinstance(ea_arg[1], number_types):
             raise TypeError('{} must be a integer or floating number - Got {}'.format(*ea_arg))
 
-    if not isinstance(image_epsg, (int, long)):
+    if not isinstance(image_epsg, six.integer_types):
         raise TypeError('image_epsg must be a integer - Got {}'.format(image_epsg))
 
     if not isinstance(band_nums, list):
@@ -1338,7 +1340,7 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
     for ea_arg in [('image_epsg', image_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(ea_arg[1], (int, long)):
+        if not isinstance(ea_arg[1], six.integer_types):
             raise TypeError('{} must be a integer - Got {}'.format(*ea_arg))
 
     filename, ext = os.path.splitext(os.path.basename(image_file))
@@ -1501,10 +1503,10 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         pandas.core.frame.DataFrame: A dataframe containing cluster statistics for each image.
     """
 
-    if not isinstance(n_clusters, (int, long)):
+    if not isinstance(n_clusters, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
-    if not isinstance(max_iterations, (int, long)):
+    if not isinstance(max_iterations, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
     if not isinstance(raster_files, list):
@@ -1724,13 +1726,13 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     for argCheck in [('offset_distance', offset_distance),
                      ('distance_between_points', distance_between_points)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(lines_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
-    if not isinstance(out_epsg, (int, long)):
+    if not isinstance(out_epsg, six.integer_types):
         raise TypeError('out_epsg must be a integer - Got {}'.format(*out_epsg))
 
     if out_points_shapefile is not None and os.path.isabs(out_points_shapefile):
