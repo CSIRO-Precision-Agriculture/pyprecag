@@ -154,10 +154,13 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             raise TypeError(
                 "There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
 
-        LOGGER.info(
-            '{:<30} {:>10,}   {dur:<15} {}'.format('Filter by distance - {}'.format(filter_string.replace('point', '')),
-                                                  len(subset), 'del {} pts'.format(stepTotal),
-                                                  dur=datetime.timedelta(seconds=time.time() - filterTime)))
+        LOGGER.info('{:<30} {:>10,}   {dur:<15} {}'.format(
+            'Filter by distance - {}'.format(
+                filter_string.replace('point', '')
+            ),
+            len(subset), 'del {} pts'.format(stepTotal),
+            dur=str(datetime.timedelta(seconds=time.time() - filterTime))
+        ))
 
     # set sort back to original row order
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)

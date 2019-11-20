@@ -387,8 +387,10 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
 
         save_geopandas_tofile(gdf_csv, out_shapefilename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        str(inspect.currentframe().f_code.co_name), '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     return gdf_csv, gdf_crs
 
