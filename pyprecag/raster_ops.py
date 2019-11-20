@@ -448,7 +448,8 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
                               resampling=resampling)
 
                     # image statistics have changed so copy only the other tags
-                    cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems()
+                    iter_items = six.iteritems(src.tags(i))
+                    cleaned_tags = dict([(key, val) for key, val in iter_items
                                          if not key.upper().startswith('STATISTIC')])
                     if len(cleaned_tags) > 0:
                         dest.update_tags(i, **cleaned_tags)
