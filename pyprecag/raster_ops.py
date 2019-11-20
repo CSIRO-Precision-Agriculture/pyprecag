@@ -293,7 +293,7 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
             warnings.simplefilter("ignore", category=RuntimeWarning)
             filtered = generic_filter(band, function, mode='constant', cval=np.nan, size=size)
 
-        col_name += [function.func_name.replace('nan', ''), '{0}x{0}'.format(size)]
+        col_name += [function.__name__.replace('nan', ''), '{0}x{0}'.format(size)]
     else:
         filtered = band
         col_name += ['pixel']
