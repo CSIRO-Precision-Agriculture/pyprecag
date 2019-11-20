@@ -277,8 +277,10 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
@@ -846,12 +848,14 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         points_geodataframe.drop(['geometry'], axis=1).to_csv(output_csvfile, index=False)
 
         LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
-            'Saved CSV', '', os.path.basename(output_csvfile),
-            dur=timedelta(seconds=time.time() - step_time)))
+                'Saved CSV', '', os.path.basename(output_csvfile),
+                dur=str(timedelta(seconds=time.time() - step_time))
+        ))
 
     LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '', '',
-        dur=timedelta(seconds=time.time() - start_time)))
+        dur=str(timedelta(seconds=time.time() - start_time))
+        ))
 
     return points_geodataframe, points_crs
 
@@ -1666,7 +1670,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     LOGGER.info('{:<30} {:<15} {dur:<15} {}'.format(
         'Saved Stats CSV', '', output_tif.replace('.tif', '_statistics.csv'),
-        dur=timedelta(seconds=time.time() - step_time)))
+        dur=str(timedelta(seconds=time.time() - step_time))
+    ))
 
     # clean up of intermediate files
     if len(temp_file_list) > 0 and not config.get_debug_mode():
@@ -1678,7 +1683,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     LOGGER.info('{:<30}  {:<15} {dur:<15} {}'.format(
         'K-Means Clustering Completed', '', '{} zones for {} rasters'.format(
-            n_clusters, len(raster_files)), dur=timedelta(seconds=time.time() - start_time)))
+            n_clusters, len(raster_files)),
+            dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     return results_df
 
