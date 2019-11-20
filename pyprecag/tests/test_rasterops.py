@@ -4,6 +4,7 @@ import tempfile
 import time
 import unittest
 import rasterio
+import six
 
 from pyprecag.tests import make_dummy_data
 from pyprecag import raster_ops
@@ -47,8 +48,14 @@ class test_rasterOps(unittest.TestCase):
         xmin, ymin = 350127.023547, 6059756.84652457
         xmax, ymax = xmin + 3.142 * 200, ymin + 3.142 * 550
 
-        self.assertItemsEqual([350125.0, 6059755.0, 350760.0, 6061485.0], raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 5))
-        self.assertItemsEqual([350127.0, 6059756.5, 350755.5, 6061485.0], raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 0.5))
+        six.assertCountEqual(
+            self, [350125.0, 6059755.0, 350760.0, 6061485.0],
+            raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 5)
+        )
+        six.assertCountEqual(
+            self, [350127.0, 6059756.5, 350755.5, 6061485.0],
+            raster_ops.raster_snap_extent(xmin, ymin, xmax, ymax, 0.5)
+        )
 
     def test_rescaleSingleBand(self):
         with rasterio.open(os.path.normpath(self.singletif)) as src:
