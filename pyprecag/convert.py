@@ -220,8 +220,10 @@ def convert_polygon_to_grid(in_shapefilename,
         LOGGER.exception("Error rasterizing layer: {}".format(err), True)
 
     else:
-        LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                                   dur=timedelta(seconds=time.time() - start_time)))
+        LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+            inspect.currentframe().f_code.co_name, '',
+            dur=str(timedelta(seconds=time.time() - start_time))
+        ))
 
     # close the data sources
     r_band = None
