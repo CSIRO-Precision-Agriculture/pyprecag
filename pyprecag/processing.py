@@ -2100,7 +2100,9 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
         column_names['Zone'] = 'Zone'
 
     # rename columns from raster name to the dictionary key to be more generic
-    gdf_points.rename(columns=dict([[v, k] for k, v in column_names.iteritems()]), inplace=True)
+    gdf_points.rename(columns=dict(
+        [[v, k] for k, v in six.iteritems(column_names)]
+    ), inplace=True)
 
     # create a unique id for each line/point
     gdf_points.insert(1, 'TrialPtID',
