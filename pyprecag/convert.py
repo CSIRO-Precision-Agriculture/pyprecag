@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 
+import six
+
 from osgeo import ogr, gdal
 import geopandas
 from geopandas import GeoDataFrame, GeoSeries
@@ -290,7 +292,7 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
         raise TypeError("Input points should be a geopandas dataframe")
 
     for argCheck in [('coord_columns_epsg', coord_columns_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     if coord_columns is None:
@@ -368,7 +370,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
         raise IOError("Invalid path: {}".format(in_csvfilename))
 
     for argCheck in [('coord_columns_epsg', coord_columns_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     desc_csv = CsvDescribe(in_csvfilename)
@@ -415,12 +417,12 @@ def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-
     if not isinstance(feature, (pd.Series, geopandas.GeoSeries)):
         raise TypeError("Input feature should be a geopandas series")
 
-    if not isinstance(pixel_size, (int, long, float)):
+    if not isinstance(pixel_size, six.integer_types + (float, )):
         raise TypeError('Pixel size must be an integer or floating number.')
 
     if isinstance(value, str) and 'value' not in list(feature.index):
         raise TypeError('Value string {} is not a column name')
-    elif not isinstance(value, (int, long, float)):
+    elif not isinstance(value, six.integer_types + (float, )):
         raise TypeError('Value should be a column name, or a number')
 
     transform, width, height, bbox = create_raster_transform(feature.geometry.bounds,
