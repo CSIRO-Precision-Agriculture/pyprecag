@@ -3,6 +3,7 @@ import tempfile
 import unittest
 
 from geopandas import GeoSeries, GeoDataFrame
+import six
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
@@ -162,7 +163,9 @@ class TestProcessing(unittest.TestCase):
 
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
-            self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+            six.assertCountEqual(
+                    self, np.array([0, 1, 2, 3]), np.unique(band1.data)
+            )
 
     def test_PersistorAllYears(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
