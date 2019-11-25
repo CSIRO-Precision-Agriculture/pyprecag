@@ -343,7 +343,9 @@ class TestEnd2End(unittest.TestCase):
             self.assertIn(src.crs.to_string(), ['EPSG:28354', '+init=epsg:28354'])
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
-            self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+            six.assertCountEqual(
+                self, np.array([0, 1, 2, 3]), np.unique(band1.data)
+            )
 
     def test99_gridExtract(self):
         out_fold = os.path.join(TmpDir, 'gridextract')
