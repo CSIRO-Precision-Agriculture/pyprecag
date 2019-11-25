@@ -265,8 +265,10 @@ def convert_grid_to_vesper(in_rasterfilename, out_vesperfilename):
                         xy = oRasterDS.xy(iRowY, iColX)
                         vesFile.write(' {}   {}\n'.format(xy[0], xy[1]))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
     return
 
 

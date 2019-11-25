@@ -50,10 +50,11 @@ from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
     calculate_image_indices, stack_and_clip_rasters
 
+from pyprecag import number_types
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
-number_types = six.integer_types + (float, )
 
 def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
                out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
@@ -106,8 +107,10 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
     convert_grid_to_vesper(in_rasterfilename=out_rasterfilename,
                            out_vesperfilename=out_vesperfilename)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
 
 def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0,

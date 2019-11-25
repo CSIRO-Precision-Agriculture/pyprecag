@@ -18,6 +18,8 @@ __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
 __version__ = '0.3.1'
 
+number_types = six.integer_types + (float, )
+
 TEMPDIR = os.path.join(tempfile.gettempdir(), 'PrecisionAg')
 
 if not os.path.exists(TEMPDIR):

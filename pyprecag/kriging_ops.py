@@ -15,6 +15,7 @@ import geopandas as gpd
 import pandas as pd
 import rasterio
 from rasterio import features
+import six
 
 from unidecode import unidecode
 from collections import OrderedDict
@@ -23,6 +24,7 @@ from . import config
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
 from .raster_ops import raster_snap_extent, create_raster_transform
+from pyprecag import number_types
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
@@ -102,20 +104,20 @@ class VesperControl(collections.MutableMapping, dict):
             raise AttributeError('VesperControl has no attribute {}'.format(key))
 
         if key in VESPER_OPTIONS.keys():
-            if isinstance(value, basestring):
+            if isinstance(value, six.string_types):
                 try:
                     value = VESPER_OPTIONS[key][value]
                 except KeyError:
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
                         value, key, VESPER_OPTIONS[key]))
 
-            elif isinstance(value, (int, float, long)):
+            elif isinstance(value, number_types):
                 if value not in VESPER_OPTIONS[key].values():
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
                         value, key, VESPER_OPTIONS[key]))
 
         if isinstance(self.__defaults[key], float):
-            if not isinstance(value, (int, long, float)):
+            if not isinstance(value, number_types):
                 raise ValueError('value for key {} should be a float or int - Got {}'.format(
                     key, type(value.__name__)))
 
@@ -192,7 +194,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
         raise IOError("Invalid path: {}".format(control_textfile))
 
     for argCheck in [('krig_epsg', krig_epsg), ('nodata_value', nodata_value)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     start_time = time.time()
@@ -271,9 +273,10 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
                                     transform=out_se.transform, fill=nodata_value)
         out_se.write(burned, indexes=1)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=datetime.timedelta(
-                                                   seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(datetime.timedelta( seconds=time.time() - start_time)))
+    )
     return out_pred_tif, out_se_tif, out_ci_txt
 
 
@@ -331,7 +334,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     if not os.path.exists(grid_filename):
         raise IOError("Invalid path: {}".format(grid_filename))
 
-    if not isinstance(block_size, (int, long)):
+    if not isinstance(block_size, six.integer_types):
         raise TypeError('block_size must be an integer'.format(block_size))
 
     warnings.warn('block_size is deprecated, use VesperControl xsize and ysize instead',
@@ -353,7 +356,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         if eaFld not in in_dataframe.columns:
             raise TypeError('Column {} does not exist'.format(eaFld))
 
-    if not isinstance(epsg, (int, long)):
+    if not isinstance(epsg, six.integer_types):
         raise TypeError('EPSG {} must be a integer.'.format(epsg))
 
     if not isinstance(control_options, VesperControl):
@@ -505,9 +508,10 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         with open(vesper_batfile, 'w') as wBatFile:
             wBatFile.write(bat_file_string)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=datetime.timedelta(
-                                                   seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(datetime.timedelta(seconds=time.time() - start_time))
+    ))
     return vesper_batfile, vesper_ctrlfile
 
 
