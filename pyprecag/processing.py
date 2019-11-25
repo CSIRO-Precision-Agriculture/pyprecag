@@ -1197,8 +1197,11 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                         dest.write(filled, iband)
                         # image statistics have changed so don't copy the tags
-                        cleaned_tags = dict([(key, val) for key, val in src.tags(iband).iteritems()
-                                             if not key.upper().startswith('STATISTIC')])
+                        cleaned_tags = dict(
+                            [(key, val) for key, val in
+                            six.iteritems(src.tags(iband))
+                            if not key.upper().startswith('STATISTIC')]
+                        )
                         if len(cleaned_tags) > 0:
                             dest.update_tags(iband, **cleaned_tags)
 
