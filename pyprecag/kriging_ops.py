@@ -40,17 +40,25 @@ def test_for_windows():
 
 # consider enums - https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 # The codes for the variogram. The key is the tag used in the control file_csv
-VESPER_OPTIONS = {"jigraph": {"Don't Show": 0, "Show": 1},
-                  "jimap": {"Don't Show": 0, "Show": 1},
-                  "jlockrg": {"Local": 1, "Global": 0},
-                  "jpntkrg": {"Block": 0, "Point": 1, "Punctual": 1},
-                  "jsetrad": {"Calculate Radius": 0, "Set Radius": 1},
-                  "jcomvar": {"Define Variogram Parameter": 0, "Compute Variogram": 1},
-                  "modtyp": {"Spherical": 1, "Exponential": 2, "Gaussian": 3,
-                             "Linear with sill": 4, "Stable": 5, "Generalised Cauchy": 6,
-                             "Matern": 7, "Double spherical": 8, "Double exponential": 9},
-                  "iwei": {"unity": 0, "No. of pairs": 1, "1/variance": 2, "no_pairs/variance": 3,
-                           "no_pairs/fitted": 4}}
+VESPER_OPTIONS = {
+    "jigraph": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+    "jimap": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+    "jlockrg": OrderedDict([("Local", 1), ("Global", 0)]),
+    "jpntkrg": OrderedDict([("Punctual", 1), ("Block", 0), ("Point", 1)]),
+    "jsetrad": OrderedDict([("Calculate Radius", 0), ("Set Radius", 1)]),
+    "jcomvar": OrderedDict([
+        ("Define Variogram Parameter", 0), ("Compute Variogram", 1)
+    ]),
+    "modtyp": OrderedDict([
+        ("Spherical", 1), ("Exponential", 2), ("Gaussian", 3),
+        ("Linear with sill", 4), ("Stable", 5), ("Generalised Cauchy", 6),
+        ("Matern", 7), ("Double spherical", 8), ("Double exponential", 9)
+    ]),
+    "iwei": OrderedDict([
+        ("unity", 0), ("No. of pairs", 1), ("1/variance", 2),
+        ("no_pairs/variance", 3), ("no_pairs/fitted", 4)
+    ])
+}
 
 
 class VesperControl(collections.MutableMapping, dict):
@@ -108,12 +116,12 @@ class VesperControl(collections.MutableMapping, dict):
                     value = VESPER_OPTIONS[key][value]
                 except KeyError:
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
-                        value, key, VESPER_OPTIONS[key]))
+                        value, key, dict(VESPER_OPTIONS[key])))
 
             elif isinstance(value, number_types):
                 if value not in VESPER_OPTIONS[key].values():
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
-                        value, key, VESPER_OPTIONS[key]))
+                        value, key, dict(VESPER_OPTIONS[key])))
 
         if isinstance(self.__defaults[key], float):
             if not isinstance(value, number_types):
