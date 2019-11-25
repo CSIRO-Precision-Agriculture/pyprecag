@@ -44,7 +44,7 @@ from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pi
     convert_polygon_feature_to_raster, drop_z, deg_to_8_compass_pts, point_to_point_bearing, \
     text_rotation
 
-from .describe import save_geopandas_tofile, VectorDescribe, get_dataframe_encoding
+from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
@@ -559,7 +559,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final.drop([id_col], inplace=True, axis=1)
 
     # get the appropriate file encoding and save the file
-    file_encoding = get_dataframe_encoding(gdf_final)
+    try:
+        file_encoding = config.read_config()['geoCSV']['file_encoding']
+    except KeyError:
+        file_encoding = 'utf-8'
 
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)

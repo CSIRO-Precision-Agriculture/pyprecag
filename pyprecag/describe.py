@@ -280,12 +280,6 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
 
 
-def get_dataframe_encoding(dataframe):
-    exec ('rawstring = "{}"'.format(repr(','.join(dataframe.columns))))
-    result = chardet.detect(rawstring)
-    return result['encoding']
-
-
 def get_column_properties(dataframe):
     """ Get a dictionary representing Column Properties for a pandas dataframe or a geopandas geodataframe.
        Includes:
