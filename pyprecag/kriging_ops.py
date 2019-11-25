@@ -17,7 +17,6 @@ import rasterio
 from rasterio import features
 import six
 
-from unidecode import unidecode
 from collections import OrderedDict
 
 from . import config
@@ -365,7 +364,10 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     start_time = time.time()
 
     # Create a filename compatible copy of the krig_column
-    krig_col_file = re.sub('[^A-Za-z0-9_-]+', '', unidecode(unicode(krig_column)))
+    krig_col_file = re.sub(
+        '[^A-Za-z0-9_-]+', '',
+        six.ensure_str(krig_column, encoding='ascii', errors='ignore')
+    )
 
     out_sub_name = os.path.basename(grid_filename)[:20]
 
