@@ -1,5 +1,5 @@
 import collections
-import datetime
+from datetime import datetime, timedelta
 import glob
 import inspect
 import logging
@@ -228,7 +228,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
         ci_file.writelines("Median Prediction SE    : {:.5f}\n".format(median_val))
         ci_file.writelines("95% Confidence Interval : {:.5f}\n\n".format(2 * 1.96 * median_val))
         ci_file.writelines(
-            "Date/time : " + datetime.datetime.now().strftime("%d-%b-%Y %H:%M") + "\n")
+            "Date/time : " + datetime.now().strftime("%d-%b-%Y %H:%M") + "\n")
         userhome = os.path.expanduser('~')
         ci_file.writelines("Username  : " + os.path.split(userhome)[-1] + "\n")
 
@@ -282,8 +282,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '',
-        dur=str(datetime.timedelta( seconds=time.time() - start_time)))
-    )
+        dur=str(timedelta( seconds=time.time() - start_time))))
     return out_pred_tif, out_se_tif, out_ci_txt
 
 
@@ -520,7 +519,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '',
-        dur=str(datetime.timedelta(seconds=time.time() - start_time))
+        dur=str(timedelta(seconds=time.time() - start_time))
     ))
     return vesper_batfile, vesper_ctrlfile
 
@@ -556,5 +555,5 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     process = subprocess.Popen([vesper_exe, ctrl_file], cwd=os.path.dirname(ctrl_file),
                                startupinfo=info)
     process.wait()
-    logging.info('{:<30}\t{dur:<15}'.format('Vesper Kriging', dur=datetime.timedelta(
-        seconds=time.time() - task_time)))
+    logging.info('{:<30}\t{dur:<15}'.format('Vesper Kriging',
+                                            dur=str(timedelta(seconds=time.time() - task_time))))
