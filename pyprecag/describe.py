@@ -151,7 +151,7 @@ class CsvDescribe:
         return pdf
 
     def get_column_names(self):
-        return self.column_properties.keys()
+        return list(self.column_properties.keys())
 
     def get_alias_column_names(self):
         return [val['alias'] for key, val in self.column_properties.items()]
@@ -307,21 +307,25 @@ def get_column_properties(dataframe):
             if fldtype == 'unicode':
                 fldtype = 'str'
         else:
-            fldtype = type(np.asscalar(np.zeros(1, _type))).__name__
+            fldtype = type(np.zeros(1, _type).item()).__name__
             if fldtype == 'long':
                 fldtype = 'int'
 
         if col.lower() == 'geometry':
             fldtype = 'geometry'
 
-        if isinstance(col, six.text_type):
-            aliasFld = six.ensure_str(col)
-        else:
-            aliasFld = col
+        aliasFld = col
+        # check for unicode characters
+        if not all(ord(char) < 128 for char in col):
+            try: # python 2.7
+                if isinstance( col, unicode):
+                    aliasFld = unidecode(col)
+            except: # python 3.7
+                aliasFld = unidecode(six.ensure_str(col))
 
         # create a shapefile valid name 10 alpha numeric and underscore characters.
         # to keep underscore('_'), addit after the 9
-        shpFld = re.sub('[^A-Za-z0-9_-]+', '', col)[:10]
+        shpFld = re.sub('[^A-Za-z0-9_-]+', '', aliasFld)[:10]
 
         column_desc[col] = {'alias': aliasFld.replace(' ', ''),
                             'shapefile': shpFld,
@@ -342,11 +346,6 @@ def predictCoordinateColumnNames(column_names):
     """
     x_column = None
     y_column = None
-
-    # under python 3, column_names is returned as an 'odict_keys' ie an
-    # iterator of ordered dict keys. This does not support all the methods of a
-    # list, so coerce to list. Should be a noop under py2.
-    column_names = [cn for cn in column_names]
     for eaVal in ['y', 'x']:
 
         valList = []

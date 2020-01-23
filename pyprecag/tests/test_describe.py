@@ -36,6 +36,8 @@ class test_GeneralDescribe(TestCase):
         descCSV = CsvDescribe(file)
         self.assertEqual(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
 
+        df = descCSV.open_pandas_dataframe()
+        self.assertListEqual(df.columns.to_list(), descCSV.get_column_names())
 
 class test_VectorDescribe_QGIS(TestCase):
     def setUp(self):
@@ -133,6 +135,16 @@ class test_CsvDescribe(TestCase):
         self.assertEqual(csvDesc.column_count, 18)
         self.assertEqual(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Longitude', 'Latitude'])
         self.assertTrue(csvDesc.has_column_header)
+
+        self.assertEqual(csvDesc.get_column_names()[-1], csvDesc.get_alias_column_names()[-1])
+        self.assertNotEqual(csvDesc.get_column_names()[-2], csvDesc.get_alias_column_names()[-2])
+
+        self.assertEqual(u'Crop Flw(V)(m\xb3/s)', csvDesc.get_column_names()[-2])
+        self.assertEqual('CropFlw(V)(m3/s)', csvDesc.get_alias_column_names()[-2])
+
+        #check to see if unicode characters exist True if all ascii, false if not
+        self.assertTrue(all(ord(char) < 128 for char in csvDesc.get_alias_column_names()[-2]))
+        self.assertFalse(all(ord(char) < 128 for char in csvDesc.get_column_names()[-2]))
 
     def test_csvfile_ascii(self):
         csvDesc = CsvDescribe(os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv"))
