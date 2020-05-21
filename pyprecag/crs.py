@@ -38,20 +38,20 @@ class crs:
             code (int): An integer representing the EPSG code
 
          """
-        if code is None:
-            warnings.warn('EPSG Code is None and cant be set.')
+        if code is None or code == 0:
+            warnings.warn('EPSG Code is None or 0 and cant be set.')
             return
 
         if isinstance(code, str):
             try:
                 code = int(code)
             except:
-                raise TypeError('EPSG code must be a positive integer')
+                raise TypeError('EPSG code ({}) must be a positive integer'.format(code))
 
         if not isinstance(code, int):
-            raise TypeError('EPSG Code must be a positive integer')
-        if code <= 0:
-            raise ValueError('EPSG Code must be a positive integer')
+            raise TypeError('EPSG Code ({}) must be a positive integer'.format(code))
+        if code < 0:
+            raise ValueError('EPSG Code ({}) must be a positive integer above 0'.format(code))
 
         self.epsg = from_epsg(code)
         self.epsg_number = code

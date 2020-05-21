@@ -309,14 +309,14 @@ class TestEnd2End(unittest.TestCase):
         with rasterio.open(os.path.normpath(out_normalised), 'w', **out_meta) as out:
             out.write_band(1, rescaled2)
 
-        self.assertAlmostEqual(float(np.nanmax(norm)), 2.0000722408294678, 4)
-        self.assertAlmostEqual(float(np.nanmin(norm)), -2.266947031021118, 4)
+        self.assertAlmostEqual(2.0000722408294678, float(np.nanmax(norm)), 4)
+        self.assertAlmostEqual(-2.266947031021118, float(np.nanmin(norm)), 4)
 
-        self.assertEqual(np.nanmin(rescaled), 0)
-        self.assertEqual(np.nanmax(rescaled), 255)
+        self.assertEqual(0, np.nanmin(rescaled) )
+        self.assertEqual(255, np.nanmax(rescaled))
 
-        self.assertEqual(np.nanmin(rescaled2), 0)
-        self.assertEqual(np.nanmax(rescaled2), 5)
+        self.assertEqual(0, np.nanmin(rescaled2))
+        self.assertEqual(5, np.nanmax(rescaled2))
 
     def test12_kmeansCluster(self):
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
@@ -340,7 +340,11 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            self.assertIn(src.crs.to_string(), ['EPSG:28354', '+init=epsg:28354'])
+            if hasattr(src.crs, 'to_proj4'):
+                self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             six.assertCountEqual(

@@ -84,15 +84,15 @@ setup(
         'future',
         'scipy',
         'fiona',
-        'gdal', # Required Microsoft Visual C++ Compiler for Python 2.7
-        'rasterio>1,<=1.0.13', # Required Numpy
-        'geopandas>=0.4.0,<0.6.0',
-        'pyproj<2.2.0',
+        'gdal',          # Required Microsoft Visual C++ Compiler for Python 2.7
+        'rasterio<=1.0.24',      # Required Numpy
+        'geopandas',
+        'pyproj',
         'six',
         # These were included to prevent import errors:
         'unidecode',
         'chardet',
-        'matplotlib',
+        'matplotlib>3.0.0',
         ],
 
     # List additional groups of dependencies here (e.g. development

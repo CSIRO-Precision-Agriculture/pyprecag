@@ -2,9 +2,6 @@ import shutil
 import tempfile
 import unittest
 
-from geopandas import GeoSeries, GeoDataFrame
-import six
-
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
 from pyprecag.tests import make_dummy_data
@@ -101,7 +98,8 @@ class TestProcessing(unittest.TestCase):
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
 
-        out_polyfile = os.path.join(TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
+        out_polyfile = os.path.join(TmpDir,
+                                    os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
             in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
@@ -159,8 +157,10 @@ class TestProcessing(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            self.assertIn(src.crs.to_string(), ['EPSG:28354','+init=epsg:28354'])
-
+            if hasattr(src.crs,'to_proj4'):
+                self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             six.assertCountEqual(

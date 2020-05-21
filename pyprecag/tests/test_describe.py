@@ -2,12 +2,8 @@ from unittest import TestCase
 import time
 import os
 
-from pkg_resources import parse_version, get_distribution
-
 from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe, VectorDescribe
-
 this_dir = os.path.abspath(os.path.dirname(__file__))
-
 
 class test_GeneralDescribe(TestCase):
     def setUp(self):
@@ -80,31 +76,27 @@ class test_VectorDescribe_ESRI(TestCase):
         self.assertTrue(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'MultiLineString')
         self.assertEqual(vDesc.feature_count,8)
-
         from collections import OrderedDict
-        self.maxDiff
-        if parse_version(get_distribution('geopandas').version) > parse_version('0.6.0'):
-            self.assertDictEqual(vDesc.column_properties, OrderedDict(
-                [(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}),
-                 (u'float_3dLe',
-                  {'shapefile': u'float_3dLe', 'alias': 'float_3dLe', 'type': 'float', 'dtype': 'float64'}),
-                 (u'double_Len',
-                  {'shapefile': u'double_Len', 'alias': 'double_Len', 'type': 'float', 'dtype': 'float64'}),
-                 (u'short_id', {'shapefile': u'short_id', 'alias': 'short_id', 'type': 'int', 'dtype': 'int64'}),
-                 (u'Long_vert', {'shapefile': u'Long_vert', 'alias': 'Long_vert', 'type': 'int', 'dtype': 'int64'}),
-                 (u'Date_Creat', {'shapefile': u'Date_Creat', 'alias': 'Date_Creat', 'type': 'str', 'dtype': 'object'}),
-                 (u'part_type', {'shapefile': u'part_type', 'alias': 'part_type', 'type': 'str', 'dtype': 'object'}),
-                 ('geometry', {'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'geometry'})]))
 
-        else:
-            self.assertDictEqual(vDesc.column_properties,OrderedDict([(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}),
-                                                                  (u'float_3dLe', {'shapefile': u'float_3dLe', 'alias': 'float_3dLe', 'type': 'float', 'dtype': 'float64'}),
-                                                                  (u'double_Len', {'shapefile': u'double_Len', 'alias': 'double_Len', 'type': 'float', 'dtype': 'float64'}),
-                                                                  (u'short_id', {'shapefile': u'short_id', 'alias': 'short_id', 'type': 'int', 'dtype': 'int64'}),
-                                                                  (u'Long_vert', {'shapefile': u'Long_vert', 'alias': 'Long_vert', 'type': 'int', 'dtype': 'int64'}),
-                                                                  (u'Date_Creat', {'shapefile': u'Date_Creat', 'alias': 'Date_Creat', 'type': 'str', 'dtype': 'object'}),
-                                                                  (u'part_type', {'shapefile': u'part_type', 'alias': 'part_type', 'type': 'str', 'dtype': 'object'}),
-                                                                  ('geometry', {'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'object'})]))
+        compare_to = OrderedDict([(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}),
+                      (u'float_3dLe', {'shapefile': u'float_3dLe', 'alias': 'float_3dLe', 'type': 'float', 'dtype': 'float64'}),
+                      (u'double_Len', {'shapefile': u'double_Len', 'alias': 'double_Len', 'type': 'float', 'dtype': 'float64'}),
+                     (u'short_id', {'shapefile': u'short_id', 'alias': 'short_id', 'type': 'int', 'dtype': 'int64'}),
+                     (u'Long_vert', {'shapefile': u'Long_vert', 'alias': 'Long_vert', 'type': 'int', 'dtype': 'int64'}),
+                     (u'Date_Creat',{'shapefile': u'Date_Creat', 'alias': 'Date_Creat', 'type': 'str', 'dtype': 'object'}),
+                     (u'part_type', {'shapefile': u'part_type', 'alias': 'part_type', 'type': 'str', 'dtype': 'object'}),
+                     ('geometry',{'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'object'})])
+
+        self.assertListEqual(list(vDesc.column_properties.keys()), list(compare_to.keys()))
+
+        import geopandas
+        for key,val in vDesc.column_properties.items():
+            if hasattr(geopandas, 'array') and key == 'geometry':
+                compare_to['geometry']['dtype'] = 'geometry'
+
+            self.assertDictEqual(vDesc.column_properties[key], val)
+
+
 
     def test_wgs84_mixedPartPoly_MZ_esriprj(self):
         vDesc = VectorDescribe(os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp"))

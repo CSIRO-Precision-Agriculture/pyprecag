@@ -192,9 +192,9 @@ def convert_polygon_to_grid(in_shapefilename,
 
     # for pixel data types see http://www.gdal.org/gdal_8h.html#a22e22ce0a55036a96f652765793fb7a4
     tif_drv = gdal.GetDriverByName('GTiff')
-    if tif_drv is None:
-        # If the above Fails then here is an alternate version.
-        tif_drv = Find_GDALDriverByName('GTiff')
+    # if tif_drv is None:
+    #     # If the above Fails then here is an alternate version.
+    #     tif_drv = Find_GDALDriverByName('GTiff')
 
     raster_ds = tif_drv.Create(out_rasterfilename, x_cols, y_rows, 1, gdal.GDT_Int16)
 
@@ -318,15 +318,17 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
         # insert feature id as column as first column and populate it using row number.
         in_dataframe.insert(0, 'FID', in_dataframe.index)
 
-    # combine lat and lon column to a shapely Point() object
-    in_dataframe['geometry'] = in_dataframe.apply(
-        lambda x: Point((float(x[x_column]), float(x[y_column]))), axis=1)
-
-    # Now, convert the pandas DataFrame into a GeoDataFrame. The geopandas constructor expects a
-    # geometry column which can consist of shapely geometry objects, so the column we created is
-    # just fine:
-    gdf_csv = geopandas.GeoDataFrame(in_dataframe, geometry='geometry',
-                                     crs=from_epsg(coord_columns_epsg))
+    if hasattr(geopandas,'points_from_xy'):   # implemented in geopandas 0.5.0
+        gdf_csv = geopandas.GeoDataFrame(in_dataframe,
+                                         geometry=geopandas.points_from_xy(in_dataframe[x_column],
+                                                                           in_dataframe[y_column]),
+                                         crs=from_epsg(coord_columns_epsg))
+    else:
+        # Convert the pandas DataFrame into a GeoDataFrame.
+        gdf_csv = geopandas.GeoDataFrame(in_dataframe,
+                                              geometry=[Point(x, y) for x, y in
+                                                        zip(in_dataframe[x_column], in_dataframe[y_column])],
+                                              crs=from_epsg(coord_columns_epsg))
 
     # drop the original geometry columns to avoid confusion
     gdf_csv.drop([x_column, y_column], axis=1, inplace=True)

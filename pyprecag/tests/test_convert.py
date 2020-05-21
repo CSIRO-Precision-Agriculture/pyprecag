@@ -7,13 +7,13 @@ import os
 import tempfile
 import logging
 from shapely.geometry import LineString
-
+import geopandas as gpd
 from pyprecag.tests.test_crs import EPSG_28354_WKT
 
 pyFile = os.path.basename(__file__)
-
 TmpDir = tempfile.gettempdir()
 TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+# TmpDir = tempfile.mkdtemp(dir=tempfile.gettempdir(),prefix= os.path.splitext(pyFile)[0] + '_')
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -40,6 +40,8 @@ class TestConvert(unittest.TestCase):
         if not testFailed:
             print ('Tests Passed .. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
+        else:
+            print ('Tests Failed .. {}'.format(TmpDir))
 
     def setUp(self):
         self.startTime = time.time()
@@ -64,7 +66,7 @@ class TestConvert(unittest.TestCase):
                                                   coord_columns=['Easting', 'Northing'],
                                                   coord_columns_epsg=epsg)
 
-        self.assertIsInstance(gdf_data, GeoDataFrame)
+        self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
         self.assertEqual(len(gdf_data), 13756)
         self.assertEqual(gdf_crs.epsg_number, epsg)
         self.assertTrue(os.path.exists(out_file))
@@ -79,16 +81,16 @@ class TestConvert(unittest.TestCase):
                                                   out_epsg=out_epsg)
 
         self.assertTrue(os.path.exists(out_file))
-        self.assertIsInstance(gdf_data, GeoDataFrame)
+        self.assertIsInstance(gdf_data,  gpd.GeoDataFrame)
         self.assertEqual(len(gdf_data), 1543)
         self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
+
+        self.assertEqual(gdf_crs.epsg_number, out_epsg)
+        self.assertEqual(gdf_crs.crs_wkt, EPSG_28354_WKT)
 
         import numpy as np
         np.testing.assert_almost_equal(list(gdf_data.total_bounds),
                                        [598868.6709, 6054050.0529, 599242.9049, 6054415.3845], 4)
-
-        self.assertEqual(gdf_crs.epsg_number, out_epsg)
-        self.assertEqual(gdf_crs.crs_wkt, EPSG_28354_WKT)
 
     def test_convert_csv_to_points_WGS84_GuessEPSG(self):
         in_file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
@@ -97,7 +99,7 @@ class TestConvert(unittest.TestCase):
         gdf_data, gdf_crs = convert_csv_to_points(in_file, out_file, coord_columns_epsg=4326,
                                                   out_epsg=-1)
         self.assertTrue(os.path.exists(out_file))
-        self.assertIsInstance(gdf_data, GeoDataFrame)
+        self.assertIsInstance(gdf_data,  gpd.GeoDataFrame)
         self.assertEqual(len(gdf_data), 1543)
         self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
         self.assertEqual(gdf_crs.epsg_number, 28354)
@@ -125,11 +127,11 @@ class TestConvert(unittest.TestCase):
 
     def test_pts_linebearing(self):
         # line_bearing uses point_to_point_bearing so this doubles as it's tests as well
-        c_line_gdf = {'geometry': [LineString([(740873, 6169764), (741269, 6169764)]),
+        c_line_gdf = gpd.GeoDataFrame({'geometry': [LineString([(740873, 6169764), (741269, 6169764)]),
                                    LineString([(741000, 6169800), (741003, 6170012)]),
                                    LineString([(741401, 6169800), (741057, 6170012)]),
                                    LineString([(740900, 6169912), (740979, 6170094)])],
-                      'LineID': [1, 2, 3, 4]}
+                                    'LineID': [1, 2, 3, 4]} , crs={'init': 'epsg:28354'})
 
         c_line_gdf = GeoDataFrame(c_line_gdf, crs={'init': 'epsg:28354'})
 
@@ -139,14 +141,16 @@ class TestConvert(unittest.TestCase):
         self.assertAlmostEqual(23.464022404707464, line_bearing(c_line_gdf.iloc[3]), 4)
 
     def test_drop_z(self):
-        c_line_gdf = {'geometry': [LineString([(740873, 6169764, 5), (741269, 6169764, 5)]),
+        c_line_gdf = gpd.GeoDataFrame( {'geometry': [LineString([(740873, 6169764, 5), (741269, 6169764, 5)]),
                                    LineString([(741000, 6169800), (741003, 6170012)]),
-                                   LineString([(741401.415, 6169800), (741057, 6170012)]),
-                                   LineString([(740900.861, 6169912), (740979, 6170094)])],
-                      'LineID': [1, 2, 3, 4]}
-        c_line_gdf = GeoDataFrame(c_line_gdf, crs={'init': 'epsg:28354'})
+                                   LineString([(741401.415, 6169800,4), (741057, 6170012,3)]),
+                                   LineString([(740900.861, 6169912,2), (740979, 6170094,5)])],
+                      'LineID': [1, 2, 3, 4]}, crs={'init': 'epsg:28354'})
 
+        c_line_gdf['geometry2'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
 
+        self.assertEqual(c_line_gdf['geometry'].iloc[1], c_line_gdf['geometry2'].iloc[1])
+        self.assertNotEqual(c_line_gdf['geometry'].iloc[0], c_line_gdf['geometry2'].iloc[0])
 
-
-
+        self.assertFalse(c_line_gdf['geometry2'].iloc[0].has_z)
+        self.assertFalse(c_line_gdf['geometry2'].iloc[-1].has_z)

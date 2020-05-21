@@ -162,15 +162,17 @@ class CsvDescribe:
     def get_column_types(self):
         return [val['type'] for key, val in self.column_properties.items()]
 
+    @staticmethod
+    def get_character_encoding(filename):
+        with io.open(filename, 'rb') as f:
+           data = f.read(1024 * 100)
+        return chardet.detect(data)['encoding']
+
     def describe_file(self):
         """Describe a CSV File and set class properties
         """
-        with io.open(self.source, 'rb') as f:
-            # sniff into 1MB of the file to check its dialect
-            # this will sort out the delimiter and quote character.
-            source_bytes = f.read(1024 * 1024)
 
-        self.file_encoding = chardet.detect(source_bytes)['encoding']
+        self.file_encoding = self.get_character_encoding(self.source)
 
         # reopen the file as text, using the detected encoding
         with io.open(self.source, mode='rt', encoding=self.file_encoding) as f:
@@ -302,7 +304,10 @@ def get_column_properties(dataframe):
     column_desc = OrderedDict()
 
     for col, _type in zip(dataframe.columns, dataframe.dtypes):
-        if _type == object:
+
+        if _type.name=='geometry' or col=='geometry':
+             fldtype = 'geometry'
+        elif _type == object:
             fldtype = type(dataframe.iloc[0][col]).__name__
             if fldtype == 'unicode':
                 fldtype = 'str'
@@ -310,9 +315,6 @@ def get_column_properties(dataframe):
             fldtype = type(np.zeros(1, _type).item()).__name__
             if fldtype == 'long':
                 fldtype = 'int'
-
-        if col.lower() == 'geometry':
-            fldtype = 'geometry'
 
         aliasFld = col
         # check for unicode characters
