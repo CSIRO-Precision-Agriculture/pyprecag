@@ -29,7 +29,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 project = 'pyprecag'
 copyright = '2018, CSIRO'
-version = release = '0.3.0'
+version = release = '0.3.1'
 pygments_style = 'perldoc'
 templates_path = ['.']
 html_use_smartypants = True
