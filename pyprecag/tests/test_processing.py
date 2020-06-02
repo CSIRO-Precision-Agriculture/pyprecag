@@ -100,8 +100,7 @@ class TestProcessing(unittest.TestCase):
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
 
-        out_polyfile = os.path.join(TmpDir,
-                                    os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
+        out_polyfile = os.path.join(TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
             in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
@@ -159,7 +158,8 @@ class TestProcessing(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+            self.assertIn(src.crs.to_string(), ['EPSG:28354','+init=epsg:28354'])
+
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))

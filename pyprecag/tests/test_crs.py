@@ -130,9 +130,23 @@ class TestCrsClass(TestCase):
         dist = distance_metres_to_dd(138.822027994089, -34.4842175261199, 500)
         self.assertEqual(round(dist, 8), 0.00544233)
 
-    def testGetFromWKTUsingOnlineLookup_GDA(self):
+    def testGetFromWKTUsingLookup_GDA(self):
 
         with warnings.catch_warnings(record=True) as w:
+            test = crs()
+            test.getFromWKT(EPSG_28354_WKT)
+
+            if len(w) == 1:
+                print ('Timeout Occurred')
+                self.assertIn('could not be reached. Timeout after 10 seconds', str(w[-1].message))
+            else:
+                self.assertEqual(EPSG_28354_WKT, test.crs_wkt)
+
+                self.assertEqual(test.epsg, from_epsg(test.epsg_number))
+                # self.assertEqual(test.proj4, '+proj=utm +zone=54 +south +ellps=GRS80'
+                #                              ' +units=m +no_defs ')
+                self.assertEqual(test.epsg_predicted, False)
+
             test = crs()
             test.getFromWKT(ESRI_54_WKT_1)
 
@@ -143,9 +157,24 @@ class TestCrsClass(TestCase):
                 self.assertEqual(ESRI_54_WKT_1, test.crs_wkt)
 
                 self.assertEqual(test.epsg, from_epsg(test.epsg_number))
-                self.assertEqual(test.proj4, '+proj=utm +zone=54 +south +ellps=GRS80'
-                                             ' +units=m +no_defs ')
-                self.assertEqual(test.epsg_predicted, False)
+                # self.assertEqual(test.proj4, '+proj=utm +zone=54 +south +ellps=GRS80'
+                #                              ' +units=m +no_defs ')
+                self.assertEqual(test.epsg_predicted, True)
+
+
+            test = crs()
+            test.getFromWKT(ESRI_54_WKT_2)
+
+            if len(w) == 1:
+                print ('Timeout Occurred')
+                self.assertIn('could not be reached. Timeout after 10 seconds', str(w[-1].message))
+            else:
+                self.assertEqual(ESRI_54_WKT_2, test.crs_wkt)
+
+                self.assertEqual(test.epsg, from_epsg(test.epsg_number))
+                # self.assertEqual(test.proj4, '+proj=utm +zone=54 +south +ellps=GRS80'
+                #                              ' +units=m +no_defs ')
+                self.assertEqual(test.epsg_predicted, True)
 
     def test_getProjectedCRSForXY(self):
         # wgs84 edge of z54-55

@@ -1,5 +1,10 @@
 Changelog
 =========
+**0.3.1 (2020-05-27)**
+ Bug Fixes
+  * Support for Geopandas (upto 0.5.1)
+  * Fix coordinate system lookup error (PAT Issue `#42 <https://github.com/CSIRO-Precision-Agriculture/PAT_QGIS_Plugin/issues/42>`_ )
+
 **0.3.0 (2019-06-30)**
  New Tools
   * #24 Persistor.  

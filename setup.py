@@ -85,7 +85,7 @@ setup(
         'fiona',
         'gdal', # Required Microsoft Visual C++ Compiler for Python 2.7
         'rasterio>1,<=1.0.13', # Required Numpy
-        'geopandas>=0.4.0',
+        'geopandas>=0.4.0,<0.6.0',
         'pyproj<2.2.0',
         # These were included to prevent import errors:
         'unidecode',

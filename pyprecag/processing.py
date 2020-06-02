@@ -165,6 +165,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     if not os.path.exists(os.path.dirname(out_filename)):
         raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_filename)))
+    
+    points_geodataframe.crs = points_crs.epsg
 
     start_time = time.time()
     points_geodataframe = points_geodataframe.copy()
@@ -360,6 +362,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if not isinstance(argCheck[1], bool):
             raise TypeError('{} should be a boolean.'.format(argCheck[0]))
 
+
+    points_geodataframe.crs = points_crs.epsg
+
     norm_column = 'nrm_' + process_column
     LOGGER.info('Normalized Column is {}'.format(norm_column))
     if norm_column in points_geodataframe.columns:
@@ -397,8 +402,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     subset = gdf_points[gdf_points[process_column].isnull()]
     if len(subset) > 0:
         gdf_points.loc[subset.index, 'filter'] = 'nulls'
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] \
-            = len(gdf_points['filter'].value_counts())
+        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc']  = len(gdf_points['filter'].value_counts())
 
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
@@ -407,8 +411,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     geom = subset["geometry"].apply(lambda geom: geom.wkb)
     subset = subset.loc[geom.drop_duplicates().index]
     gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'Duplicate XY'
-    gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] \
-        = len(gdf_points['filter'].value_counts())
+    gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
     LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
         'Remove Duplicate XYs', len(geom) - len(subset), '',
@@ -439,8 +442,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             raise GeometryError('Clipping removed all features. Check coordinate systems and/or '
                                 'clip polygon layer and try again')
         gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'clip'
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] \
-            = len(gdf_points['filter'].value_counts())
+        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
         LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format(
             'Clip', len(subset), '', dur=timedelta(seconds=time.time() - step_time)))
@@ -531,7 +533,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points['Easting'] = gdf_points.geometry.apply(lambda p: p.x)
     gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
     gdf_points['EN_EPSG'] = points_crs.epsg_number
-
+    gdf_points.crs = points_crs.epsg
     # Clean up the original input dataframe and remove existing geometry and coord columns
     alt_coord_columns = config.get_config_key('geoCSV')['xCoordinate_ColumnName']
     alt_coord_columns += config.get_config_key('geoCSV')['yCoordinate_ColumnName']
@@ -757,7 +759,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         raise TypeError('rasterfiles: Inconsistent pixel sizes'
                         '\n\t{}'.format('\n\t'.join(res_error)))
 
-    '''TODO: consider clipping raster to extent of the points file which will be quicker when 
+    '''TODO: consider clipping raster to extent of the points file which will be quicker when
             the raster is larger than the points.'''
 
     start_time = time.time()

@@ -82,7 +82,7 @@ class crs:
             code = source.GetAuthorityCode(None)
 
             if code is None:
-                code = self.getEPSGFromSRS(source, bOnlineLookup=True, bUpdateToCorrectDefn=bUpdateByEPSG)
+                code = self.getEPSGFromSRS(source,  bUpdateToCorrectDefn=bUpdateByEPSG)
             else:
                 code = int(source.GetAuthorityCode(None))
 
@@ -143,6 +143,7 @@ class crs:
             int: EPSG Number for the matched Spatial Reference System.
 
         """
+        warnings.warn('bOnlineLookup is deprecated', PendingDeprecationWarning)
 
         if osr_srs is None:
             return
@@ -167,76 +168,6 @@ class crs:
         osr_srs = orig_srs.Clone()
 
         # Then through a lookup
-        if epsg is None and bOnlineLookup:
-            self.epsg_predicted = True
-            query = urlencode({
-                'exact': True,
-                'error': True,
-                'mode': 'wkt',
-                'terms': osr_srs.ExportToWkt()})
-            try:
-                webres = None
-                crsURL = config.get_config_key('crsLookupURL')
-                LOGGER.debug('Checking against OpenGeo service ({})'.format(crsURL))
-
-                webres = urllib2.urlopen(crsURL, query,timeout=10)
-                LOGGER.debug('Connection to {} Successful'.format(crsURL))
-
-            except socket.timeout, e:
-                LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
-                warnings.warn('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
-
-            except:
-                LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. '.format(crsURL))
-
-            if webres is not None:
-                jres = json.loads(webres.read())
-                if len(jres['codes']) == 1:
-                    epsg = jres['codes'][0]['code']
-                    LOGGER.debug('Matched to EPSG {} {}'.format(jres['codes'][0]['code'], jres['codes'][0]['name']))
-                    self.epsg_predicted = False
-                elif len(jres['codes']) > 1:
-                    LOGGER.debug(
-                        '\n\nEPSG lookup found {} matches. Attempting to refine by comparing proj4 strings'.format(
-                            len(jres['codes'])))
-                    for i in reversed(range(len(jres['codes']))):
-                        epsg = None
-                        tmpSrs = osr.SpatialReference()
-                        res = tmpSrs.ImportFromEPSG(int(jres['codes'][i]['code']))
-
-                        if res != 0:
-                            raise RuntimeError(repr(res) + ': could not import from EPSG')
-
-                        # create a dictionary mapping using fiona.crs.from_string to ensure elements are in
-                        # the same order.
-                        tmpProj4Dict = from_string(tmpSrs.ExportToProj4())
-
-                        if from_string(osr_srs.ExportToProj4()) == tmpProj4Dict:
-                            epsg = jres['codes'][i]['code']
-                        else:
-                            # remove towgs84 value if all 0's as it is not always implemented yet for gda2020
-                            if 'towgs84' in tmpProj4Dict:
-                                if tmpProj4Dict['towgs84'] == '0,0,0,0,0,0,0':
-                                    del tmpProj4Dict['towgs84']
-
-                            if from_string(osr_srs.ExportToProj4()) == tmpProj4Dict:
-                                epsg = jres['codes'][i]['code']
-
-                        if epsg is None:
-                            del jres['codes'][i]
-
-                    if len(jres['codes']) == 1:
-                        epsg = jres['codes'][0]['code']
-                        LOGGER.debug('Refined match returns EPSG {} {}'.format(jres['codes'][0]['code'],
-                                                                               jres['codes'][0]['name']))
-                    else:
-                        mess = 'ERROR:-EPSG lookup found {} matches. Please properly define the projection ' \
-                               'and try again.\nThe matches were:'.format(len(jres['codes']))
-                        for i in range(len(jres['codes'])):
-                            mess = mess + '\t{0:>7}    {1}'.format(jres['codes'][i]['code'], jres['codes'][i]['name'])
-                        raise SpatialReferenceError(mess)
-
-        # if still none, then attempt to map for common aussie prj's only
         if epsg is None or epsg == 0:
             self.epsg_predicted = True
             if osr_srs.IsProjected():
@@ -244,19 +175,27 @@ class crs:
             else:
                 srsName = osr_srs.GetAttrValue("GEOGCS", 0)
 
-            LOGGER.debug('Attempting to map {} to Australian GDA projections and WGS84.'.format(srsName), )
-            # TODO: Implement GDA2020
-            if osr_srs.IsProjected() and 'GDA' in srsName.upper() and 'MGA' in srsName.upper():
-                epsg = 28300 + int(srsName[-2:])
-            elif srsName == 'GCS_WGS_1984':
-                epsg = 4326
-            elif srsName == 'GCS_GDA_1994':
-                epsg = 4283
-            if epsg is None:
-                epsg = 0
-                LOGGER.warning('WARNING: No EPSG match found')
-            else:
-                LOGGER.debug('Aussie match found: EPSG:{}'.format(epsg))
+            self.epsg_predicted = True
+
+            # this is copied from QGIS 3.10.3 as a temporary solution
+            crs_database = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'proj.db')
+
+            import sqlite3
+            import pandas as pd
+
+            connection =  sqlite3.connect(crs_database)
+            cursor = connection.cursor()
+            cs_df = pd.read_sql_query('Select  * from  alias_name', connection)
+            del cursor
+            connection.close()
+
+            cs_df = cs_df[cs_df['alt_name'].str.contains(srsName.replace('GDA',''), case=False)]
+
+            if len(cs_df) == 1:
+                epsg = int(cs_df['code'])
+
+            if len(cs_df):
+                LOGGER.debug('Matched to ESRI alias {}'.format(srsName))
 
         if bUpdateToCorrectDefn and epsg > 0:
             self.getFromEPSG(int(epsg))
@@ -456,3 +395,7 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
         distance_dd = -distance_dd
 
     return distance_dd
+
+
+
+
