@@ -2,16 +2,19 @@ import json
 import logging
 
 import os
+
 import six
 import socket
 import warnings
+
+from pkg_resources import parse_version
 from six.moves.urllib_parse import urlencode
 from six.moves.urllib_request import urlopen
 
 from fiona.crs import from_string, from_epsg
 from osgeo import osr, gdal
 from shapely import geometry
-
+import pyproj
 from . import config
 from .errors import SpatialReferenceError
 
@@ -29,6 +32,17 @@ class crs:
         self.epsg_number = None
         self.epsg = None
         self.epsg_predicted = False  # Did the epsg_number get set via the online lookup.
+        self.pyproj_crs = None   # Use this for pyproj2.5+/proj6+ crs class
+        self.pyproj_version=pyproj.__version__
+
+    def set_pyproj_crs(self,epsg_number):
+        """ This is to make use of the new pyproj crs class available from pyproj 2.5.0 onwards
+        Args:
+            epsg_number (int): An integer representing the EPSG code
+        """
+        if parse_version(self.pyproj_version) >= parse_version('2.5.0'):
+            self.pyproj_crs = pyproj.CRS.from_epsg(epsg_number)
+
 
     def set_epsg(self, code):
         """Given an integer code, set the epsg_number and the EPSG-like mapping.
@@ -50,11 +64,14 @@ class crs:
 
         if not isinstance(code, int):
             raise TypeError('EPSG Code ({}) must be a positive integer'.format(code))
-        if code < 0:
+        if code <= 0:
             raise ValueError('EPSG Code ({}) must be a positive integer above 0'.format(code))
 
         self.epsg = from_epsg(code)
         self.epsg_number = code
+
+        self.set_pyproj_crs(code)
+
 
     def getFromWKT(self, crs_wkt, bUpdateByEPSG=False):
         """ Get crs attributes via a coordinate systems WKT.
@@ -73,22 +90,25 @@ class crs:
 
         source = osr.SpatialReference()
         source.ImportFromWkt(crs_wkt)
+
         if source is not None:
             self.crs_wkt = crs_wkt
             self.srs = source
             self.proj4 = source.ExportToProj4()
 
             source.AutoIdentifyEPSG()
-
             code = source.GetAuthorityCode(None)
 
             if code is None:
-                code = self.getEPSGFromSRS(source, bOnlineLookup=True, bUpdateToCorrectDefn=bUpdateByEPSG)
-            else:
-                code = int(source.GetAuthorityCode(None))
+                if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+                    pyproj_crs = pyproj.CRS(source.GetName())
+                    code = pyproj_crs.to_epsg()
+            if code is None:
+                code = self.getEPSGFromSRS(source,  bUpdateToCorrectDefn=bUpdateByEPSG)
 
-            if code is not None:
-                self.set_epsg(code)
+            if code:
+                self.set_epsg(int(code))
+
 
     def getFromEPSG(self, epsg):
         """Create OGR Spatial Reference Object for an epsg_number number
@@ -144,6 +164,7 @@ class crs:
             int: EPSG Number for the matched Spatial Reference System.
 
         """
+        warnings.warn('bOnlineLookup is deprecated', PendingDeprecationWarning)
 
         if osr_srs is None:
             return
@@ -168,75 +189,6 @@ class crs:
         osr_srs = orig_srs.Clone()
 
         # Then through a lookup
-        if epsg is None and bOnlineLookup:
-            self.epsg_predicted = True
-            query = urlencode({
-                'exact': True,
-                'error': True,
-                'mode': 'wkt',
-                'terms': osr_srs.ExportToWkt()})
-            try:
-                webres = None
-                crsURL = config.get_config_key('crsLookupURL')
-                LOGGER.debug('Checking against OpenGeo service ({})'.format(crsURL))
-
-                webres = urlopen(crsURL, six.b(query), timeout=10)
-                LOGGER.debug('Connection to {} Successful'.format(crsURL))
-
-            except socket.timeout:
-                LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
-                warnings.warn('WARNING: OpenGeo service ({}) could not be reached. Timeout after 10 seconds '.format(crsURL))
-
-            except:
-                LOGGER.warning('WARNING: OpenGeo service ({}) could not be reached. '.format(crsURL))
-            if webres is not None:
-                jres = json.loads(webres.read())
-                if len(jres['codes']) == 1:
-                    epsg = jres['codes'][0]['code']
-                    LOGGER.debug('Matched to EPSG {} {}'.format(jres['codes'][0]['code'], jres['codes'][0]['name']))
-                    self.epsg_predicted = False
-                elif len(jres['codes']) > 1:
-                    LOGGER.debug(
-                        '\n\nEPSG lookup found {} matches. Attempting to refine by comparing proj4 strings'.format(
-                            len(jres['codes'])))
-                    for i in reversed(range(len(jres['codes']))):
-                        epsg = None
-                        tmpSrs = osr.SpatialReference()
-                        res = tmpSrs.ImportFromEPSG(int(jres['codes'][i]['code']))
-
-                        if res != 0:
-                            raise RuntimeError(repr(res) + ': could not import from EPSG')
-
-                        # create a dictionary mapping using fiona.crs.from_string to ensure elements are in
-                        # the same order.
-                        tmpProj4Dict = from_string(tmpSrs.ExportToProj4())
-
-                        if from_string(osr_srs.ExportToProj4()) == tmpProj4Dict:
-                            epsg = jres['codes'][i]['code']
-                        else:
-                            # remove towgs84 value if all 0's as it is not always implemented yet for gda2020
-                            if 'towgs84' in tmpProj4Dict:
-                                if tmpProj4Dict['towgs84'] == '0,0,0,0,0,0,0':
-                                    del tmpProj4Dict['towgs84']
-
-                            if from_string(osr_srs.ExportToProj4()) == tmpProj4Dict:
-                                epsg = jres['codes'][i]['code']
-
-                        if epsg is None:
-                            del jres['codes'][i]
-
-                    if len(jres['codes']) == 1:
-                        epsg = jres['codes'][0]['code']
-                        LOGGER.debug('Refined match returns EPSG {} {}'.format(jres['codes'][0]['code'],
-                                                                               jres['codes'][0]['name']))
-                    else:
-                        mess = 'ERROR:-EPSG lookup found {} matches. Please properly define the projection ' \
-                               'and try again.\nThe matches were:'.format(len(jres['codes']))
-                        for i in range(len(jres['codes'])):
-                            mess = mess + '\t{0:>7}    {1}'.format(jres['codes'][i]['code'], jres['codes'][i]['name'])
-                        raise SpatialReferenceError(mess)
-
-        # if still none, then attempt to map for common aussie prj's only
         if epsg is None or epsg == 0:
             self.epsg_predicted = True
             if osr_srs.IsProjected():
@@ -244,22 +196,31 @@ class crs:
             else:
                 srsName = osr_srs.GetAttrValue("GEOGCS", 0)
 
-            LOGGER.debug('Attempting to map {} to Australian GDA projections and WGS84.'.format(srsName), )
-            # TODO: Implement GDA2020
-            if osr_srs.IsProjected() and 'GDA' in srsName.upper() and 'MGA' in srsName.upper():
-                epsg = 28300 + int(srsName[-2:])
-            elif srsName == 'GCS_WGS_1984':
-                epsg = 4326
-            elif srsName == 'GCS_GDA_1994':
-                epsg = 4283
-            if epsg is None:
-                epsg = 0
-                LOGGER.warning('WARNING: No EPSG match found')
-            else:
-                LOGGER.debug('Aussie match found: EPSG:{}'.format(epsg))
+            self.epsg_predicted = True
+
+            # this is copied from QGIS 3.10.3 as a temporary solution
+            crs_database = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'proj.db')
+
+            import sqlite3
+            import pandas as pd
+
+            connection =  sqlite3.connect(crs_database)
+            cursor = connection.cursor()
+            cs_df = pd.read_sql_query('Select  * from  alias_name', connection)
+            del cursor
+            connection.close()
+
+            cs_df = cs_df[cs_df['alt_name'].str.contains(srsName.replace('GDA',''), case=False)]
+
+            if len(cs_df) == 1:
+                epsg = int(cs_df['code'])
+
+            if len(cs_df):
+                LOGGER.debug('Matched to ESRI alias {}'.format(srsName))
 
         if bUpdateToCorrectDefn and epsg > 0:
             self.getFromEPSG(int(epsg))
+            self.set_epsg(epsg)
 
         return int(epsg)
 
@@ -315,22 +276,20 @@ def getUTMfromWGS84(longitude, latitude):
     def get_utm_zone(longitude):
         return int(1 + (longitude + 180.0) / 6.0)
 
-    def is_northern(latitude):
-        """
-        Determines if given latitude is a northern for UTM
-        """
-        if latitude < 0.0:
-            return 0
-        else:
-            return 1
-
-    utm_crs = osr.SpatialReference()
-    utm_crs.SetWellKnownGeogCS("WGS84")  # Set geographic coordinate system to handle latitude/longitude
     zone = get_utm_zone(longitude)
-    utm_crs.SetUTM(get_utm_zone(longitude), is_northern(latitude))
-    wgs84_crs = utm_crs.CloneGeogCS()  # Clone ONLY the geographic coordinate system
 
-    return zone, utm_crs, wgs84_crs
+    # Determines if given latitude is a northern for UTM
+    is_northern = int(latitude > 0.0)
+
+    osr_srs = osr.SpatialReference()
+    osr_srs.SetWellKnownGeogCS("WGS84")  # Set geographic coordinate system to handle latitude/longitude
+    osr_srs.SetUTM(zone, is_northern)
+    osr_srs.AutoIdentifyEPSG()
+    out_epsg = int(osr_srs.GetAuthorityCode(None))
+    osr_srs.ImportFromEPSG(out_epsg)
+    wgs84_crs = osr_srs.CloneGeogCS()  # Clone ONLY the geographic coordinate system
+
+    return zone, osr_srs, wgs84_crs, out_epsg
 
 
 def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
@@ -370,35 +329,22 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
     else:
         longitude, latitude = x_coord, y_coord
 
-    utm_zone = int(1 + (longitude + 180.0) / 6.0)
+    utm_zone, _, _, out_epsg = getUTMfromWGS84(longitude, latitude)
 
-    # Determines if given latitude is a northern for UTM        1 is northern, 0 is southern
-    is_northern = int(latitude > 0.0)
-
-    utm_crs = crs()
-    utm_crs.srs = osr.SpatialReference()
-
+    osr_srs = osr.SpatialReference()
     # Use Australian or New Zealand local systems otherwise use global wgs84 UTM zones.
     if (108.0 <= longitude <= 155.0) and (-45.0 <= latitude <= -10.0):
         # set to Australian GDA94 MGA Zone XX
-        utm_crs.srs.ImportFromEPSG(int('283{}'.format(utm_zone)))
+        out_epsg = int('283{}'.format(utm_zone))
     elif (166.33 <= longitude <= 178.6) and (-47.4 <= latitude <= -34.0):
         # set to NZGD2000 / New Zealand Transverse Mercator 2000
-        utm_crs.srs.ImportFromEPSG(2193)
-    else:
-        # Set to Global WGS84 Utm Zone.
-        utm_crs.srs.SetWellKnownGeogCS("WGS84")
-        utm_crs.srs.SetUTM(utm_zone, is_northern)
-        utm_crs.srs.AutoIdentifyEPSG()
+        out_epsg=2193
 
-    utm_crs.set_epsg(utm_crs.srs.GetAuthorityCode(None))
+    utmzone_crs = crs()
+    utmzone_crs.getFromEPSG(out_epsg)
 
-    utm_crs.epsg_predicted = False
-    utm_crs.crs_wkt = utm_crs.srs.ExportToWkt()
-    utm_crs.proj4 = utm_crs.srs.ExportToProj4()
-
-    if utm_crs.srs.IsProjected():
-        return utm_crs
+    if utmzone_crs.srs.IsProjected():
+        return utmzone_crs
     else:
         return None
 
@@ -435,14 +381,22 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
 
     # create transform component
     wgs842utm_transform = osr.CoordinateTransformation(wgs84SRS, utm_crs.srs)  # (<from>, <to>)
-    # Project to UTM
-    easting, northing, alt = wgs842utm_transform.TransformPoint(longitude, latitude, 0)
 
     # create transform component
     utm2wgs84_transform = osr.CoordinateTransformation(utm_crs.srs, wgs84SRS)  # (<from>, <to>)
 
-    # Project back to WGS84 after adding distance to eastings. returns easting, northing, altitude
-    newLong, newLat, alt = utm2wgs84_transform.TransformPoint(easting + distance_metres, northing, 0)
+    # Project to UTM
+    easting, northing, alt = wgs842utm_transform.TransformPoint(longitude, latitude, 0)
+
+    # if easting/northing return infity, then swap lat and long over.
+    if easting == float("inf"):
+        easting, northing, alt = wgs842utm_transform.TransformPoint(latitude,longitude, 0)
+
+        # Project back to WGS84 after adding distance to eastings. returns easting, northing, altitude
+        newLat, newLong, alt = utm2wgs84_transform.TransformPoint(easting + distance_metres, northing, 0)
+    else:
+        # Project back to WGS84 after adding distance to eastings. returns easting, northing, altitude
+        newLong, newLat, alt = utm2wgs84_transform.TransformPoint(easting + distance_metres, northing, 0)
 
     # Create a point objects.
     origPoint = geometry.Point(longitude, latitude)

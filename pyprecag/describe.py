@@ -304,10 +304,9 @@ def get_column_properties(dataframe):
     column_desc = OrderedDict()
 
     for col, _type in zip(dataframe.columns, dataframe.dtypes):
-
-        if _type.name=='geometry' or col=='geometry':
-             fldtype = 'geometry'
-        elif _type == object:
+        if col.lower() == 'geometry' or _type.name == 'geometry':
+            fldtype = 'geometry'
+        elif _type.name == 'object':
             fldtype = type(dataframe.iloc[0][col]).__name__
             if fldtype == 'unicode':
                 fldtype = 'str'

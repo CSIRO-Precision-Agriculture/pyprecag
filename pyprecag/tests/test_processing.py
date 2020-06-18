@@ -98,8 +98,7 @@ class TestProcessing(unittest.TestCase):
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
 
-        out_polyfile = os.path.join(TmpDir,
-                                    os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
+        out_polyfile = os.path.join(TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
             in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
@@ -192,9 +191,7 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            six.assertCountEqual(
-                self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist()
-            )
+            six.assertCountEqual(self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
@@ -214,9 +211,7 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            six.assertCountEqual(
-                self, [-9999, -1, 0, 1], np.unique(band1.data).tolist()
-            )
+            six.assertCountEqual(self, [-9999, -1, 0, 1], np.unique(band1.data).tolist())
 
 
 class TestStripTrials(unittest.TestCase):

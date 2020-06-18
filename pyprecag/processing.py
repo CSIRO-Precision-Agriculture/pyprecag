@@ -541,6 +541,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
     gdf_points['EN_EPSG'] = points_crs.epsg_number
     gdf_points.crs = points_crs.epsg
+    
     # Clean up the original input dataframe and remove existing geometry and coord columns
     alt_coord_columns = config.get_config_key('geoCSV')['xCoordinate_ColumnName']
     alt_coord_columns += config.get_config_key('geoCSV')['yCoordinate_ColumnName']
@@ -559,10 +560,12 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final.drop([id_col], inplace=True, axis=1)
 
     # get the appropriate file encoding and save the file
+    # TODO: CHECK THIS I dont think setting a default in the config will work.
     try:
         file_encoding = config.read_config()['geoCSV']['file_encoding']
     except KeyError:
         file_encoding = 'utf-8'
+    #file_encoding = get_dataframe_encoding(gdf_final)
 
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
