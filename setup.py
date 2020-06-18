@@ -61,6 +61,7 @@ setup(
         # 'Programming Language :: Python :: 3.2',
         # 'Programming Language :: Python :: 3.3',
         # 'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.7',
     ],
 
     # What does your project relate to?
@@ -85,7 +86,7 @@ setup(
         'scipy',
         'fiona',
         'gdal',          # Required Microsoft Visual C++ Compiler for Python 2.7
-        'rasterio<=1.0.24',      # Required Numpy
+        'rasterio',      # Required Numpy
         'geopandas',
         'pyproj',
         'six',
