@@ -2136,10 +2136,10 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     line_count = len(points_geodataframe['TrialID'].unique())
 
     # Extract raster values for points ------------------------------------------------------------
-
     gdf_points, points_crs = extract_pixel_statistics_for_points(points_geodataframe, points_crs,
                                                                  raster_files, 'extract_pixels.csv',
                                                                  size_list=[1])
+    
     gdf_points.index.name = 'rowID'
     column_names = {}
 
@@ -2165,14 +2165,17 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
         column_names['Zone'] = 'Zone'
 
     # rename columns from raster name to the dictionary key to be more generic
-    gdf_points.rename(columns=dict(
-        [[v, k] for k, v in six.iteritems(column_names)]
-    ), inplace=True)
+    gdf_points.rename(columns=dict([[v, k] for k, v in six.iteritems(column_names)]), inplace=True)
+
+    # group by trialid and find those where all are none ie no overlap with rasters
+    dfnulls = gdf_points.set_index('TrialID')['Value'].isnull().groupby('TrialID').all()
+    
+    # get only the trial id's with data
+    gdf_points = gdf_points[~gdf_points['TrialID'].isin(dfnulls[dfnulls].index.values.tolist())]
+    del dfnulls
 
     # create a unique id for each line/point
-    gdf_points.insert(1, 'TrialPtID',
-                      gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'],
-                                                                  x['PointID']), axis=1))
+    gdf_points.insert(1, 'TrialPtID', gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'],x['PointID']), axis=1))
 
     # Apply bearing to all transects
     for group_name, gdf_group in gdf_points.groupby(['TrialID', transect_column]):
@@ -2331,9 +2334,9 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             use_pvalue = 0.05
             df_statstable['sig_color'] = df_statstable['p_value'].apply(
-                lambda x: 'r' if x > use_pvalue else 'k')
+                                                lambda x: 'r' if x > use_pvalue else 'k')
             df_statstable['sig_label'] = df_statstable['p_value'].apply(
-                lambda x: 'not significant' if x > use_pvalue else 'significant')
+                                                lambda x: 'not significant' if x > use_pvalue else 'significant')
 
             # Create the map only once for both lines ----------------------------------------------
             if iscenario == 1:
@@ -2347,10 +2350,10 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 # Aggregate points with the GroupBy - for shapely 1.3.2+ use the point objects
                 try:
                     gdf_lines = gdf_map.groupby(['Strip_Name'])['geometry'].apply(
-                        lambda x: LineString(x.tolist()) if x.size > 1 else x.tolist())
+                                                lambda x: LineString(x.tolist()) if x.size > 1 else x.tolist())
                 except ValueError:
                     gdf_lines = gdf_map.groupby(['Strip_Name'])['geometry'].apply(
-                        lambda x: LineString([(p.x, p.y) for p in x]))
+                                                lambda x: LineString([(p.x, p.y) for p in x]))
 
                 gdf_lines = GeoDataFrame(gdf_lines, geometry='geometry')
 
@@ -2359,10 +2362,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 # fix the extent to the vector
                 ax.set_aspect('equal')
                 ax.set_title('Map for Trial {}'.format(line_id), fontsize=8)
-                ax.set_xlim(left=gdf_strip.total_bounds[0] - 50,
-                            right=gdf_strip.total_bounds[2] + 50)
-                ax.set_ylim(bottom=gdf_strip.total_bounds[1] - 50,
-                            top=gdf_strip.total_bounds[3] + 50)
+                ax.set_xlim(left=gdf_strip.total_bounds[0] - 50, right=gdf_strip.total_bounds[2] + 50)
+                ax.set_ylim(bottom=gdf_strip.total_bounds[1] - 50, top=gdf_strip.total_bounds[3] + 50)
 
                 # plot the line
                 gdf_lines.plot(ax=ax, cmap='rainbow', legend=True)
@@ -2373,10 +2374,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
                 plt.setp(ax.spines.values(), linewidth=0.5)
 
-                ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(
-                    lambda x, p: "{:,.0f}".format(x)))
-                ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(
-                    lambda x, p: "{:,.0f}".format(x)))
+                ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(lambda x, p: "{:,.0f}".format(x)))
+                ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(lambda x, p: "{:,.0f}".format(x)))
                 # plt.xticks(rotation='vertical')
 
                 anno_kwargs = {'size': 7, 'va': 'center', 'ha': 'center',
