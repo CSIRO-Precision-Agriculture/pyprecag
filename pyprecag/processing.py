@@ -56,61 +56,110 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
-def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
-               out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
+def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilename,
+              out_epsg=0,groupby=None, nodata_val=-9999, snap=True, overwrite=False):
     """Convert a polygon boundary to a 0,1 raster and generate a VESPER compatible list of
        coordinates for kriging.
 
-        Args:
+       The input polygon shapefile will be reproject to the out_epsg coordinate system.
 
+       Will process in a loop based on the groupby field name. All polygons with the same
+       attribute will be dissolved together and a single block grid will be created. The
+       groupby attribute will be added to the output filename.
+
+        Args:
             in_shapefilename (str): Input polygon shapefile
             pixel_size (float):  The required output pixel size
             out_rasterfilename (str): Filename of the raster Tiff that will be created
             out_vesperfilename (str):  The output vesper file
+            out_epsg (int): The epsg number for the output raster coordinate system.
+            groupby (str): Column name to group polygon features with.
             nodata_val (int): an integer to use as nodata
             snap (bool): Snap Extent to a factor of the Pixel size
             overwrite (bool): if true overwrite existing file
 
-        Requirements: Input shapefile should be in a projected coordinate system........
-
-        Notes:
-            Define pixel_size and no data value of new raster
-            see http://stackoverflow.com/questions/2220749/rasterizing-a-gdal-layer
-                https://gis.stackexchange.com/a/31658
-
-            This works, but the extent of the output differs from that of an arcpy generated raster.
-            See post: https://gis.stackexchange.com/q/139336
     """
 
     if not isinstance(pixel_size, number_types):
         raise TypeError('Pixel size must be an integer or floating number.')
 
-    if not isinstance(nodata_val, six.integer_types):
-        raise TypeError('Nodata value must be an integer.')
-
+    
+    for ea_arg in [('nodata_val', nodata_val), ('out_epsg', out_epsg)]:
+        if not isinstance(ea_arg[1], six.integer_types):
+            raise TypeError('{} must be a integer - Got {}'.format(*ea_arg))
+        
+    if out_epsg <= 0:
+        raise ValueError('EPSG Code ({}) must be a positive integer above 0'.format(out_epsg))
+            
     desc_poly_shp = VectorDescribe(in_shapefilename)
 
-    if not desc_poly_shp.crs.srs.IsProjected():
-        raise SpatialReferenceError('Shapefile must be in a projected coordinate system')
+    gdf_poly = desc_poly_shp.open_geo_dataframe()
 
     if 'POLY' not in desc_poly_shp.geometry_type.upper():
         raise GeometryError('Invalid Geometry. Input shapefile should be polygon or multipolygon')
 
-    start_time = time.time()
-    convert_polygon_to_grid(in_shapefilename=in_shapefilename,
-                            out_rasterfilename=out_rasterfilename,
-                            pixel_size=pixel_size,
-                            snap_extent_to_pixel=snap,
-                            nodata_val=nodata_val,
-                            overwrite=overwrite)
+    if groupby is None or groupby.strip() == '':
+        groupby = None
 
-    convert_grid_to_vesper(in_rasterfilename=out_rasterfilename,
-                           out_vesperfilename=out_vesperfilename)
+    if groupby is not None and groupby not in gdf_poly.columns:
+        raise ValueError('Groupby column {} does not exist'.format(groupby))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
-        inspect.currentframe().f_code.co_name, '',
-        dur=str(timedelta(seconds=time.time() - start_time))
-    ))
+
+    #-------------------------------------------------------------------------------------------
+
+    # reproject shapefile
+    if out_epsg != 0 and  desc_poly_shp.crs.epsg_number != out_epsg:
+        gdf_poly.to_crs(epsg=out_epsg,inplace=True)
+
+    del desc_poly_shp
+
+    # If a column name is specified, dissolve by this and create multi-polygons
+    # otherwise dissolve without a column name at treat all features as one
+    if groupby is not None:
+        # change null/nones to blank string
+        gdf_poly[groupby].fillna('', inplace=True)
+
+        gdf_poly = gdf_poly.dissolve(groupby, as_index=False).copy()
+
+    else:
+        gdf_poly = GeoDataFrame(geometry=[gdf_poly.unary_union])
+
+    # Loop through polygns features ----------------------------------------------------------------
+    output_files = []
+    for index, feat in gdf_poly.iterrows():
+        loop_time = time.time()
+        step_time = time.time()
+        status = '{} of {}'.format(index + 1, len(gdf_poly))
+
+        if groupby is not None:
+            feat_name = re.sub('[^0-9a-zA-Z]+', '-', str(feat[groupby])).strip('-')
+            if feat_name == '':
+                feat_name = 'No-Name'
+
+            r_file, r_ext = os.path.splitext(out_rasterfilename)
+            out_file = r_file + "_" + feat_name + r_ext
+        else:
+            out_file = out_rasterfilename
+            feat_name = 'All Polygons'
+
+        # From shapes create a blockgrid mask. -----------------------------------------------------
+        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size)
+
+        with rasterio.open(out_file, 'w', driver='GTiff', count=1,tfw='YES',
+                           crs=out_epsg, **new_blockmeta) as dest:
+            dest.write(blockgrid, 1)
+        output_files += [out_file]
+
+        del blockgrid, new_blockmeta
+
+        LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to block_grid', status, feat_name,
+                                                          dur=timedelta(seconds=time.time() - step_time)))
+
+        r_file, r_ext = os.path.splitext(out_file)
+        convert_grid_to_vesper(in_rasterfilename=out_file,
+                           out_vesperfilename=out_file.replace(r_ext, '_v.txt'))
+
+    return output_files
 
 
 def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0,
