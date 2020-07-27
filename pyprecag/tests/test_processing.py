@@ -56,21 +56,48 @@ class TestProcessing(unittest.TestCase):
         poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
 
         file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
-
-        block_grid(in_shapefilename=poly,
+        vect_desc = VectorDescribe(poly)
+        output_files = block_grid(in_shapefilename=poly,
                    pixel_size=5,
                    out_rasterfilename=file_sub_name + '_block.tif',
                    out_vesperfilename=file_sub_name + '_block_v.txt',
+                   out_epsg=vect_desc.crs.epsg_number,
                    snap=True,
                    overwrite=True)
 
         self.assertTrue(os.path.exists(file_sub_name + '_block.tif'))
         self.assertTrue(os.path.exists(file_sub_name + '_block_v.txt', ))
+        self.assertTrue(len(output_files),1)
 
         with rasterio.open(os.path.normpath(file_sub_name + '_block.tif')) as dataset:
             self.assertEqual(dataset.count, 1)
             self.assertEqual(dataset.width, 47)
             self.assertEqual(dataset.height, 26)
+            self.assertEqual(dataset.nodatavals, (-9999.0,))
+            self.assertEqual(dataset.dtypes, ('int16',))
+
+    def test_BlockGrid_GrpBy(self):
+        poly = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
+
+        file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
+
+        output_files = block_grid(in_shapefilename=poly,
+                   pixel_size=5,
+                   out_rasterfilename=file_sub_name + '_block.tif',
+                   out_vesperfilename=file_sub_name + '_block_v.txt',
+                   out_epsg=28354,
+                   groupby='part_type',
+                   snap=True,
+                   overwrite=True)
+
+        self.assertTrue(len(output_files), 2)
+        self.assertTrue(os.path.exists(file_sub_name + '_block_MultiPart.tif'))
+        self.assertTrue(os.path.exists(file_sub_name + '_block_SinglePart_v.txt', ))
+
+        with rasterio.open(os.path.normpath(file_sub_name + '_block_MultiPart.tif')) as dataset:
+            self.assertEqual(dataset.count, 1)
+            self.assertEqual(dataset.width, 59)
+            self.assertEqual(dataset.height, 28)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 

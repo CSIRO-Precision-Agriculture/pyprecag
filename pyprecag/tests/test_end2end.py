@@ -115,16 +115,17 @@ class TestEnd2End(unittest.TestCase):
     def test04_blockGrid(self):
 
         global fileBlockTif, file_block_txt
-        fileBlockTif = os.path.join(TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_block.tif')
-        file_block_txt = os.path.join(TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_block_v.txt')
+        fileBlockTif = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block.tif')
+        file_block_txt = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block_v.txt')
+
+        vect_desc = VectorDescribe(fileBox)
 
         if not os.path.exists(fileBlockTif):
             block_grid(in_shapefilename=fileBox,
                        pixel_size=2.5,
                        out_rasterfilename=fileBlockTif,
                        out_vesperfilename=file_block_txt,
+                       out_epsg=vect_desc.crs.epsg_number,
                        snap=True,
                        overwrite=True)
 

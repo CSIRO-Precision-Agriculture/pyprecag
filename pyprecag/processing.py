@@ -7,6 +7,7 @@ from collections import defaultdict
 import logging
 import os
 import six
+from rasterio import crs as riocrs
 from six.moves import zip as izip
 
 import random
@@ -90,7 +91,10 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
         
     if out_epsg <= 0:
         raise ValueError('EPSG Code ({}) must be a positive integer above 0'.format(out_epsg))
-            
+
+    if riocrs.CRS.from_epsg(out_epsg).is_geographic:
+        raise ValueError('EPSG Code ({}) must be a projected coordinate system'.format(out_epsg))
+
     desc_poly_shp = VectorDescribe(in_shapefilename)
 
     gdf_poly = desc_poly_shp.open_geo_dataframe()
@@ -104,9 +108,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
     if groupby is not None and groupby not in gdf_poly.columns:
         raise ValueError('Groupby column {} does not exist'.format(groupby))
 
-
     #-------------------------------------------------------------------------------------------
-
     # reproject shapefile
     if out_epsg != 0 and  desc_poly_shp.crs.epsg_number != out_epsg:
         gdf_poly.to_crs(epsg=out_epsg,inplace=True)
@@ -124,7 +126,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
     else:
         gdf_poly = GeoDataFrame(geometry=[gdf_poly.unary_union])
 
-    # Loop through polygns features ----------------------------------------------------------------
+    # Loop through polygons features ----------------------------------------------------------------
     output_files = []
     for index, feat in gdf_poly.iterrows():
         loop_time = time.time()
