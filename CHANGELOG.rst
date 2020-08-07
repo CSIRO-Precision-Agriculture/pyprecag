@@ -1,5 +1,9 @@
 Changelog
 =========
+** 1.0.0 (2020-08-07)**
+    Port to Python3
+    Updated Blockgrid to support a group-by batch mode.
+
 **0.3.1 (2020-05-27)**
  Bug Fixes
   * Support for Geopandas (upto 0.5.1)
