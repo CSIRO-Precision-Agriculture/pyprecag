@@ -9,7 +9,7 @@ from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import CsvDescribe, predictCoordinateColumnNames
 from pyprecag.processing import *
 from pyprecag.raster_ops import rescale, normalise
-from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper, VesperControl
 
 pyFile = os.path.basename(__file__)
 
@@ -159,6 +159,7 @@ class TestEnd2End(unittest.TestCase):
         gdf_points, gdfpts_crs = convert.convert_csv_to_points(file_csv,
                                                                coord_columns_epsg=4326,
                                                                out_epsg=epsg)
+
         gdf_out, crs_out = clean_trim_points(gdf_points, gdfpts_crs, data_col, fileTrimmed,
                                              out_keep_shapefile=file_shp,
                                              out_removed_shapefile=file_removed,
@@ -168,7 +169,7 @@ class TestEnd2End(unittest.TestCase):
         self.assertTrue(os.path.exists(fileTrimmed))
         self.assertTrue(os.path.exists(file_shp))
         self.assertTrue(os.path.exists(file_removed))
-        self.assertEqual(gdf_out.crs, {'init': 'epsg:{}'.format(epsg), 'no_defs': True})
+        self.assertEqual(gdf_out.crs, crs.from_epsg(epsg))
         self.assertEqual(len(gdf_out), 648)
         self.assertIn('nrm_' + data_col, gdf_out.columns)
         self.assertIn('Easting', gdf_out.columns)
@@ -187,11 +188,15 @@ class TestEnd2End(unittest.TestCase):
         sub_file = os.path.splitext(os.path.basename(file_csv))[0]
         file_control = sub_file + '_control_' + data_col + '.txt'
 
+        vc = VesperControl()
+        vc.update(xside=30, yside=30)
+
         if not os.path.exists(file_control):
             bat_file, file_control = prepare_for_vesper_krige(df_csv, data_col, file_block_txt,
-                                                              TmpDir, block_size=30,
+                                                              TmpDir,
                                                               control_textfile=file_control,
-                                                              coord_columns=[], epsg=epsg)
+                                                              coord_columns=[], epsg=epsg,
+                                                              control_options=vc)
 
             self.assertTrue(os.path.exists(bat_file))
             self.assertTrue(os.path.exists(file_control))

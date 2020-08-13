@@ -20,7 +20,8 @@ import pandas as pd
 
 import rasterio
 
-from fiona.crs import from_epsg
+from pyprecag.crs import from_epsg
+
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
@@ -29,7 +30,7 @@ from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import reproject, Resampling
-# from rasterio.warp import aligned_target
+
 from rasterio.windows import get_data_window, intersection, from_bounds
 from scipy.cluster.vq import *
 from scipy import stats

@@ -12,10 +12,9 @@ import logging
 from pkg_resources import parse_version
 
 from pyprecag.tests import make_dummy_data
-from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, \
-    distance_metres_to_dd
+from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, distance_metres_to_dd
 
-from fiona.crs import from_epsg
+from pyprecag.crs import from_epsg
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
 

@@ -11,10 +11,10 @@ from pkg_resources import parse_version
 from six.moves.urllib_parse import urlencode
 from six.moves.urllib_request import urlopen
 
-from fiona.crs import from_string, from_epsg
 from osgeo import osr, gdal
 from shapely import geometry
 import pyproj
+
 from . import config
 from .errors import SpatialReferenceError
 
@@ -32,17 +32,7 @@ class crs:
         self.epsg_number = None
         self.epsg = None
         self.epsg_predicted = False  # Did the epsg_number get set via the online lookup.
-        self.pyproj_crs = None   # Use this for pyproj2.5+/proj6+ crs class
         self.pyproj_version=pyproj.__version__
-
-    def set_pyproj_crs(self,epsg_number):
-        """ This is to make use of the new pyproj crs class available from pyproj 2.5.0 onwards
-        Args:
-            epsg_number (int): An integer representing the EPSG code
-        """
-        if parse_version(self.pyproj_version) >= parse_version('2.5.0'):
-            self.pyproj_crs = pyproj.CRS.from_epsg(epsg_number)
-
 
     def set_epsg(self, code):
         """Given an integer code, set the epsg_number and the EPSG-like mapping.
@@ -69,9 +59,6 @@ class crs:
 
         self.epsg = from_epsg(code)
         self.epsg_number = code
-
-        self.set_pyproj_crs(code)
-
 
     def getFromWKT(self, crs_wkt, bUpdateByEPSG=False):
         """ Get crs attributes via a coordinate systems WKT.
@@ -164,7 +151,7 @@ class crs:
             int: EPSG Number for the matched Spatial Reference System.
 
         """
-        warnings.warn('bOnlineLookup is deprecated', PendingDeprecationWarning)
+        warnings.warn('bOnlineLookup is deprecated', DeprecationWarning)
 
         if osr_srs is None:
             return
@@ -204,7 +191,7 @@ class crs:
             import sqlite3
             import pandas as pd
 
-            connection =  sqlite3.connect(crs_database)
+            connection = sqlite3.connect(crs_database)
             cursor = connection.cursor()
             cs_df = pd.read_sql_query('Select  * from  alias_name', connection)
             del cursor
@@ -223,6 +210,26 @@ class crs:
             self.set_epsg(epsg)
 
         return int(epsg)
+
+
+def from_epsg(epsg_number):
+    """
+    Get a coordinate system for the epsg number.
+    if pyproj is pre 2.5.0 then use a string created using fiona.crs.from_epsg, otherwise use the pyproj option.
+    Args:
+        epsg_number: The epsg number representing the coordinate system.
+
+    Returns:
+        object: pyproj.crs     The newer pyproj 2.5+ crs object compatible with Proj 6+
+                or
+               string          Derived from epsg using fiona.
+    """
+    if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+        crs = pyproj.CRS.from_epsg(epsg_number)
+    else:
+        import fiona
+        crs = fiona.crs.from_epsg(epsg_number)
+    return crs
 
 
 def getCRSfromRasterFile(raster_file):
@@ -318,14 +325,22 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
 
         """
 
-    # Based On :https://stackoverflow.com/a/10239676
-    from pyproj import Proj, transform
-
     # Coordinates need to be in wgs84 so project them
     if xy_epsg != 4326:
-        inProj = Proj(init='epsg:{}'.format(xy_epsg))
-        outProj = Proj(init='epsg:4326')
-        longitude, latitude = transform(inProj, outProj, x_coord, y_coord)
+        if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+            inProj = from_epsg(xy_epsg)                  #Proj(init='epsg:{}'.format(xy_epsg))
+            outProj = from_epsg(4326)                    #Proj(init='epsg:4326')
+
+            from pyproj import Transformer
+            transformer = Transformer.from_crs(inProj, outProj,always_xy=True)
+            longitude, latitude = transformer.transform(x_coord, y_coord)
+        else:
+            # Based On :https://stackoverflow.com/a/10239676
+            from pyproj import Proj, transform
+            inProj =  Proj(init='epsg:{}'.format(xy_epsg))
+            outProj = Proj(init='epsg:4326')
+            longitude, latitude = transform(inProj, outProj, x_coord, y_coord)
+
     else:
         longitude, latitude = x_coord, y_coord
 

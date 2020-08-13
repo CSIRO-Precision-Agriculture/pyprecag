@@ -24,13 +24,13 @@ import rasterio
 from rasterio import features
 
 from fiona import collection as fionacoll
-from fiona.crs import from_epsg
 from shapely.geometry import Point, mapping, shape, LineString
 
 from . import crs as pyprecag_crs
+from pyprecag.crs import from_epsg
+
 from . import TEMPDIR, config
-from .describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, \
-    save_geopandas_tofile
+from .describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
 
 from .errors import GeometryError
 from .raster_ops import raster_snap_extent, create_raster_transform
@@ -326,9 +326,9 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
     else:
         # Convert the pandas DataFrame into a GeoDataFrame.
         gdf_csv = geopandas.GeoDataFrame(in_dataframe,
-                                              geometry=[Point(x, y) for x, y in
-                                                        zip(in_dataframe[x_column], in_dataframe[y_column])],
-                                              crs=from_epsg(coord_columns_epsg))
+                                         geometry=[Point(x, y) for x, y in zip(in_dataframe[x_column],
+                                                                               in_dataframe[y_column])],
+                                         crs=from_epsg(coord_columns_epsg))
 
     # drop the original geometry columns to avoid confusion
     gdf_csv.drop([x_column, y_column], axis=1, inplace=True)
@@ -433,8 +433,7 @@ def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-
     elif not isinstance(value, six.integer_types + (float, )):
         raise TypeError('Value should be a column name, or a number')
 
-    transform, width, height, bbox = create_raster_transform(feature.geometry.bounds,
-                                                             pixel_size, snap_extent_to_pixel)
+    transform, width, height, bbox = create_raster_transform(feature.geometry.bounds, pixel_size, snap_extent_to_pixel)
 
     gdf_feat = GeoDataFrame(GeoSeries(feature.geometry),
                             geometry=GeoSeries(feature.geometry).geometry)
@@ -448,8 +447,7 @@ def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-
     else:
         shapes = ((geom, value) for geom in gdf_feat.geometry)
 
-    burned = features.rasterize(shapes=shapes, out_shape=(height, width), fill=nodata_val,
-                                transform=transform)
+    burned = features.rasterize(shapes=shapes, out_shape=(height, width), fill=nodata_val, transform=transform)
     meta = {}
     meta.update(height=height, width=width,
                 transform=transform,

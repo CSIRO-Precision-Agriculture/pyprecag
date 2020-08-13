@@ -1,7 +1,10 @@
 import shutil
 import unittest
 
+from pyprecag.tests import make_dummy_data
+
 from pyprecag.convert import *
+from pyprecag import crs as pyprecag_crs
 import time
 import os
 import tempfile
@@ -19,7 +22,6 @@ this_dir = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-
 
 class TestConvert(unittest.TestCase):
     @classmethod
@@ -131,9 +133,9 @@ class TestConvert(unittest.TestCase):
                                    LineString([(741000, 6169800), (741003, 6170012)]),
                                    LineString([(741401, 6169800), (741057, 6170012)]),
                                    LineString([(740900, 6169912), (740979, 6170094)])],
-                                    'LineID': [1, 2, 3, 4]} , crs={'init': 'epsg:28354'})
+                                    'LineID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
-        c_line_gdf = GeoDataFrame(c_line_gdf, crs={'init': 'epsg:28354'})
+        c_line_gdf = GeoDataFrame(c_line_gdf, crs=pyprecag_crs.from_epsg(28354))
 
         self.assertEqual(90.0, line_bearing(c_line_gdf.iloc[0]))
         self.assertAlmostEqual(0.8107352192623694, line_bearing(c_line_gdf.iloc[1]), 4)
@@ -145,7 +147,7 @@ class TestConvert(unittest.TestCase):
                                    LineString([(741000, 6169800), (741003, 6170012)]),
                                    LineString([(741401.415, 6169800,4), (741057, 6170012,3)]),
                                    LineString([(740900.861, 6169912,2), (740979, 6170094,5)])],
-                      'LineID': [1, 2, 3, 4]}, crs={'init': 'epsg:28354'})
+                      'LineID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         c_line_gdf['geometry2'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
 

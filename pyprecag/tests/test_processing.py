@@ -14,7 +14,7 @@ TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
-logging.captureWarnings(False)
+logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -118,7 +118,7 @@ class TestProcessing(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs, {'init': 'epsg:28354', 'no_defs': True})
+        self.assertEqual(out_gdf.crs, from_epsg(28354)) #  {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
         self.assertIn('EN_EPSG', out_gdf.columns)
 
@@ -291,7 +291,7 @@ class TestStripTrials(unittest.TestCase):
                                       (741300, 6169800, 7), (741250, 6169950, 7),
                                       (741150, 6169950, 7), (741100, 6170000, 7)]),
                           LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
-                , 'TrialID': [1, 2, 3, 4]}, crs={'init': 'epsg:28354'})
+                , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         gdf_lines_crs = crs()
         gdf_lines_crs.getFromEPSG(28354)
@@ -397,7 +397,7 @@ class TestStripTrials(unittest.TestCase):
                 [127, 3, "SE Strip", 13, 247.6, Point(300806, 6181771)]]
 
         gdf_points = GeoDataFrame(data, columns=columns, geometry='geometry',
-                                  crs={'init': 'epsg:28354'})
+                                  crs=from_epsg(28354))
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 

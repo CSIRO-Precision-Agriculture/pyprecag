@@ -40,25 +40,18 @@ def test_for_windows():
 
 # consider enums - https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 # The codes for the variogram. The key is the tag used in the control file_csv
-VESPER_OPTIONS = {
-    "jigraph": OrderedDict([("Don't Show", 0), ("Show", 1)]),
-    "jimap": OrderedDict([("Don't Show", 0), ("Show", 1)]),
-    "jlockrg": OrderedDict([("Local", 1), ("Global", 0)]),
-    "jpntkrg": OrderedDict([("Punctual", 1), ("Block", 0), ("Point", 1)]),
-    "jsetrad": OrderedDict([("Calculate Radius", 0), ("Set Radius", 1)]),
-    "jcomvar": OrderedDict([
-        ("Define Variogram Parameter", 0), ("Compute Variogram", 1)
-    ]),
-    "modtyp": OrderedDict([
-        ("Spherical", 1), ("Exponential", 2), ("Gaussian", 3),
-        ("Linear with sill", 4), ("Stable", 5), ("Generalised Cauchy", 6),
-        ("Matern", 7), ("Double spherical", 8), ("Double exponential", 9)
-    ]),
-    "iwei": OrderedDict([
-        ("unity", 0), ("No. of pairs", 1), ("1/variance", 2),
-        ("no_pairs/variance", 3), ("no_pairs/fitted", 4)
-    ])
-}
+VESPER_OPTIONS = {"jigraph": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+                  "jimap": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+                  "jlockrg": OrderedDict([("Local", 1), ("Global", 0)]),
+                  "jpntkrg": OrderedDict([("Punctual", 1), ("Block", 0), ("Point", 1)]),
+                  "jsetrad": OrderedDict([("Calculate Radius", 0), ("Set Radius", 1)]),
+                  "jcomvar": OrderedDict([("Define Variogram Parameter", 0), ("Compute Variogram", 1)]),
+                  "modtyp": OrderedDict([("Spherical", 1), ("Exponential", 2), ("Gaussian", 3),
+                                         ("Linear with sill", 4), ("Stable", 5), ("Generalised Cauchy", 6),
+                                         ("Matern", 7), ("Double spherical", 8), ("Double exponential", 9) ]),
+                  "iwei": OrderedDict([("unity", 0), ("No. of pairs", 1), ("1/variance", 2),
+                                       ("no_pairs/variance", 3), ("no_pairs/fitted", 4)])
+                  }
 
 
 class VesperControl(collections.MutableMapping, dict):
@@ -289,7 +282,6 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folder,
                              control_textfile='', coord_columns=[], epsg=0, display_graphics=False,
                              control_options=VesperControl(),
-                             block_size=10,
                              vesper_exe=vesper_exe):
     """Prepare data for vesper kriging and create a windows batch file to run outside the
     python/pyprecag environment.
@@ -299,7 +291,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     A description of the keys and their options can be found in the VESPER user manual at
     https://sydney.edu.au/agriculture/pal/documents/Vesper_1.6_User_Manual.pdf
 
-    block_size will be replaced by the xside and yside keys in the VesperControl Object.
+    block_size has been removed from version 1.0.0.  Please use use VesperControl xsize and ysize instead.
 
     Outputs:  The following files will be added to the vesper sub-folder in the output folder.
         *_control_*.txt  - The vesper control file
@@ -320,7 +312,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         grid_filename (str): The vesper grid file.
         control_textfile (str): The name of the control text file without the path
         out_folder (str): The folder to add outputs too. A 'Vesper' sub directory will be created
-        block_size (int): The size to apply for block Kriging. Units are from the coordinate system.
+
         coord_columns (List): The columns representing the X and Y coordinates.
         epsg (int) : The epsg_number number for the data. If 0 the en_epsg or
                      enepsg column (if exists) will be used.
@@ -331,20 +323,11 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
 
-    # Vesper only works with Windows
-    # test_for_windows()
-
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')
 
     if not os.path.exists(grid_filename):
         raise IOError("Invalid path: {}".format(grid_filename))
-
-    if not isinstance(block_size, six.integer_types):
-        raise TypeError('block_size must be an integer'.format(block_size))
-
-    warnings.warn('block_size is deprecated, use VesperControl xsize and ysize instead',
-                  PendingDeprecationWarning)
 
     if out_folder.strip() in [None, '']:
         raise TypeError('Please specify an output folder')
@@ -371,10 +354,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     start_time = time.time()
 
     # Create a filename compatible copy of the krig_column
-    krig_col_file = re.sub(
-        '[^A-Za-z0-9_-]+', '',
-        six.ensure_str(krig_column, encoding='ascii', errors='ignore')
-    )
+    krig_col_file = re.sub('[^A-Za-z0-9_-]+', '', six.ensure_str(krig_column, encoding='ascii', errors='ignore'))
 
     out_sub_name = os.path.basename(grid_filename)[:20]
 
@@ -415,8 +395,8 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     # in use either by vesper or another app.
 
     # Start always start with the control file. this is what gets used within QGIS
-    files_list = glob.glob(
-        os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file)))
+    files_list = glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file)))
+
     if vesper_ctrlfile in files_list:
         files_list.insert(0, files_list.pop(files_list.index(vesper_ctrlfile)))
 
@@ -429,8 +409,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     # if control file already exists then replace it, and delete all matching kriging
     # outputs and tiff files.
-    for eaFile in glob.glob(
-            os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file))):
+    for eaFile in glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file))):
         os.remove(eaFile)
         LOGGER.debug('Deleted file {}'.format(eaFile))
 
@@ -472,11 +451,6 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
                            jigraph=int(display_graphics),  # 1, show graph, otherwise 0
                            jimap=int(display_graphics),  # 1, show map, otherwise 0)
                            )
-
-    # high density kriging. fix for pre VesperControl Class
-    if block_size != 10:  # only update if not the default variable value
-        control_options.update({"xside": block_size,
-                                "yside": block_size})
 
     # ---------------------------------------------------------------------------------------------
     # Write a VESPER control file
@@ -555,5 +529,4 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     process = subprocess.Popen([vesper_exe, ctrl_file], cwd=os.path.dirname(ctrl_file),
                                startupinfo=info)
     process.wait()
-    logging.info('{:<30}\t{dur:<15}'.format('Vesper Kriging',
-                                            dur=str(timedelta(seconds=time.time() - task_time))))
+    LOGGER.info('{:<30}\t{dur:<15}'.format('Vesper Kriging', dur=str(timedelta(seconds=time.time() - task_time))))
