@@ -1,8 +1,9 @@
 Changelog
 =========
 ** 1.0.0 (2020-08-07)**
-    Port to Python3
-    Updated Blockgrid to support a group-by batch mode.
+ * #40 Port to Python3
+ * Updated Blockgrid to support a group-by batch mode.
+ * ``block_size`` argument removed from ``kriging_ops.prepare_for_vesper_krige``
 
 **0.3.1 (2020-05-27)**
  Bug Fixes

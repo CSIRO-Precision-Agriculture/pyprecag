@@ -89,11 +89,11 @@ setup(
         'rasterio',      # Required Numpy
         'geopandas',
         'pyproj',
-        'six',
+        'six>1.12.0',
         # These were included to prevent import errors:
         'unidecode',
         'chardet',
-        'matplotlib>3.0.0',
+        'matplotlib',
         ],
 
     # List additional groups of dependencies here (e.g. development
