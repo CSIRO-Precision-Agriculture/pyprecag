@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 from pandas.core.dtypes.common import is_string_dtype
 
+import six
+
 from osgeo import ogr, gdal
 import geopandas
 from geopandas import GeoDataFrame, GeoSeries
@@ -22,13 +24,13 @@ import rasterio
 from rasterio import features
 
 from fiona import collection as fionacoll
-from fiona.crs import from_epsg
 from shapely.geometry import Point, mapping, shape, LineString
 
 from . import crs as pyprecag_crs
+from pyprecag.crs import from_epsg
+
 from . import TEMPDIR, config
-from .describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, \
-    save_geopandas_tofile
+from .describe import CsvDescribe, predictCoordinateColumnNames, VectorDescribe, save_geopandas_tofile
 
 from .errors import GeometryError
 from .raster_ops import raster_snap_extent, create_raster_transform
@@ -190,9 +192,9 @@ def convert_polygon_to_grid(in_shapefilename,
 
     # for pixel data types see http://www.gdal.org/gdal_8h.html#a22e22ce0a55036a96f652765793fb7a4
     tif_drv = gdal.GetDriverByName('GTiff')
-    if tif_drv is None:
-        # If the above Fails then here is an alternate version.
-        tif_drv = Find_GDALDriverByName('GTiff')
+    # if tif_drv is None:
+    #     # If the above Fails then here is an alternate version.
+    #     tif_drv = Find_GDALDriverByName('GTiff')
 
     raster_ds = tif_drv.Create(out_rasterfilename, x_cols, y_rows, 1, gdal.GDT_Int16)
 
@@ -218,8 +220,10 @@ def convert_polygon_to_grid(in_shapefilename,
         LOGGER.exception("Error rasterizing layer: {}".format(err), True)
 
     else:
-        LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                                   dur=timedelta(seconds=time.time() - start_time)))
+        LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+            inspect.currentframe().f_code.co_name, '',
+            dur=str(timedelta(seconds=time.time() - start_time))
+        ))
 
     # close the data sources
     r_band = None
@@ -261,8 +265,10 @@ def convert_grid_to_vesper(in_rasterfilename, out_vesperfilename):
                         xy = oRasterDS.xy(iRowY, iColX)
                         vesFile.write(' {}   {}\n'.format(xy[0], xy[1]))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
     return
 
 
@@ -290,7 +296,7 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
         raise TypeError("Input points should be a geopandas dataframe")
 
     for argCheck in [('coord_columns_epsg', coord_columns_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     if coord_columns is None:
@@ -312,15 +318,17 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
         # insert feature id as column as first column and populate it using row number.
         in_dataframe.insert(0, 'FID', in_dataframe.index)
 
-    # combine lat and lon column to a shapely Point() object
-    in_dataframe['geometry'] = in_dataframe.apply(
-        lambda x: Point((float(x[x_column]), float(x[y_column]))), axis=1)
-
-    # Now, convert the pandas DataFrame into a GeoDataFrame. The geopandas constructor expects a
-    # geometry column which can consist of shapely geometry objects, so the column we created is
-    # just fine:
-    gdf_csv = geopandas.GeoDataFrame(in_dataframe, geometry='geometry',
-                                     crs=from_epsg(coord_columns_epsg))
+    if hasattr(geopandas,'points_from_xy'):   # implemented in geopandas 0.5.0
+        gdf_csv = geopandas.GeoDataFrame(in_dataframe,
+                                         geometry=geopandas.points_from_xy(in_dataframe[x_column],
+                                                                           in_dataframe[y_column]),
+                                         crs=from_epsg(coord_columns_epsg))
+    else:
+        # Convert the pandas DataFrame into a GeoDataFrame.
+        gdf_csv = geopandas.GeoDataFrame(in_dataframe,
+                                         geometry=[Point(x, y) for x, y in zip(in_dataframe[x_column],
+                                                                               in_dataframe[y_column])],
+                                         crs=from_epsg(coord_columns_epsg))
 
     # drop the original geometry columns to avoid confusion
     gdf_csv.drop([x_column, y_column], axis=1, inplace=True)
@@ -368,7 +376,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
         raise IOError("Invalid path: {}".format(in_csvfilename))
 
     for argCheck in [('coord_columns_epsg', coord_columns_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     desc_csv = CsvDescribe(in_csvfilename)
@@ -385,8 +393,10 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
 
         save_geopandas_tofile(gdf_csv, out_shapefilename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        str(inspect.currentframe().f_code.co_name), '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     return gdf_csv, gdf_crs
 
@@ -415,16 +425,15 @@ def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-
     if not isinstance(feature, (pd.Series, geopandas.GeoSeries)):
         raise TypeError("Input feature should be a geopandas series")
 
-    if not isinstance(pixel_size, (int, long, float)):
+    if not isinstance(pixel_size, six.integer_types + (float, )):
         raise TypeError('Pixel size must be an integer or floating number.')
 
     if isinstance(value, str) and 'value' not in list(feature.index):
         raise TypeError('Value string {} is not a column name')
-    elif not isinstance(value, (int, long, float)):
+    elif not isinstance(value, six.integer_types + (float, )):
         raise TypeError('Value should be a column name, or a number')
 
-    transform, width, height, bbox = create_raster_transform(feature.geometry.bounds,
-                                                             pixel_size, snap_extent_to_pixel)
+    transform, width, height, bbox = create_raster_transform(feature.geometry.bounds, pixel_size, snap_extent_to_pixel)
 
     gdf_feat = GeoDataFrame(GeoSeries(feature.geometry),
                             geometry=GeoSeries(feature.geometry).geometry)
@@ -438,8 +447,7 @@ def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-
     else:
         shapes = ((geom, value) for geom in gdf_feat.geometry)
 
-    burned = features.rasterize(shapes=shapes, out_shape=(height, width), fill=nodata_val,
-                                transform=transform)
+    burned = features.rasterize(shapes=shapes, out_shape=(height, width), fill=nodata_val, transform=transform)
     meta = {}
     meta.update(height=height, width=width,
                 transform=transform,

@@ -9,11 +9,16 @@ import os
 import sys
 import subprocess
 import tempfile
+
+import six
+
 from . import config
 
 __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
 __version__ = '0.3.1'
+
+number_types = six.integer_types + (float, )
 
 TEMPDIR = os.path.join(tempfile.gettempdir(), 'PrecisionAg')
 
@@ -31,6 +36,11 @@ if not os.environ.get('GDAL_DATA', None):
         process = subprocess.Popen(['gdal-config','--datadir'],
             stdout=subprocess.PIPE)
         output, error = process.communicate()
+        output = six.ensure_str(output)
+        # if there is no error in the subprocess, error is None
+        # which six refuses to coerce to str
+        if error is not None:
+            error = six.ensure_str(error)
         gdal_data = output.split('\n')[0]
         assert os.path.isfile(os.path.join(gdal_data, 'gcs.csv'))
     except:

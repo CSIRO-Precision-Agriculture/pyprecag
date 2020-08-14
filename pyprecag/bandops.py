@@ -3,6 +3,7 @@ import collections
 import numpy as np
 from numpy import ma
 import rasterio
+import six
 
 
 class BandMapping(collections.MutableMapping, dict):
@@ -30,7 +31,9 @@ class BandMapping(collections.MutableMapping, dict):
 
         if key not in allowed_keys:
             raise AttributeError(
-                'BandMapping has no attribute {}. Allowed keys are {}'.format(key, ', '.join(self.__defaults.keys())))
+                'BandMapping has no attribute {}. Allowed keys are {}'.format(
+                    key, ', '.join(sorted(self.__defaults.keys())))
+                )
 
         if not isinstance(value, int):
             raise ValueError('{v} is not an integer'.format(v=value))
@@ -118,11 +121,11 @@ class CalculateIndices(object):
             pass
         elif not os.path.exists(raster):
             raise ValueError('Image file does not exist')
-
-        if src_nodata is not None and not isinstance(src_nodata, (int, float, long)):
+        number_types = six.integer_types + (float,)
+        if src_nodata is not None and not isinstance(src_nodata, number_types):
             raise ValueError('src_nodata should be numeric (int, float or long)')
 
-        if not dest_nodata and not isinstance(dest_nodata, (int, float, long)):
+        if not dest_nodata and not isinstance(dest_nodata, number_types):
             raise ValueError('dst_nodata should be numeric (int, float or long)')
 
         self.__image = raster

@@ -1,5 +1,5 @@
 import collections
-import datetime
+from datetime import datetime, timedelta
 import glob
 import inspect
 import logging
@@ -15,14 +15,15 @@ import geopandas as gpd
 import pandas as pd
 import rasterio
 from rasterio import features
+import six
 
-from unidecode import unidecode
 from collections import OrderedDict
 
 from . import config
 from .convert import add_point_geometry_to_dataframe, numeric_pixelsize_to_string
 from .describe import predictCoordinateColumnNames
 from .raster_ops import raster_snap_extent, create_raster_transform
+from pyprecag import number_types
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
@@ -39,17 +40,18 @@ def test_for_windows():
 
 # consider enums - https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 # The codes for the variogram. The key is the tag used in the control file_csv
-VESPER_OPTIONS = {"jigraph": {"Don't Show": 0, "Show": 1},
-                  "jimap": {"Don't Show": 0, "Show": 1},
-                  "jlockrg": {"Local": 1, "Global": 0},
-                  "jpntkrg": {"Block": 0, "Point": 1, "Punctual": 1},
-                  "jsetrad": {"Calculate Radius": 0, "Set Radius": 1},
-                  "jcomvar": {"Define Variogram Parameter": 0, "Compute Variogram": 1},
-                  "modtyp": {"Spherical": 1, "Exponential": 2, "Gaussian": 3,
-                             "Linear with sill": 4, "Stable": 5, "Generalised Cauchy": 6,
-                             "Matern": 7, "Double spherical": 8, "Double exponential": 9},
-                  "iwei": {"unity": 0, "No. of pairs": 1, "1/variance": 2, "no_pairs/variance": 3,
-                           "no_pairs/fitted": 4}}
+VESPER_OPTIONS = {"jigraph": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+                  "jimap": OrderedDict([("Don't Show", 0), ("Show", 1)]),
+                  "jlockrg": OrderedDict([("Local", 1), ("Global", 0)]),
+                  "jpntkrg": OrderedDict([("Punctual", 1), ("Block", 0), ("Point", 1)]),
+                  "jsetrad": OrderedDict([("Calculate Radius", 0), ("Set Radius", 1)]),
+                  "jcomvar": OrderedDict([("Define Variogram Parameter", 0), ("Compute Variogram", 1)]),
+                  "modtyp": OrderedDict([("Spherical", 1), ("Exponential", 2), ("Gaussian", 3),
+                                         ("Linear with sill", 4), ("Stable", 5), ("Generalised Cauchy", 6),
+                                         ("Matern", 7), ("Double spherical", 8), ("Double exponential", 9) ]),
+                  "iwei": OrderedDict([("unity", 0), ("No. of pairs", 1), ("1/variance", 2),
+                                       ("no_pairs/variance", 3), ("no_pairs/fitted", 4)])
+                  }
 
 
 class VesperControl(collections.MutableMapping, dict):
@@ -102,20 +104,20 @@ class VesperControl(collections.MutableMapping, dict):
             raise AttributeError('VesperControl has no attribute {}'.format(key))
 
         if key in VESPER_OPTIONS.keys():
-            if isinstance(value, basestring):
+            if isinstance(value, six.string_types):
                 try:
                     value = VESPER_OPTIONS[key][value]
                 except KeyError:
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
-                        value, key, VESPER_OPTIONS[key]))
+                        value, key, dict(VESPER_OPTIONS[key])))
 
-            elif isinstance(value, (int, float, long)):
+            elif isinstance(value, number_types):
                 if value not in VESPER_OPTIONS[key].values():
                     raise ValueError('{} is an invalid option for {}. Options are {}'.format(
-                        value, key, VESPER_OPTIONS[key]))
+                        value, key, dict(VESPER_OPTIONS[key])))
 
         if isinstance(self.__defaults[key], float):
-            if not isinstance(value, (int, long, float)):
+            if not isinstance(value, number_types):
                 raise ValueError('value for key {} should be a float or int - Got {}'.format(
                     key, type(value.__name__)))
 
@@ -192,7 +194,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
         raise IOError("Invalid path: {}".format(control_textfile))
 
     for argCheck in [('krig_epsg', krig_epsg), ('nodata_value', nodata_value)]:
-        if not isinstance(argCheck[1], (int, long)):
+        if not isinstance(argCheck[1], six.integer_types):
             raise TypeError('{} must be a integer.'.format(argCheck[0]))
 
     start_time = time.time()
@@ -219,7 +221,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
         ci_file.writelines("Median Prediction SE    : {:.5f}\n".format(median_val))
         ci_file.writelines("95% Confidence Interval : {:.5f}\n\n".format(2 * 1.96 * median_val))
         ci_file.writelines(
-            "Date/time : " + datetime.datetime.now().strftime("%d-%b-%Y %H:%M") + "\n")
+            "Date/time : " + datetime.now().strftime("%d-%b-%Y %H:%M") + "\n")
         userhome = os.path.expanduser('~')
         ci_file.writelines("Username  : " + os.path.split(userhome)[-1] + "\n")
 
@@ -271,16 +273,15 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
                                     transform=out_se.transform, fill=nodata_value)
         out_se.write(burned, indexes=1)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=datetime.timedelta(
-                                                   seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta( seconds=time.time() - start_time))))
     return out_pred_tif, out_se_tif, out_ci_txt
 
 
 def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folder,
                              control_textfile='', coord_columns=[], epsg=0, display_graphics=False,
                              control_options=VesperControl(),
-                             block_size=10,
                              vesper_exe=vesper_exe):
     """Prepare data for vesper kriging and create a windows batch file to run outside the
     python/pyprecag environment.
@@ -290,7 +291,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     A description of the keys and their options can be found in the VESPER user manual at
     https://sydney.edu.au/agriculture/pal/documents/Vesper_1.6_User_Manual.pdf
 
-    block_size will be replaced by the xside and yside keys in the VesperControl Object.
+    block_size has been removed from version 1.0.0.  Please use use VesperControl xsize and ysize instead.
 
     Outputs:  The following files will be added to the vesper sub-folder in the output folder.
         *_control_*.txt  - The vesper control file
@@ -311,7 +312,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         grid_filename (str): The vesper grid file.
         control_textfile (str): The name of the control text file without the path
         out_folder (str): The folder to add outputs too. A 'Vesper' sub directory will be created
-        block_size (int): The size to apply for block Kriging. Units are from the coordinate system.
+
         coord_columns (List): The columns representing the X and Y coordinates.
         epsg (int) : The epsg_number number for the data. If 0 the en_epsg or
                      enepsg column (if exists) will be used.
@@ -322,20 +323,11 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
        vesper_batfile, vesper_ctrlfile: The paths to the generated batch file and control file.
     """
 
-    # Vesper only works with Windows
-    # test_for_windows()
-
     if not isinstance(in_dataframe, (gpd.GeoDataFrame, pd.DataFrame)):
         raise TypeError('Invalid input data :in_dataframe')
 
     if not os.path.exists(grid_filename):
         raise IOError("Invalid path: {}".format(grid_filename))
-
-    if not isinstance(block_size, (int, long)):
-        raise TypeError('block_size must be an integer'.format(block_size))
-
-    warnings.warn('block_size is deprecated, use VesperControl xsize and ysize instead',
-                  PendingDeprecationWarning)
 
     if out_folder.strip() in [None, '']:
         raise TypeError('Please specify an output folder')
@@ -353,7 +345,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         if eaFld not in in_dataframe.columns:
             raise TypeError('Column {} does not exist'.format(eaFld))
 
-    if not isinstance(epsg, (int, long)):
+    if not isinstance(epsg, six.integer_types):
         raise TypeError('EPSG {} must be a integer.'.format(epsg))
 
     if not isinstance(control_options, VesperControl):
@@ -362,7 +354,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     start_time = time.time()
 
     # Create a filename compatible copy of the krig_column
-    krig_col_file = re.sub('[^A-Za-z0-9_-]+', '', unidecode(unicode(krig_column)))
+    krig_col_file = re.sub('[^A-Za-z0-9_-]+', '', six.ensure_str(krig_column, encoding='ascii', errors='ignore'))
 
     out_sub_name = os.path.basename(grid_filename)[:20]
 
@@ -403,8 +395,8 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
     # in use either by vesper or another app.
 
     # Start always start with the control file. this is what gets used within QGIS
-    files_list = glob.glob(
-        os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file)))
+    files_list = glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file)))
+
     if vesper_ctrlfile in files_list:
         files_list.insert(0, files_list.pop(files_list.index(vesper_ctrlfile)))
 
@@ -417,8 +409,7 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
 
     # if control file already exists then replace it, and delete all matching kriging
     # outputs and tiff files.
-    for eaFile in glob.glob(
-            os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file))):
+    for eaFile in glob.glob(os.path.join(vesper_outdir, "{}_*_{}.*".format(out_sub_name, krig_col_file))):
         os.remove(eaFile)
         LOGGER.debug('Deleted file {}'.format(eaFile))
 
@@ -461,11 +452,6 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
                            jimap=int(display_graphics),  # 1, show map, otherwise 0)
                            )
 
-    # high density kriging. fix for pre VesperControl Class
-    if block_size != 10:  # only update if not the default variable value
-        control_options.update({"xside": block_size,
-                                "yside": block_size})
-
     # ---------------------------------------------------------------------------------------------
     # Write a VESPER control file
     control_options.write_to_file(vesper_ctrlfile)
@@ -505,9 +491,10 @@ def prepare_for_vesper_krige(in_dataframe, krig_column, grid_filename, out_folde
         with open(vesper_batfile, 'w') as wBatFile:
             wBatFile.write(bat_file_string)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=datetime.timedelta(
-                                                   seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
     return vesper_batfile, vesper_ctrlfile
 
 
@@ -542,5 +529,4 @@ def run_vesper(ctrl_file, bMinimiseWindow=True, vesper_exe=vesper_exe):
     process = subprocess.Popen([vesper_exe, ctrl_file], cwd=os.path.dirname(ctrl_file),
                                startupinfo=info)
     process.wait()
-    logging.info('{:<30}\t{dur:<15}'.format('Vesper Kriging', dur=datetime.timedelta(
-        seconds=time.time() - task_time)))
+    LOGGER.info('{:<30}\t{dur:<15}'.format('Vesper Kriging', dur=str(timedelta(seconds=time.time() - task_time))))

@@ -1,6 +1,7 @@
 import csv
 import datetime
 import difflib
+import io
 import logging
 import os
 import re
@@ -14,6 +15,7 @@ import fiona
 import geopandas
 import numpy as np
 import pandas as pd
+import six
 from geopandas import GeoDataFrame
 from osgeo import gdal
 
@@ -56,6 +58,12 @@ class VectorDescribe:
 
         return
 
+    @staticmethod
+    def get_character_encoding(filename):
+        with io.open(filename, 'rb') as f:
+           data = f.read(1024 * 100)
+        return chardet.detect(data)['encoding']
+
     def open_geo_dataframe(self):
         """Create geopandas from file"""
         return GeoDataFrame.from_file(self.source, encoding=self.file_encoding)
@@ -65,16 +73,12 @@ class VectorDescribe:
         Describe a vector File and set class properties
         """
 
+        self.file_encoding = self.get_character_encoding(self.source)
         # Use this open so as to not hold open and use up memory
         gdf = GeoDataFrame.from_file(self.source, encoding=self.file_encoding)
 
         with fiona.open(self.source) as fio_coll:
             self.crs.getFromWKT(fio_coll.crs_wkt)
-
-        # No idea why this works but it does so use it.
-        exec ('rawstring = "{}"'.format(repr(','.join(gdf.columns.values))))
-        result = chardet.detect(rawstring)
-        self.file_encoding = result['encoding']
 
         self.feature_count = len(gdf)
         self.extent = list(gdf.total_bounds)
@@ -147,7 +151,7 @@ class CsvDescribe:
         return pdf
 
     def get_column_names(self):
-        return self.column_properties.keys()
+        return list(self.column_properties.keys())
 
     def get_alias_column_names(self):
         return [val['alias'] for key, val in self.column_properties.items()]
@@ -158,32 +162,28 @@ class CsvDescribe:
     def get_column_types(self):
         return [val['type'] for key, val in self.column_properties.items()]
 
+    @staticmethod
+    def get_character_encoding(filename):
+        with io.open(filename, 'rb') as f:
+           data = f.read(1024 * 100)
+        return chardet.detect(data)['encoding']
+
     def describe_file(self):
         """Describe a CSV File and set class properties
         """
-        with open(self.source, 'r') as f:
-            # sniff into 10KB of the file to check its dialect
-            # this will sort out the delimiter and quote character.
-            self.dialect = csv.Sniffer().sniff(f.read(10 * 1024))
-            f.seek(0)  # reset read to start of file
 
-            # read header based on the 10k of file.
-            header = csv.Sniffer().has_header(f.read(10 * 1024))
-            f.seek(0)  # reset read to start of file
-            if not header:
-                warnings.warn("The CSV file doesn't appear to contain column headers")
-                self.has_column_header = False
+        self.file_encoding = self.get_character_encoding(self.source)
 
-            f.seek(0)  # reset read to start of file
+        # reopen the file as text, using the detected encoding
+        with io.open(self.source, mode='rt', encoding=self.file_encoding) as f:
+            text = six.ensure_str(f.read(10240))
+        self.dialect = csv.Sniffer().sniff(text)
+        # read header based on the decoded text
+        header = csv.Sniffer().has_header(text)
+        if not header:
+            warnings.warn("The CSV file doesn't appear to contain column headers")
+            self.has_column_header = False
 
-        detector = chardet.UniversalDetector()
-        with open(self.source, 'rb') as eaop:
-            for line in eaop.readlines(100):
-                detector.feed(line)
-                if detector.done:
-                    break
-            detector.close()
-        self.file_encoding = detector.result['encoding']
 
         pandas_df = self.open_pandas_dataframe()
         self.row_count = len(pandas_df)
@@ -282,12 +282,6 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
                                               dur=datetime.timedelta(seconds=time.time() - step_time)))
 
 
-def get_dataframe_encoding(dataframe):
-    exec ('rawstring = "{}"'.format(repr(','.join(dataframe.columns))))
-    result = chardet.detect(rawstring)
-    return result['encoding']
-
-
 def get_column_properties(dataframe):
     """ Get a dictionary representing Column Properties for a pandas dataframe or a geopandas geodataframe.
        Includes:
@@ -321,14 +315,18 @@ def get_column_properties(dataframe):
             if fldtype == 'long':
                 fldtype = 'int'
 
-        if isinstance(col, unicode):
-            aliasFld = unidecode(unicode(col))
-        else:
-            aliasFld = col
+        aliasFld = col
+        # check for unicode characters
+        if not all(ord(char) < 128 for char in col):
+            try: # python 2.7
+                if isinstance( col, unicode):
+                    aliasFld = unidecode(col)
+            except: # python 3.7
+                aliasFld = unidecode(six.ensure_str(col))
 
         # create a shapefile valid name 10 alpha numeric and underscore characters.
         # to keep underscore('_'), addit after the 9
-        shpFld = re.sub('[^A-Za-z0-9_-]+', '', col)[:10]
+        shpFld = re.sub('[^A-Za-z0-9_-]+', '', aliasFld)[:10]
 
         column_desc[col] = {'alias': aliasFld.replace(' ', ''),
                             'shapefile': shpFld,
@@ -366,12 +364,16 @@ def predictCoordinateColumnNames(column_names):
                     seqMatchDict[guess] = difflib.SequenceMatcher(None, eaFld.upper(), guess.upper(), True).ratio()
 
                 # create short list of matches and ratios
-                valList.append(max(seqMatchDict.iteritems(), key=lambda x: x[1]))
+                iter_items = six.iteritems(seqMatchDict)
+                valList.append(max(iter_items, key=lambda x: x[1]))
 
         # select the largest ratio as the best match
         if len(valList) > 0:
             best_match = max(valList, key=itemgetter(1))[0]
-            exec ('{}_column = "{}"'.format(eaVal, best_match))
+            if eaVal == 'x':
+                x_column = best_match
+            else:
+                y_column = best_match
 
     LOGGER.debug('GeoCSV Columns:     x = {}, y = {}'.format(x_column, y_column))
     return [x_column, y_column]

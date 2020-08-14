@@ -22,7 +22,7 @@ class test_vectorOps(unittest.TestCase):
         super(test_vectorOps, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)

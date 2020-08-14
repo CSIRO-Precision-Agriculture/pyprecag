@@ -4,9 +4,11 @@ import inspect
 import re
 from collections import defaultdict
 
-from itertools import izip
 import logging
 import os
+import six
+from rasterio import crs as riocrs
+from six.moves import zip as izip
 
 import random
 import time
@@ -18,7 +20,8 @@ import pandas as pd
 
 import rasterio
 
-from fiona.crs import from_epsg
+from pyprecag.crs import from_epsg
+
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
@@ -27,7 +30,7 @@ from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import reproject, Resampling
-# from rasterio.warp import aligned_target
+
 from rasterio.windows import get_data_window, intersection, from_bounds
 from scipy.cluster.vq import *
 from scipy import stats
@@ -43,69 +46,123 @@ from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pi
     convert_polygon_feature_to_raster, drop_z, deg_to_8_compass_pts, point_to_point_bearing, \
     text_rotation
 
-from .describe import save_geopandas_tofile, VectorDescribe, get_dataframe_encoding
+from .describe import save_geopandas_tofile, VectorDescribe
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
     calculate_image_indices, stack_and_clip_rasters
 
+from pyprecag import number_types
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
-def block_grid(in_shapefilename, pixel_size, out_rasterfilename,
-               out_vesperfilename, nodata_val=-9999, snap=True, overwrite=False):
+def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilename,
+              out_epsg=0,groupby=None, nodata_val=-9999, snap=True, overwrite=False):
     """Convert a polygon boundary to a 0,1 raster and generate a VESPER compatible list of
        coordinates for kriging.
 
-        Args:
+       The input polygon shapefile will be reproject to the out_epsg coordinate system.
 
+       Will process in a loop based on the groupby field name. All polygons with the same
+       attribute will be dissolved together and a single block grid will be created. The
+       groupby attribute will be added to the output filename.
+
+        Args:
             in_shapefilename (str): Input polygon shapefile
             pixel_size (float):  The required output pixel size
             out_rasterfilename (str): Filename of the raster Tiff that will be created
             out_vesperfilename (str):  The output vesper file
+            out_epsg (int): The epsg number for the output raster coordinate system.
+            groupby (str): Column name to group polygon features with.
             nodata_val (int): an integer to use as nodata
             snap (bool): Snap Extent to a factor of the Pixel size
             overwrite (bool): if true overwrite existing file
 
-        Requirements: Input shapefile should be in a projected coordinate system........
-
-        Notes:
-            Define pixel_size and no data value of new raster
-            see http://stackoverflow.com/questions/2220749/rasterizing-a-gdal-layer
-                https://gis.stackexchange.com/a/31658
-
-            This works, but the extent of the output differs from that of an arcpy generated raster.
-            See post: https://gis.stackexchange.com/q/139336
     """
 
-    if not isinstance(pixel_size, (int, long, float)):
+    if not isinstance(pixel_size, number_types):
         raise TypeError('Pixel size must be an integer or floating number.')
 
-    if not isinstance(nodata_val, (int, long)):
-        raise TypeError('Nodata value must be an integer.')
+    
+    for ea_arg in [('nodata_val', nodata_val), ('out_epsg', out_epsg)]:
+        if not isinstance(ea_arg[1], six.integer_types):
+            raise TypeError('{} must be a integer - Got {}'.format(*ea_arg))
+        
+    if out_epsg <= 0:
+        raise ValueError('EPSG Code ({}) must be a positive integer above 0'.format(out_epsg))
+
+    if riocrs.CRS.from_epsg(out_epsg).is_geographic:
+        raise ValueError('EPSG Code ({}) must be a projected coordinate system'.format(out_epsg))
 
     desc_poly_shp = VectorDescribe(in_shapefilename)
 
-    if not desc_poly_shp.crs.srs.IsProjected():
-        raise SpatialReferenceError('Shapefile must be in a projected coordinate system')
+    gdf_poly = desc_poly_shp.open_geo_dataframe()
 
     if 'POLY' not in desc_poly_shp.geometry_type.upper():
         raise GeometryError('Invalid Geometry. Input shapefile should be polygon or multipolygon')
 
-    start_time = time.time()
-    convert_polygon_to_grid(in_shapefilename=in_shapefilename,
-                            out_rasterfilename=out_rasterfilename,
-                            pixel_size=pixel_size,
-                            snap_extent_to_pixel=snap,
-                            nodata_val=nodata_val,
-                            overwrite=overwrite)
+    if groupby is None or groupby.strip() == '':
+        groupby = None
 
-    convert_grid_to_vesper(in_rasterfilename=out_rasterfilename,
-                           out_vesperfilename=out_vesperfilename)
+    if groupby is not None and groupby not in gdf_poly.columns:
+        raise ValueError('Groupby column {} does not exist'.format(groupby))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    #-------------------------------------------------------------------------------------------
+    # reproject shapefile
+    if out_epsg != 0 and  desc_poly_shp.crs.epsg_number != out_epsg:
+        gdf_poly.to_crs(epsg=out_epsg,inplace=True)
+
+    del desc_poly_shp
+
+    # If a column name is specified, dissolve by this and create multi-polygons
+    # otherwise dissolve without a column name at treat all features as one
+    if groupby is not None:
+        # change null/nones to blank string
+        gdf_poly[groupby].fillna('', inplace=True)
+
+        gdf_poly = gdf_poly.dissolve(groupby, as_index=False).copy()
+
+    else:
+        gdf_poly = GeoDataFrame(geometry=[gdf_poly.unary_union])
+
+    # Loop through polygons features ----------------------------------------------------------------
+    output_files = []
+    for index, feat in gdf_poly.iterrows():
+        loop_time = time.time()
+        step_time = time.time()
+        status = '{} of {}'.format(index + 1, len(gdf_poly))
+
+        if groupby is not None:
+            feat_name = re.sub('[^0-9a-zA-Z]+', '-', str(feat[groupby])).strip('-')
+            if feat_name == '':
+                feat_name = 'No-Name'
+
+            r_file, r_ext = os.path.splitext(out_rasterfilename)
+            out_file = r_file + "_" + feat_name + r_ext
+        else:
+            out_file = out_rasterfilename
+            feat_name = 'All Polygons'
+
+        # From shapes create a blockgrid mask. -----------------------------------------------------
+        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size)
+
+        with rasterio.open(out_file, 'w', driver='GTiff', count=1,tfw='YES',
+                           crs=from_epsg(out_epsg), **new_blockmeta) as dest:
+            dest.write(blockgrid, 1)
+        output_files += [out_file]
+
+        del blockgrid, new_blockmeta
+
+        LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format('Feature to block_grid', status, feat_name,
+                                                          dur=timedelta(seconds=time.time() - step_time)))
+
+        r_file, r_ext = os.path.splitext(out_file)
+        convert_grid_to_vesper(in_rasterfilename=out_file,
+                           out_vesperfilename=out_file.replace(r_ext, '_v.txt'))
+
+    return output_files
 
 
 def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filename, thin_dist_m=1.0,
@@ -148,7 +205,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(points_geodataframe, GeoDataFrame):
@@ -275,8 +332,10 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
@@ -352,7 +411,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             raise IOError('Output folder does not exist: {}'.format(os.path.dirname(argCheck)))
 
     for argCheck in [('thinDist_m', thin_dist_m), ('stdev', stdevs)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a integer or floating number.'.format(argCheck[0]))
 
     if process_column not in points_geodataframe.columns:
@@ -534,6 +593,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
     gdf_points['EN_EPSG'] = points_crs.epsg_number
     gdf_points.crs = points_crs.epsg
+    
     # Clean up the original input dataframe and remove existing geometry and coord columns
     alt_coord_columns = config.get_config_key('geoCSV')['xCoordinate_ColumnName']
     alt_coord_columns += config.get_config_key('geoCSV')['yCoordinate_ColumnName']
@@ -552,7 +612,12 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final.drop([id_col], inplace=True, axis=1)
 
     # get the appropriate file encoding and save the file
-    file_encoding = get_dataframe_encoding(gdf_final)
+    # TODO: CHECK THIS I dont think setting a default in the config will work.
+    try:
+        file_encoding = config.read_config()['geoCSV']['file_encoding']
+    except KeyError:
+        file_encoding = 'utf-8'
+    #file_encoding = get_dataframe_encoding(gdf_final)
 
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
@@ -587,8 +652,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
-                                               dur=timedelta(seconds=time.time() - start_time)))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
+        inspect.currentframe().f_code.co_name, '',
+        dur=str(timedelta(seconds=time.time() - start_time)))
+    )
 
     return gdf_final[gdf_final['filter'].isnull()], points_crs
 
@@ -619,7 +686,7 @@ def random_pixel_selection(raster, raster_crs, num_points, out_shapefile=None):
         raise TypeError("Input should be a rasterio.DatasetReader created "
                         "using rasterio.open(os.path.normpath())")
 
-    if not isinstance(num_points, (int, long)):
+    if not isinstance(num_points, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
     if not isinstance(raster_crs, pyprecag_crs.crs):
@@ -844,12 +911,14 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         points_geodataframe.drop(['geometry'], axis=1).to_csv(output_csvfile, index=False)
 
         LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
-            'Saved CSV', '', os.path.basename(output_csvfile),
-            dur=timedelta(seconds=time.time() - step_time)))
+                'Saved CSV', '', os.path.basename(output_csvfile),
+                dur=str(timedelta(seconds=time.time() - step_time))
+        ))
 
     LOGGER.info('{:<30}\t{:>10} {dur:>15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '', '',
-        dur=timedelta(seconds=time.time() - start_time)))
+        dur=str(timedelta(seconds=time.time() - start_time))
+        ))
 
     return points_geodataframe, points_crs
 
@@ -916,10 +985,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
     for ea_arg in [('pixel_size', pixel_size), ('image_nodata', image_nodata)]:
-        if not isinstance(ea_arg[1], (int, long, float)):
+        if not isinstance(ea_arg[1], number_types):
             raise TypeError('{} must be a integer or floating number - Got {}'.format(*ea_arg))
 
-    if not isinstance(image_epsg, (int, long)):
+    if not isinstance(image_epsg, six.integer_types):
         raise TypeError('image_epsg must be a integer - Got {}'.format(image_epsg))
 
     if not isinstance(band_nums, list):
@@ -1005,7 +1074,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         poly_epsg = desc_poly.crs.epsg_number
         if poly_epsg != image_epsg:
             # we have to reproject the vector points to match the raster
-            print 'WARNING: Projecting points from {} to {}'.format(desc_poly.crs.epsg, image_epsg)
+            print('WARNING: Projecting points from {} to {}'.format(desc_poly.crs.epsg, image_epsg))
             gdf_poly.to_crs(epsg=image_epsg, inplace=True)
             poly_epsg = image_epsg
 
@@ -1078,7 +1147,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 for iband in range(1, src.count + 1):
                     # image statistics have changed so don't copy the tags
                     cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if
+                        [(key, val) for key, val in six.iteritems(src.tags(iband)) if
                          not key.upper().startswith('STATISTIC')])
                     if len(cleaned_tags) > 0:
                         dest.update_tags(iband, **cleaned_tags)
@@ -1115,8 +1184,10 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                     # image statistics have changed so don't copy the tags
                     cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if
-                         not key.upper().startswith('STATISTIC')])
+                        [(key, val) for key, val in
+                        six.iteritems(src.tags(iband))
+                        if not key.upper().startswith('STATISTIC')]
+                    )
                     if len(cleaned_tags) > 0:
                         dest.update_tags(iband, **cleaned_tags)
 
@@ -1159,8 +1230,11 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                         dest.write(new_band, iband)
 
                         # image statistics have changed so don't copy the tags
-                        cleaned_tags = dict([(key, val) for key, val in src.tags(iband).iteritems()
-                                             if not key.upper().startswith('STATISTIC')])
+                        cleaned_tags = dict([
+                            (key, val) for key, val in
+                            six.iteritems(src.tags(iband))
+                            if not key.upper().startswith('STATISTIC')
+                        ])
 
                         if len(cleaned_tags) > 0:
                             dest.update_tags(iband, **cleaned_tags)
@@ -1183,8 +1257,11 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
                         dest.write(filled, iband)
                         # image statistics have changed so don't copy the tags
-                        cleaned_tags = dict([(key, val) for key, val in src.tags(iband).iteritems()
-                                             if not key.upper().startswith('STATISTIC')])
+                        cleaned_tags = dict(
+                            [(key, val) for key, val in
+                            six.iteritems(src.tags(iband))
+                            if not key.upper().startswith('STATISTIC')]
+                        )
                         if len(cleaned_tags) > 0:
                             dest.update_tags(iband, **cleaned_tags)
 
@@ -1247,9 +1324,11 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                     dest.write(smooth, 1)
 
                     # image statistics have changed so don't copy the tags
-                    cleaned_tags = dict(
-                        [(key, val) for key, val in src.tags(iband).iteritems() if
-                         not key.upper().startswith('STATISTIC')])
+                    cleaned_tags = dict([
+                        (key, val) for key, val in
+                        six.iteritems(src.tags(iband))
+                        if not key.upper().startswith('STATISTIC')
+                     ])
                     if len(cleaned_tags) > 0:
                         dest.update_tags(1, **cleaned_tags)
 
@@ -1338,7 +1417,7 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
     for ea_arg in [('image_epsg', image_epsg), ('out_epsg', out_epsg)]:
-        if not isinstance(ea_arg[1], (int, long)):
+        if not isinstance(ea_arg[1], six.integer_types):
             raise TypeError('{} must be a integer - Got {}'.format(*ea_arg))
 
     filename, ext = os.path.splitext(os.path.basename(image_file))
@@ -1501,10 +1580,10 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         pandas.core.frame.DataFrame: A dataframe containing cluster statistics for each image.
     """
 
-    if not isinstance(n_clusters, (int, long)):
+    if not isinstance(n_clusters, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
-    if not isinstance(max_iterations, (int, long)):
+    if not isinstance(max_iterations, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
     if not isinstance(raster_files, list):
@@ -1657,7 +1736,8 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     LOGGER.info('{:<30} {:<15} {dur:<15} {}'.format(
         'Saved Stats CSV', '', output_tif.replace('.tif', '_statistics.csv'),
-        dur=timedelta(seconds=time.time() - step_time)))
+        dur=str(timedelta(seconds=time.time() - step_time))
+    ))
 
     # clean up of intermediate files
     if len(temp_file_list) > 0 and not config.get_debug_mode():
@@ -1669,7 +1749,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
     LOGGER.info('{:<30}  {:<15} {dur:<15} {}'.format(
         'K-Means Clustering Completed', '', '{} zones for {} rasters'.format(
-            n_clusters, len(raster_files)), dur=timedelta(seconds=time.time() - start_time)))
+            n_clusters, len(raster_files)),
+            dur=str(timedelta(seconds=time.time() - start_time))
+    ))
 
     return results_df
 
@@ -1724,13 +1806,13 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     for argCheck in [('offset_distance', offset_distance),
                      ('distance_between_points', distance_between_points)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], number_types):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(lines_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
-    if not isinstance(out_epsg, (int, long)):
+    if not isinstance(out_epsg, six.integer_types):
         raise TypeError('out_epsg must be a integer - Got {}'.format(*out_epsg))
 
     if out_points_shapefile is not None and os.path.isabs(out_points_shapefile):
@@ -2055,10 +2137,10 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     line_count = len(points_geodataframe['TrialID'].unique())
 
     # Extract raster values for points ------------------------------------------------------------
-
     gdf_points, points_crs = extract_pixel_statistics_for_points(points_geodataframe, points_crs,
                                                                  raster_files, 'extract_pixels.csv',
                                                                  size_list=[1])
+    
     gdf_points.index.name = 'rowID'
     column_names = {}
 
@@ -2084,12 +2166,17 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
         column_names['Zone'] = 'Zone'
 
     # rename columns from raster name to the dictionary key to be more generic
-    gdf_points.rename(columns=dict([[v, k] for k, v in column_names.iteritems()]), inplace=True)
+    gdf_points.rename(columns=dict([[v, k] for k, v in six.iteritems(column_names)]), inplace=True)
+
+    # group by trialid and find those where all are none ie no overlap with rasters
+    dfnulls = gdf_points.set_index('TrialID')['Value'].isnull().groupby('TrialID').all()
+    
+    # get only the trial id's with data
+    gdf_points = gdf_points[~gdf_points['TrialID'].isin(dfnulls[dfnulls].index.values.tolist())]
+    del dfnulls
 
     # create a unique id for each line/point
-    gdf_points.insert(1, 'TrialPtID',
-                      gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'],
-                                                                  x['PointID']), axis=1))
+    gdf_points.insert(1, 'TrialPtID', gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'],x['PointID']), axis=1))
 
     # Apply bearing to all transects
     for group_name, gdf_group in gdf_points.groupby(['TrialID', transect_column]):
@@ -2248,9 +2335,9 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             use_pvalue = 0.05
             df_statstable['sig_color'] = df_statstable['p_value'].apply(
-                lambda x: 'r' if x > use_pvalue else 'k')
+                                                lambda x: 'r' if x > use_pvalue else 'k')
             df_statstable['sig_label'] = df_statstable['p_value'].apply(
-                lambda x: 'not significant' if x > use_pvalue else 'significant')
+                                                lambda x: 'not significant' if x > use_pvalue else 'significant')
 
             # Create the map only once for both lines ----------------------------------------------
             if iscenario == 1:
@@ -2264,10 +2351,10 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 # Aggregate points with the GroupBy - for shapely 1.3.2+ use the point objects
                 try:
                     gdf_lines = gdf_map.groupby(['Strip_Name'])['geometry'].apply(
-                        lambda x: LineString(x.tolist()) if x.size > 1 else x.tolist())
+                                                lambda x: LineString(x.tolist()) if x.size > 1 else x.tolist())
                 except ValueError:
                     gdf_lines = gdf_map.groupby(['Strip_Name'])['geometry'].apply(
-                        lambda x: LineString([(p.x, p.y) for p in x]))
+                                                lambda x: LineString([(p.x, p.y) for p in x]))
 
                 gdf_lines = GeoDataFrame(gdf_lines, geometry='geometry')
 
@@ -2276,10 +2363,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                 # fix the extent to the vector
                 ax.set_aspect('equal')
                 ax.set_title('Map for Trial {}'.format(line_id), fontsize=8)
-                ax.set_xlim(left=gdf_strip.total_bounds[0] - 50,
-                            right=gdf_strip.total_bounds[2] + 50)
-                ax.set_ylim(bottom=gdf_strip.total_bounds[1] - 50,
-                            top=gdf_strip.total_bounds[3] + 50)
+                ax.set_xlim(left=gdf_strip.total_bounds[0] - 50, right=gdf_strip.total_bounds[2] + 50)
+                ax.set_ylim(bottom=gdf_strip.total_bounds[1] - 50, top=gdf_strip.total_bounds[3] + 50)
 
                 # plot the line
                 gdf_lines.plot(ax=ax, cmap='rainbow', legend=True)
@@ -2290,10 +2375,8 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
                 plt.setp(ax.spines.values(), linewidth=0.5)
 
-                ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(
-                    lambda x, p: "{:,.0f}".format(x)))
-                ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(
-                    lambda x, p: "{:,.0f}".format(x)))
+                ax.get_xaxis().set_major_formatter(mpl.ticker.FuncFormatter(lambda x, p: "{:,.0f}".format(x)))
+                ax.get_yaxis().set_major_formatter(mpl.ticker.FuncFormatter(lambda x, p: "{:,.0f}".format(x)))
                 # plt.xticks(rotation='vertical')
 
                 anno_kwargs = {'size': 7, 'va': 'center', 'ha': 'center',

@@ -2,6 +2,27 @@ import numpy as np
 import os
 import rasterio
 
+import traceback
+import warnings
+import sys
+
+def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+    """
+    Add a traceback to warnings to help locate where it being triggered
+    source: https://stackoverflow.com/a/22376126/9567306
+
+    Add the following code
+
+    import warnings
+    warnings.showwarning = make_dummy_data.warn_with_traceback
+
+    Use     warnings.resetwarnings()     to reset
+
+   """
+    log = file if hasattr(file,'write') else sys.stderr
+    traceback.print_stack(file=log)
+    log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
 
 def make_dummy_tif_files(out_dir):
     """ Create fake TIFF to be used as test datasets for other components of pyprecag

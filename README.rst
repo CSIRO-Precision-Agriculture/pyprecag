@@ -13,17 +13,18 @@ A suite of tools for Precision Agriculture data analysis
 * Version: 0.3.1
 * License: `CSIRO Open Source Software License Agreement <https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE>`__
 
-pyprecag is currently supported only on Python version 2.7
+pyprecag is currently supported for Python version 2.7 and 3.7
 
 .. include:: ./CITATION.rst
 
 Dependencies
 ------------
 
-* Python version 2.7
+* Python version 2.7, 3.7
 * `GDAL <https://www.gdal.org/>`_
 * `Fiona <https://github.com/Toblerity/Fiona>`_
 * `Rasterio <https://github.com/mapbox/rasterio>`_
+* `Geopandas <https://github.com/geopandas/geopandas>`_
 * `VESPER <https://sydney.edu.au/agriculture/pal/software/vesper.shtml>`_ (for Kriging)
 
 .. include:: ./docs/installation.rst

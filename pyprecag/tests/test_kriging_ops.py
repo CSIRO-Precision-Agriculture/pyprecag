@@ -9,6 +9,8 @@ import pandas as pd
 import rasterio
 import time
 
+from pyprecag.tests import make_dummy_data
+
 from pyprecag import convert, processing
 from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe
 from pyprecag.processing import clean_trim_points
@@ -24,6 +26,7 @@ this_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data')
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 
 class TestVesperControl(unittest.TestCase):
     def test_updated_keys(self):
@@ -110,7 +113,7 @@ class TestKrigingOps(unittest.TestCase):
         super(TestKrigingOps, cls).setUpClass()
 
         if os.path.exists(TEMPDIR):
-            print 'Folder Exists.. Deleting {}'.format(TEMPDIR)
+            print('Folder Exists.. Deleting {}'.format(TEMPDIR))
             shutil.rmtree(TEMPDIR)
 
         os.mkdir(TEMPDIR)
@@ -136,33 +139,6 @@ class TestKrigingOps(unittest.TestCase):
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
             test_failed = True
-
-    def test1a_CreateControlHighDensity_block_size(self):
-        file_csv = os.path.realpath(this_dir + "/area2_high_trimmed.csv")
-        grid_file = os.path.realpath(this_dir + "/rasters/area2_5m_blockgrid_v.txt")
-        data_col = r'Yld Mass(Dry)(tonne/ha)'
-
-        csv_desc = CsvDescribe(file_csv)
-        df_csv = csv_desc.open_pandas_dataframe()
-
-        # check using block_size argument - backwards compatible
-        file_bat, file_ctrl = prepare_for_vesper_krige(df_csv, data_col, grid_file, TEMPDIR,
-                                                       control_textfile='test_high_5m_control.txt',
-                                                       block_size=30, coord_columns=[],
-                                                       epsg=28354)
-        if os.path.exists(kriging_ops.vesper_exe):
-            self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper/Do_Vesper.bat')))
-        else:
-            self.assertEqual('', file_bat)
-
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv')))
-
-        src_df = pd.read_csv(os.path.realpath(this_dir +'/VESPER/high_5m_vesperdata.csv'))
-        test_df = pd.read_csv(os.path.join(TEMPDIR, 'Vesper', 'test_high_5m_vesperdata.csv'))
-
-        pd.testing.assert_frame_equal( src_df,test_df)
-
 
     def test1_CreateControlHighDensity_VesperControlClass(self):
         # check using VesperControl class
@@ -211,7 +187,7 @@ class TestKrigingOps(unittest.TestCase):
                           'iwei': 'no_pairs/variance', 'CO': 92.71, 'C1': 277.9, 'A1': 116.0 })
 
         file_bat, file_ctrl = prepare_for_vesper_krige(csv_desc.open_pandas_dataframe(),
-                                                       data_col, grid_file , TEMPDIR,
+                                                       data_col, grid_file, TEMPDIR,
                                                        control_textfile='test_low_control.txt',
                                                        control_options=ctrl_para,
                                                        coord_columns=[], epsg=28354)

@@ -1,6 +1,7 @@
 {
     "crsLookupURL": "http://prj2epsg.org/search.json",
     "geoCSV": {
+        "file_encoding": "utf-8",
         "xCoordinate_ColumnName": [
             "LONGITUDE",
             "LON",

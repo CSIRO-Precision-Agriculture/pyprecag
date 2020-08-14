@@ -9,7 +9,7 @@ from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import CsvDescribe, predictCoordinateColumnNames
 from pyprecag.processing import *
 from pyprecag.raster_ops import rescale, normalise
-from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper
+from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper, VesperControl
 
 pyFile = os.path.basename(__file__)
 
@@ -40,7 +40,7 @@ class TestEnd2End(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestEnd2End, cls).setUpClass()
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -115,16 +115,17 @@ class TestEnd2End(unittest.TestCase):
     def test04_blockGrid(self):
 
         global fileBlockTif, file_block_txt
-        fileBlockTif = os.path.join(TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_block.tif')
-        file_block_txt = os.path.join(TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_block_v.txt')
+        fileBlockTif = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block.tif')
+        file_block_txt = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block_v.txt')
+
+        vect_desc = VectorDescribe(fileBox)
 
         if not os.path.exists(fileBlockTif):
             block_grid(in_shapefilename=fileBox,
                        pixel_size=2.5,
                        out_rasterfilename=fileBlockTif,
                        out_vesperfilename=file_block_txt,
+                       out_epsg=vect_desc.crs.epsg_number,
                        snap=True,
                        overwrite=True)
 
@@ -158,6 +159,7 @@ class TestEnd2End(unittest.TestCase):
         gdf_points, gdfpts_crs = convert.convert_csv_to_points(file_csv,
                                                                coord_columns_epsg=4326,
                                                                out_epsg=epsg)
+
         gdf_out, crs_out = clean_trim_points(gdf_points, gdfpts_crs, data_col, fileTrimmed,
                                              out_keep_shapefile=file_shp,
                                              out_removed_shapefile=file_removed,
@@ -167,7 +169,7 @@ class TestEnd2End(unittest.TestCase):
         self.assertTrue(os.path.exists(fileTrimmed))
         self.assertTrue(os.path.exists(file_shp))
         self.assertTrue(os.path.exists(file_removed))
-        self.assertEqual(gdf_out.crs, {'init': 'epsg:{}'.format(epsg), 'no_defs': True})
+        self.assertEqual(gdf_out.crs, crs.from_epsg(epsg))
         self.assertEqual(len(gdf_out), 648)
         self.assertIn('nrm_' + data_col, gdf_out.columns)
         self.assertIn('Easting', gdf_out.columns)
@@ -186,11 +188,15 @@ class TestEnd2End(unittest.TestCase):
         sub_file = os.path.splitext(os.path.basename(file_csv))[0]
         file_control = sub_file + '_control_' + data_col + '.txt'
 
+        vc = VesperControl()
+        vc.update(xside=30, yside=30)
+
         if not os.path.exists(file_control):
             bat_file, file_control = prepare_for_vesper_krige(df_csv, data_col, file_block_txt,
-                                                              TmpDir, block_size=30,
+                                                              TmpDir,
                                                               control_textfile=file_control,
-                                                              coord_columns=[], epsg=epsg)
+                                                              coord_columns=[], epsg=epsg,
+                                                              control_options=vc)
 
             self.assertTrue(os.path.exists(bat_file))
             self.assertTrue(os.path.exists(file_control))
@@ -309,14 +315,14 @@ class TestEnd2End(unittest.TestCase):
         with rasterio.open(os.path.normpath(out_normalised), 'w', **out_meta) as out:
             out.write_band(1, rescaled2)
 
-        self.assertAlmostEqual(float(np.nanmax(norm)), 2.0000722408294678, 4)
-        self.assertAlmostEqual(float(np.nanmin(norm)), -2.266947031021118, 4)
+        self.assertAlmostEqual(2.0000722408294678, float(np.nanmax(norm)), 4)
+        self.assertAlmostEqual(-2.266947031021118, float(np.nanmin(norm)), 4)
 
-        self.assertEqual(np.nanmin(rescaled), 0)
-        self.assertEqual(np.nanmax(rescaled), 255)
+        self.assertEqual(0, np.nanmin(rescaled) )
+        self.assertEqual(255, np.nanmax(rescaled))
 
-        self.assertEqual(np.nanmin(rescaled2), 0)
-        self.assertEqual(np.nanmax(rescaled2), 5)
+        self.assertEqual(0, np.nanmin(rescaled2))
+        self.assertEqual(5, np.nanmax(rescaled2))
 
     def test12_kmeansCluster(self):
         out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
@@ -340,10 +346,16 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
+            if hasattr(src.crs, 'to_proj4'):
+                self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
             self.assertIn(src.crs.to_string(), ['EPSG:28354', '+init=epsg:28354'])
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
-            self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+
+            six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
+
 
     def test99_gridExtract(self):
         out_fold = os.path.join(TmpDir, 'gridextract')

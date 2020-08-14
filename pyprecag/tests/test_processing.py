@@ -2,8 +2,6 @@ import shutil
 import tempfile
 import unittest
 
-from geopandas import GeoSeries, GeoDataFrame
-
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
 from pyprecag.tests import make_dummy_data
@@ -16,7 +14,7 @@ TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
 
 this_dir = os.path.abspath(os.path.dirname(__file__))
 
-logging.captureWarnings(False)
+logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
@@ -27,7 +25,7 @@ class TestProcessing(unittest.TestCase):
         super(TestProcessing, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -58,21 +56,48 @@ class TestProcessing(unittest.TestCase):
         poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
 
         file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
-
-        block_grid(in_shapefilename=poly,
+        vect_desc = VectorDescribe(poly)
+        output_files = block_grid(in_shapefilename=poly,
                    pixel_size=5,
                    out_rasterfilename=file_sub_name + '_block.tif',
                    out_vesperfilename=file_sub_name + '_block_v.txt',
+                   out_epsg=vect_desc.crs.epsg_number,
                    snap=True,
                    overwrite=True)
 
         self.assertTrue(os.path.exists(file_sub_name + '_block.tif'))
         self.assertTrue(os.path.exists(file_sub_name + '_block_v.txt', ))
+        self.assertTrue(len(output_files),1)
 
         with rasterio.open(os.path.normpath(file_sub_name + '_block.tif')) as dataset:
             self.assertEqual(dataset.count, 1)
             self.assertEqual(dataset.width, 47)
             self.assertEqual(dataset.height, 26)
+            self.assertEqual(dataset.nodatavals, (-9999.0,))
+            self.assertEqual(dataset.dtypes, ('int16',))
+
+    def test_BlockGrid_GrpBy(self):
+        poly = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
+
+        file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
+
+        output_files = block_grid(in_shapefilename=poly,
+                   pixel_size=5,
+                   out_rasterfilename=file_sub_name + '_block.tif',
+                   out_vesperfilename=file_sub_name + '_block_v.txt',
+                   out_epsg=28354,
+                   groupby='part_type',
+                   snap=True,
+                   overwrite=True)
+
+        self.assertTrue(len(output_files), 2)
+        self.assertTrue(os.path.exists(file_sub_name + '_block_MultiPart.tif'))
+        self.assertTrue(os.path.exists(file_sub_name + '_block_SinglePart_v.txt', ))
+
+        with rasterio.open(os.path.normpath(file_sub_name + '_block_MultiPart.tif')) as dataset:
+            self.assertEqual(dataset.count, 1)
+            self.assertEqual(dataset.width, 59)
+            self.assertEqual(dataset.height, 28)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
@@ -93,7 +118,7 @@ class TestProcessing(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs, {'init': 'epsg:28354', 'no_defs': True})
+        self.assertEqual(out_gdf.crs, from_epsg(28354)) #  {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
         self.assertIn('EN_EPSG', out_gdf.columns)
 
@@ -158,11 +183,15 @@ class TestProcessing(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            self.assertIn(src.crs.to_string(), ['EPSG:28354','+init=epsg:28354'])
-
+            if hasattr(src.crs,'to_proj4'):
+                self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
-            self.assertItemsEqual(np.array([0, 1, 2, 3]), np.unique(band1.data))
+            six.assertCountEqual(
+                    self, np.array([0, 1, 2, 3]), np.unique(band1.data)
+            )
 
     def test_PersistorAllYears(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
@@ -189,7 +218,7 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            self.assertItemsEqual([-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
+            six.assertCountEqual(self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
         raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
@@ -209,7 +238,7 @@ class TestProcessing(unittest.TestCase):
             np.testing.assert_array_equal(src.read(), test.read())
 
             band1 = test.read(1, masked=True)
-            self.assertItemsEqual([-9999, -1, 0, 1], np.unique(band1.data).tolist())
+            six.assertCountEqual(self, [-9999, -1, 0, 1], np.unique(band1.data).tolist())
 
 
 class TestStripTrials(unittest.TestCase):
@@ -219,7 +248,7 @@ class TestStripTrials(unittest.TestCase):
         super(TestStripTrials, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -262,7 +291,7 @@ class TestStripTrials(unittest.TestCase):
                                       (741300, 6169800, 7), (741250, 6169950, 7),
                                       (741150, 6169950, 7), (741100, 6170000, 7)]),
                           LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
-                , 'TrialID': [1, 2, 3, 4]}, crs={'init': 'epsg:28354'})
+                , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         gdf_lines_crs = crs()
         gdf_lines_crs.getFromEPSG(28354)
@@ -368,7 +397,7 @@ class TestStripTrials(unittest.TestCase):
                 [127, 3, "SE Strip", 13, 247.6, Point(300806, 6181771)]]
 
         gdf_points = GeoDataFrame(data, columns=columns, geometry='geometry',
-                                  crs={'init': 'epsg:28354'})
+                                  crs=from_epsg(28354))
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 
@@ -398,7 +427,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         super(TestExtractRasterStatisticsForPoints, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.mkdir(TmpDir)
@@ -479,7 +508,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestCalculateImageIndices, cls).setUpClass()
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.makedirs(TmpDir)
@@ -638,7 +667,7 @@ class TestResampleToBlock(unittest.TestCase):
         super(TestResampleToBlock, cls).setUpClass()
 
         if os.path.exists(TmpDir):
-            print 'Folder Exists.. Deleting {}'.format(TmpDir)
+            print('Folder Exists.. Deleting {}'.format(TmpDir))
             shutil.rmtree(TmpDir)
 
         os.makedirs(TmpDir)

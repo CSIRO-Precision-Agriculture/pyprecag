@@ -13,6 +13,7 @@ import geopandas
 import numpy as np
 import pyproj
 import shapely
+import six
 from fiona import collection as fionacoll
 from fiona.crs import to_string
 from osgeo import osr
@@ -49,7 +50,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     """
 
     for argCheck in [('thinDist_m', thin_distance_metres)]:
-        if not isinstance(argCheck[1], (int, long, float)):
+        if not isinstance(argCheck[1], six.integer_types + (float, )):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
     if not isinstance(point_geodataframe, geopandas.GeoDataFrame):
@@ -153,10 +154,13 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             raise TypeError(
                 "There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
 
-        LOGGER.info(
-            '{:<30} {:>10,}   {dur:<15} {}'.format('Filter by distance - {}'.format(filter_string.replace('point', '')),
-                                                  len(subset), 'del {} pts'.format(stepTotal),
-                                                  dur=datetime.timedelta(seconds=time.time() - filterTime)))
+        LOGGER.info('{:<30} {:>10,}   {dur:<15} {}'.format(
+            'Filter by distance - {}'.format(
+                filter_string.replace('point', '')
+            ),
+            len(subset), 'del {} pts'.format(stepTotal),
+            dur=str(datetime.timedelta(seconds=time.time() - filterTime))
+        ))
 
     # set sort back to original row order
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)
