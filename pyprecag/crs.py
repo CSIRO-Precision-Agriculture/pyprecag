@@ -46,7 +46,7 @@ class crs:
             warnings.warn('EPSG Code is None or 0 and cant be set.')
             return
 
-        if isinstance(code, str):
+        if isinstance(code, six.string_types):
             try:
                 code = int(code)
             except:

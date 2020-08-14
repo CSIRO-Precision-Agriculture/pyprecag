@@ -149,7 +149,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
         blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size)
 
         with rasterio.open(out_file, 'w', driver='GTiff', count=1,tfw='YES',
-                           crs=out_epsg, **new_blockmeta) as dest:
+                           crs=from_epsg(out_epsg), **new_blockmeta) as dest:
             dest.write(blockgrid, 1)
         output_files += [out_file]
 

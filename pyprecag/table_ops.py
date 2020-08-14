@@ -1,6 +1,7 @@
 import logging
 
 import pandas as pd
+import six
 from geopandas import GeoDataFrame
 from scipy.stats import stats
 
@@ -70,7 +71,7 @@ def calculate_strip_stats(input_table, treatment_column, control_columns=[], siz
     if not isinstance(control_columns, list):
         raise TypeError("control_columns should be a list.")
 
-    if not isinstance(treatment_column, str):
+    if not isinstance(treatment_column, six.string_types):
         raise TypeError("treatment_column should be a string.")
 
     if treatment_column is None or treatment_column == '':
