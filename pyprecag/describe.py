@@ -279,7 +279,7 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file',output_filename,
-                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
+                                              dur=str(datetime.timedelta(seconds=time.time() - step_time))))
 
 
 def get_column_properties(dataframe):

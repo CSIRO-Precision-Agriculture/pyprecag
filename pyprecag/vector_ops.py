@@ -1,5 +1,5 @@
 import collections
-import datetime
+from datetime import timedelta
 import functools
 import inspect
 import logging
@@ -159,7 +159,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
                 filter_string.replace('point', '')
             ),
             len(subset), 'del {} pts'.format(stepTotal),
-            dur=str(datetime.timedelta(seconds=time.time() - filterTime))
+            dur=str(timedelta(seconds=time.time() - filterTime))
         ))
 
     # set sort back to original row order
@@ -208,7 +208,7 @@ def move_or_copy_vector_file(in_filename, out_filename, keepInput=True, overwrit
 
     LOGGER.debug('Successfully renamed from \n   {} \n    to    \n   {}'.format(in_filename, out_filename))
     LOGGER.info('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                              dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                              dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def explode_multi_part_features(in_shapefilename, out_shapefilename):
@@ -251,7 +251,7 @@ def explode_multi_part_features(in_shapefilename, out_shapefilename):
                     output.write({'geometry': mapping(line), 'properties': elem['properties']})
 
     LOGGER.info('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                             dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                             dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
@@ -347,5 +347,5 @@ def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
                                                                                      resultsDict['Length_m_NoOverlap']))
 
     LOGGER.debug('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                            dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                            dur=(timedelta(seconds=time.time() - start_time))))
     return area, length

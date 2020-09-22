@@ -312,7 +312,7 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if config.get_debug_mode():
         LOGGER.info('{:50}  {dur:17} min: {:>.4f} max: {:>.4f}'.format(
             out_colname, np.nanmin(filtered), np.nanmax(filtered),
-            dur=timedelta(seconds=time.time() - start_time)))
+            dur=str(timedelta(seconds=time.time() - start_time))))
 
     return filtered.astype(np.float32), out_colname
 
@@ -366,7 +366,7 @@ def calculate_image_indices(image_file, band_map, out_image_file, indices=[], ou
 
     LOGGER.info(
         '{:<30} {:>10}   {:<15} {dur}'.format('Indices Calculate for Image', '', ', '.join(indices),
-                                              dur=timedelta(seconds=time.time() - start_time)))
+                                              dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
@@ -427,7 +427,7 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Processed Image', '', 'CRS: {} To  {}, nodata: {} To {}'.format(
                     image_epsg, out_epsg, src.nodata, image_nodata),
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=str(timedelta(seconds=time.time() - start_time))))
 
         else:
             # calculate the new affine transform for to use for reprojection.
@@ -456,7 +456,7 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
 
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Reproject Image', '', 'From {} To  {}'.format(image_epsg, out_epsg),
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=str(timedelta(seconds=time.time() - start_time))))
 
             del transform
 
@@ -553,7 +553,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
         if config.get_debug_mode():
             LOGGER.info('{:<30} {:<15} {dur} {}'.format(
                 'Found Common Extent', '', min_bbox,
-                dur=timedelta(seconds=time.time() - step_time)))
+                dur=str(timedelta(seconds=time.time() - step_time))))
 
     except rasterio.errors.WindowError as e:
         # reword 'windows do not intersect' error message
@@ -597,7 +597,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
         dst.descriptions = band_list
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined', '',
-                                                 dur=timedelta(seconds=time.time() - step_time)))
+                                                 dur=str(timedelta(seconds=time.time() - step_time))))
 
     # find the common data area -------------------------------------------------------
     if use_common:
@@ -630,7 +630,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                 tmp_dst.write(mask, 1)
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined and clipped', '',
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
     gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
 
@@ -684,6 +684,6 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file', out_image,
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
     return out_image
