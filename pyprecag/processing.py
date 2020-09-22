@@ -1300,7 +1300,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                     with rasterio.open(temp_file_list[-1], 'w+', **meta) as dest:
                         dest.write(smooth, i)
                         # image statistics have changed so don't copy the tags
-                        cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems()
+                        cleaned_tags = dict([(key, val) for key, val in src.tags(i).items()
                                              if not key.upper().startswith('STATISTIC')])
                         if len(cleaned_tags) > 0:
                             dest.update_tags(i, **cleaned_tags)

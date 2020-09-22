@@ -209,7 +209,7 @@ def get_esri_shapefile_schema(inputGeoDataFrame):
 
     # Edit it to ESRI Shapefile Standards
     properties = OrderedDict([
-        (re.sub('[^A-Za-z0-9_]+', '', name)[:10], fld_type) for name, fld_type in schema['properties'].iteritems()
+        (re.sub('[^A-Za-z0-9_]+', '', name)[:10], fld_type) for name, fld_type in schema['properties'].items()
     ])
     schema['properties'] = properties
     return schema

@@ -676,7 +676,7 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
             for i in src.indexes:
                 dest.write(src.read(i), i)
 
-                cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems()
+                cleaned_tags = dict([(key, val) for key, val in src.tags(i).items()
                                      if not key.upper().startswith('STATISTIC')])
 
                 if len(cleaned_tags) > 0:
