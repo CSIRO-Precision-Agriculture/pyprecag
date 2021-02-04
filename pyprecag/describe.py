@@ -83,6 +83,9 @@ class VectorDescribe:
         self.feature_count = len(gdf)
         self.extent = list(gdf.total_bounds)
 
+        # drop null geometry
+        gdf.dropna(subset=['geometry'], axis=0, inplace=True)
+        
         # find the first element containing multi string, otherwise just use the first element from list.
         self.geometry_type = next((eaString for eaString in set(gdf.geom_type) if 'MULTI' in eaString.upper()),
                                   gdf.geom_type[0])

@@ -211,7 +211,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeoDataFrame')
 
-    if 'POINT' not in ','.join(list(points_geodataframe.geom_type.unique())).upper():
+    if 'POINT' not in ','.join(list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : A points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
@@ -394,7 +394,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(list(points_geodataframe.geom_type.unique())).upper():
+    if 'POINT' not in ','.join(list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
@@ -770,7 +770,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(list(points_geodataframe.geom_type.unique())).upper():
+    if 'POINT' not in ','.join(list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
@@ -1801,7 +1801,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     if not isinstance(lines_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'LINE' not in ','.join(list(lines_geodataframe.geom_type.unique())).upper():
+    if 'LINE' not in ','.join(list(lines_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise GeometryError('Invalid input data : A lines geopandas dataframe is required')
 
     for argCheck in [('offset_distance', offset_distance),
@@ -2056,7 +2056,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(list(points_geodataframe.geom_type.unique())).upper():
+    if 'POINT' not in ','.join(list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise GeometryError('Invalid input data : a points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
