@@ -146,7 +146,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
             feat_name = 'All Polygons'
 
         # From shapes create a blockgrid mask. -----------------------------------------------------
-        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size)
+        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size,snap_extent_to_pixel=snap)
 
         with rasterio.open(out_file, 'w', driver='GTiff', count=1,tfw='YES',
                            crs=from_epsg(out_epsg), **new_blockmeta) as dest:
@@ -591,9 +591,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     # Add x,y coordinates to match coordinate system
     gdf_points['Easting'] = gdf_points.geometry.apply(lambda p: p.x)
     gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
-    gdf_points['EN_EPSG'] = points_crs.epsg_number
-    gdf_points.crs = points_crs.epsg
-    
+
     # Clean up the original input dataframe and remove existing geometry and coord columns
     alt_coord_columns = config.get_config_key('geoCSV')['xCoordinate_ColumnName']
     alt_coord_columns += config.get_config_key('geoCSV')['yCoordinate_ColumnName']
@@ -607,6 +605,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Use geopandas merge instead of concat to maintain coordinate system info etc.
     gdf_final = points_geodataframe.merge(gdf_points, on=id_col, how='outer')
+    gdf_final['EN_EPSG'] = points_crs.epsg_number
+    gdf_final.crs = points_crs.epsg
 
     # move newer columns to end (geometry, filter, etc)
     gdf_final.drop([id_col], inplace=True, axis=1)
