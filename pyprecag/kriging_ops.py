@@ -201,7 +201,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
     # There is a 100 character file path limitation set for the kriged and report outputs from
     #  vesper. By using the control filename we can find these truncated files and correct names.
-    if len(os.path.basename(control_textfile)) > 100:
+    if len(control_textfile) > 100:
         search_dir = os.path.dirname(control_textfile)
         search_file = os.path.basename(control_textfile[:101]).replace('control', '*')
         suffix = control_textfile[101:]
