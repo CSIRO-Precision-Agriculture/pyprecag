@@ -206,4 +206,5 @@ class TestCrsClass(TestCase):
 
         rast_crs = getCRSfromRasterFile(os.path.normpath(self.singletif))
         self.assertEqual(rast_crs.epsg_number, 28354)
-        self.assertEqual(rast_crs.crs_wkt, rasterio.crs.CRS.from_epsg(28354).wkt)
+        self.assertEqual(rast_crs.crs_wkt[:154], rasterio.crs.CRS.from_epsg(28354).wkt[:154])
+        self.assertEqual(rast_crs.crs_wkt[-26:], rasterio.crs.CRS.from_epsg(28354).wkt[-26:])

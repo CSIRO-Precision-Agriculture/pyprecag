@@ -370,7 +370,7 @@ def predictCoordinateColumnNames(column_names):
                 iter_items = six.iteritems(seqMatchDict)
                 largest = max(iter_items, key=lambda x: x[1])
                 
-                if list(largest) [-1] > 0.75:
+                if list(largest)[-1] > 0.60:
                     valList.append(largest)
 
         # select the largest ratio as the best match
