@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
-def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffer_by_pixels=0):
+def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffer_by_pixels=20):
     """Create parameters required for creating a new raster file based on a known extent and pixel
      size.
 
