@@ -262,10 +262,15 @@ class TestKrigingOps(unittest.TestCase):
             import numpy as np
             np.testing.assert_array_equal(src_pred.read(), test_pred.read())
 
-        with rasterio.open(src_se_file) as src_pred, \
-                rasterio.open(os.path.normpath(out_se_tif)) as test_pred:
-            self.assertEqual(src_pred.profile, test_pred.profile)
-            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test_pred.crs)
+            self.assertTrue('PAT_MedianPredSE' in test_pred.tags())
+            self.assertTrue('PAT_95ConfLevel' in test_pred.tags())
+            self.assertEqual(test_pred.tags()['PAT_MedianPredSE'],SE)
+            self.assertEqual(test_pred.tags()['PAT_95ConfLevel'], CI95)
+
+        with rasterio.open(src_se_file) as src_se, \
+                rasterio.open(os.path.normpath(out_se_tif)) as test_se:
+            self.assertEqual(src_se.meta, test_pred.meta)
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test_se.crs)
 
             import numpy as np
             np.testing.assert_array_equal(src_se.read(), test_se.read())

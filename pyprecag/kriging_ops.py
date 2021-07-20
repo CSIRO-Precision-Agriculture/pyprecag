@@ -261,6 +261,8 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
                                     transform=out_pred.transform, fill=nodata_value)
 
         out_pred.write(burned, indexes=1)
+        out_pred.update_tags(PAT_MedianPredSE="{:.5f}".format(median_val),
+                             PAT_95ConfLevel="{:.5f}".format(2 * 1.96 * median_val))
 
     with rasterio.open(os.path.normpath(out_se_tif), 'w', driver='GTiff', width=x_cols,
                        height=y_rows, count=1,

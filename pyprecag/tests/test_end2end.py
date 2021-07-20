@@ -223,6 +223,11 @@ class TestEnd2End(unittest.TestCase):
         for eaFile in [out_predtif, out_setif, out_citxt]:
             self.assertTrue(os.path.exists(eaFile))
 
+        with open(out_citxt) as test_file:
+            test_lines = test_file.readlines()[:2]
+            SE = test_lines[0].split(':')[-1].strip()
+            CI95 = test_lines[1].split(':')[-1].strip()
+
         with rasterio.open(os.path.normpath(out_predtif)) as dataset:
             self.assertEqual(dataset.count, 1)
             self.assertEqual(dataset.width, 94)
@@ -230,6 +235,10 @@ class TestEnd2End(unittest.TestCase):
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
+            self.assertTrue(dataset.tags()['PAT_MedianPredSE'])
+            self.assertTrue(dataset.tags()['PAT_95ConfLevel'])
+            self.assertEqual(dataset.tags()['PAT_MedianPredSE'],SE)
+            self.assertEqual(dataset.tags()['PAT_95ConfLevel'], CI95)
 
         with rasterio.open(os.path.normpath(out_setif)) as dataset:
             self.assertEqual(dataset.count, 1)
