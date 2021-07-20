@@ -652,6 +652,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
 
+    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} mean'.format(process_column),yld_mean))
+    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} std'.format(process_column),yld_std))
+    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} CV'.format(process_column), 100 * yld_std / yld_mean))
+
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '',
         dur=str(timedelta(seconds=time.time() - start_time)))
