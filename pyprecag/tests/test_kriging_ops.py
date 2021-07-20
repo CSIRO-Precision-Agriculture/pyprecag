@@ -245,6 +245,14 @@ class TestKrigingOps(unittest.TestCase):
         src_se_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_se_tif))
         src_ci_file = os.path.realpath(this_dir + '/VESPER/' + os.path.basename(out_ci_txt))
 
+        with open(src_ci_file) as src_file, open(out_ci_txt) as test_file:
+            src_lines = src_file.readlines()[:2]
+            test_lines = test_file.readlines()[:2]
+            self.assertEqual(src_lines,test_lines)
+
+            SE = test_lines[0].split(':')[-1].strip()
+            CI95 = test_lines[1].split(':')[-1].strip()
+
         with rasterio.open( src_pred_file ) as src_pred,\
              rasterio.open(os.path.normpath(out_pred_tif)) as test_pred:
 
@@ -260,11 +268,7 @@ class TestKrigingOps(unittest.TestCase):
             self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test_pred.crs)
 
             import numpy as np
-            np.testing.assert_array_equal(src_pred.read(), test_pred.read())
-
-        with open(src_ci_file) as src_file, open(out_ci_txt) as test_file:
-            self.assertEqual(src_file.readlines()[:2], test_file.readlines()[:2])
-
+            np.testing.assert_array_equal(src_se.read(), test_se.read())
 
     def test4_RunVesper(self):
         if platform.system() != 'Windows':

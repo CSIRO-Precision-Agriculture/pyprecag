@@ -71,8 +71,8 @@ class TestProcessing(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(file_sub_name + '_block.tif')) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 47)
-            self.assertEqual(dataset.height, 26)
+            self.assertEqual(dataset.width, 87)
+            self.assertEqual(dataset.height, 66)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
@@ -96,8 +96,8 @@ class TestProcessing(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(file_sub_name + '_block_MultiPart.tif')) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 59)
-            self.assertEqual(dataset.height, 28)
+            self.assertEqual(dataset.width, 99)
+            self.assertEqual(dataset.height, 68)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 

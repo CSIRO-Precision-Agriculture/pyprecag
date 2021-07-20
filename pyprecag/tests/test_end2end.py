@@ -136,8 +136,8 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(fileBlockTif)) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 55)
-            self.assertEqual(dataset.height, 55)
+            self.assertEqual(dataset.width, 95)
+            self.assertEqual(dataset.height, 95)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('int16',))
 
@@ -225,16 +225,16 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(os.path.normpath(out_predtif)) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 54)
-            self.assertEqual(dataset.height, 53)
+            self.assertEqual(dataset.width, 94)
+            self.assertEqual(dataset.height, 93)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
 
         with rasterio.open(os.path.normpath(out_setif)) as dataset:
             self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 54)
-            self.assertEqual(dataset.height, 53)
+            self.assertEqual(dataset.width, 94)
+            self.assertEqual(dataset.height, 93)
             self.assertEqual(dataset.nodatavals, (-9999.0,))
             self.assertEqual(dataset.dtypes, ('float32',))
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
