@@ -277,6 +277,9 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if not isinstance(ignore_nodata, bool):
         raise TypeError('{} should be a boolean.'.format(ignore_nodata))
 
+    if out_colname is None or out_colname == '':
+        out_colname = os.path.splitext(os.path.basename(raster.name))[0]
+
     start_time = time.time()
     col_name = []
     mask = raster.read_masks(band_num)
@@ -304,10 +307,8 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if clip_to_mask:
         # reapply the mask to remove values assigned to nodata pixels
         filtered = np.where(mask, filtered, np.nan)
-
-    title = os.path.splitext(os.path.basename(raster.name))[0]
-    if out_colname is None or out_colname == '':
-        out_colname = '{}_{}'.format(''.join(col_name), title)
+         
+    out_colname = '{}_{}'.format(''.join(col_name), out_colname)
 
     if config.get_debug_mode():
         LOGGER.info('{:50}  {dur:17} min: {:>.4f} max: {:>.4f}'.format(
@@ -592,7 +593,10 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                           dst_transform=transform,
                           resampling=Resampling.nearest)
 
-            dst.update_tags(i, **{'name': image})
+                # if a PAT tag exists then transfer it
+                pat_tags = {k: v for (k, v) in src.tags().items() if 'PAT' in k}
+                pat_tags['name'] = image
+                dst.update_tags(i, **pat_tags)
 
         dst.descriptions = band_list
     if config.get_debug_mode():

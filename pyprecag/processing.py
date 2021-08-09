@@ -3,7 +3,7 @@ import glob
 import inspect
 import re
 from collections import defaultdict
-
+import warnings
 import logging
 import os
 import six
@@ -46,7 +46,7 @@ from .convert import convert_polygon_to_grid, convert_grid_to_vesper, numeric_pi
     convert_polygon_feature_to_raster, drop_z, deg_to_8_compass_pts, point_to_point_bearing, \
     text_rotation
 
-from .describe import save_geopandas_tofile, VectorDescribe
+from .describe import save_geopandas_tofile, VectorDescribe, predictCoordinateColumnNames
 from .errors import GeometryError, SpatialReferenceError
 from .vector_ops import thin_point_by_distance
 from .raster_ops import focal_statistics, save_in_memory_raster_to_file, reproject_image, \
@@ -811,7 +811,11 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if not isinstance(rasterfiles, list):
         raise TypeError('Invalid Type: rasterfiles should be a list')
 
-    not_exists = [my_file for my_file in rasterfiles if not os.path.exists(my_file)]
+    if isinstance(rasterfiles[0],tuple):
+        not_exists = [my_file for my_file,name in rasterfiles if not os.path.exists(my_file)]
+    else:
+        not_exists = [my_file for my_file in rasterfiles if not os.path.exists(my_file)]
+        
     if len(not_exists) > 0:
         raise IOError('rasterfiles: {} raster file(s) do not exist\n\t({})'.format(
             len(not_exists), '\n\t'.join(not_exists)))
@@ -820,6 +824,9 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     pix = None
     res_error = []
     for ea_raster in rasterfiles:
+        if isinstance(ea_raster,tuple):
+            ea_raster,_=ea_raster
+            
         with rasterio.open(ea_raster) as src:
             if pix is None:
                 pix = src.res
@@ -834,15 +841,25 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
             the raster is larger than the points.'''
 
     start_time = time.time()
+    
+    # drop null geometry
+    points_geodataframe.dropna(subset=['geometry'], axis=0,inplace=True)
+    
     # overwrite the gdf proj4 string with the epsg mapping equivalent
     points_geodataframe.crs = points_crs.epsg
-    points_geodataframe['EPSG'] = points_crs.epsg_number
+        
     cur_pixel = False
     if 1 in size_list:
         cur_pixel = True
         size_list.remove(1)
 
     for ea_raster in rasterfiles:
+        
+        if isinstance(ea_raster,tuple):
+            ea_raster, prefix = ea_raster
+        else:
+            prefix = ''
+        
         # Need to get the wktproj of the raster from gdal NOT rasterio.
         # RasterIO works from the proj4 string NOT the wkt string so aussie zones details gets lost.
         rast_crs = pyprecag_crs.getCRSfromRasterFile(ea_raster)
@@ -857,11 +874,11 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         with rasterio.open(ea_raster) as src:
             meta = src.meta.copy()
             if cur_pixel:
-                focal_stats += [focal_statistics(src, size=1)]
+                focal_stats += [focal_statistics(src, size=1,out_colname=prefix)]
 
             for ea_size in size_list:
                 for ea_function in function_list:
-                    focal_stats += [focal_statistics(src, size=ea_size, function=ea_function)]
+                    focal_stats += [focal_statistics(src, size=ea_size, function=ea_function, out_colname=prefix)]
 
         # Update the metadata for the desired focal_stats outputs.
         meta.update({'driver': 'GTiff', 'nodata': -9999, 'crs': rast_crs.crs_wkt,
@@ -909,6 +926,20 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if points_crs.epsg != points_geodataframe.crs:
         points_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
+    # Make sure the output CSV contains coordinates
+    if None in predictCoordinateColumnNames(points_geodataframe.columns.tolist()):
+        # probably from a shapefile so add coords. 
+        if points_geodataframe.crs.is_geographic:
+            points_geodataframe['Longitude'] = points_geodataframe.geometry.apply(lambda p: p.x)
+            points_geodataframe['Latitude'] = points_geodataframe.geometry.apply(lambda p: p.y)
+        
+        else:
+            points_geodataframe['Easting'] = points_geodataframe.geometry.apply(lambda p: p.x)
+            points_geodataframe['Northing'] = points_geodataframe.geometry.apply(lambda p: p.y)
+        
+    # and for good measure add the associated epsg number
+    points_geodataframe['EPSG'] = int(points_geodataframe.crs.to_authority()[1])
+            
     if output_csvfile is not None:
         step_time = time.time()
         # Save to CSV only points to KEEP using appropriate file encoding
