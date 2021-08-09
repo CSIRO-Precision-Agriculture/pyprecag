@@ -115,6 +115,9 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             else:
                 prevPt = curRow
 
+    def add_filter_message(filter_string, left_count,del_count):
+        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count,del_count,filter_string))
+        
     global prevPt
     prevPt = ''
     subset = point_geodataframe[point_geodataframe['filter'].isnull()].copy()
@@ -154,13 +157,8 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             raise TypeError(
                 "There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
 
-        LOGGER.info('{:<30} {:>10,}   {dur:<15} {}'.format(
-            'Filter by distance - {}'.format(
-                filter_string.replace('point', '')
-            ),
-            len(subset), 'del {} pts'.format(stepTotal),
-            dur=str(timedelta(seconds=time.time() - filterTime))
-        ))
+        add_filter_message('Filter by distance - {}'.format(filter_string.replace('point', '')),len(subset), stepTotal)
+        
 
     # set sort back to original row order
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)

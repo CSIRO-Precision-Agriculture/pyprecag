@@ -453,28 +453,37 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points.drop(dropcols, axis=1, inplace=True)
 
     step_time = time.time()
+    total_count = len(gdf_points)
+    step_count =  len(gdf_points)
     # set defaults
     gdf_points['filter'] = np.nan
     gdf_points['filter_inc'] = 0
 
+    def add_filter_message(filter_string,total_count, left_count,del_count):
+        # use ..... to space out values as QGIS doesn't honour multiple spaces or tabs in the log panel.
+        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count,del_count,filter_string))
     # Remove rows where data col is empty/null
     subset = gdf_points[gdf_points[process_column].isnull()]
     if len(subset) > 0:
+        step_count = step_count - len(subset)
         gdf_points.loc[subset.index, 'filter'] = 'nulls'
         gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc']  = len(gdf_points['filter'].value_counts())
 
+        add_filter_message ('Remove Nulls',  len(gdf_points) , step_count, len(subset))
+        
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
     # Remove duplicated geometries
     # https://github.com/geopandas/geopandas/issues/521#issuecomment-382806444
     geom = subset["geometry"].apply(lambda geom: geom.wkb)
+    step_count = len(subset) 
+    del_count = len(subset) - len(geom)
+      
     subset = subset.loc[geom.drop_duplicates().index]
     gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'Duplicate XY'
     gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
-    LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
-        'Remove Duplicate XYs', len(geom) - len(subset), '',
-        dur=str(timedelta(seconds=time.time() - start_time))))
+    add_filter_message( 'Remove Duplicate XYs', total_count , step_count, del_count) 
 
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
@@ -487,9 +496,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             if ply_desc.crs.epsg != points_crs.epsg_number:
                 gdf_poly.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
-            LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
-                'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number),
-                dur=str(timedelta(seconds=time.time() - step_time))))
+            LOGGER.info('{: <30} {: >10}   {:<15}'.format(
+                'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number)))
+                #dur=str(timedelta(seconds=time.time() - step_time))))
 
         step_time = time.time()
 
@@ -503,8 +512,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'clip'
         gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
-        LOGGER.info('{:<30} {:>10,}   {:<15} {dur} '.format(
-            'Clip', len(subset), '', dur=str(timedelta(seconds=time.time() - step_time))))
+        del_count = step_count - len(subset) 
+        step_count = len(subset)
+        add_filter_message( 'Clip', total_count , step_count, del_count) 
+
         step_time = time.time()
 
     if remove_zeros:
@@ -515,6 +526,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if len(gdf_points[gdf_points['filter'].isnull()]) == 0:
             raise GeometryError("Zero filter removed all points "
                                 "in column {}".format(process_column))
+
+        del_count = len(subset) 
+        step_count =step_count - len(subset) 
+        add_filter_message( 'Remove Zeros', total_count , step_count, del_count) 
 
     if stdevs > 0:
         i = 0
@@ -534,21 +549,23 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             if not iterative:
                 break
 
-    LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
-        'Filter by column', len(gdf_points[gdf_points['filter'].isnull()]),
-        "{} (zeros, norm, {} std)".format(process_column, stdevs),
-        dur=str(timedelta(seconds=time.time() - step_time))))
+            del_count = len(subset)
+            step_count = step_count - len(subset) 
+            add_filter_message( 'Std Iteration {}'.format(i), total_count , step_count, del_count) 
 
     gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()],
                                       points_crs, thin_dist_m)
 
+    del_count = step_count - len(gdf_thin)
+    step_count = len(subset) 
+    add_filter_message( 'Thin By Distance {}m'.format(thin_dist_m), total_count , step_count, del_count) 
+    
     step_time = time.time()
 
     # update(join/merge) gdfPoints['filter'] column with results from thinning.
     gdf_points.loc[gdf_points.index.isin(gdf_thin.index), 'filter'] = gdf_thin['filter']
 
-    gdf_points.loc[gdf_points.index.isin(gdf_thin.index), 'filter_inc'] = \
-        gdf_thin['filter_inc'] + len(gdf_points['filter_inc'].value_counts())
+    gdf_points.loc[gdf_points.index.isin(gdf_thin.index), 'filter_inc'] = gdf_thin['filter_inc'] + len(gdf_points['filter_inc'].value_counts())
 
     del gdf_thin
 
@@ -622,7 +639,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
 
-    LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'.format(
+    LOGGER.info('{:<30} {: >10,}   {:<15} {dur}'.format(
         'Save to CSV', len(gdf_final[gdf_final['filter'].isnull()]),
         os.path.basename(output_csvfile), dur=str(timedelta(seconds=time.time() - step_time))))
 
@@ -640,11 +657,14 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         step_time = time.time()
 
     if out_removed_shapefile is not None and out_removed_shapefile != '':
-        save_geopandas_tofile(gdf_final[gdf_final['filter'].notnull()]
+        if gdf_final[gdf_final['filter'].notnull()].empty:
+            LOGGER.info('{} '.format('No features removed. Shapefile containing removed points not created.'))
+        else:
+            save_geopandas_tofile(gdf_final[gdf_final['filter'].notnull()]
                               .drop([norm_column], axis=1),
                               out_removed_shapefile, overwrite=True)
 
-        LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'
+            LOGGER.info('{:<30} {:>10,}   {:<15} {dur}'
                     .format('Save removed Shapefile', len(gdf_final[gdf_final['filter'].notnull()]),
                             os.path.basename(out_removed_shapefile),
                             dur=str(timedelta(seconds=time.time() - step_time))))
@@ -652,9 +672,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
 
-    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} mean'.format(process_column),yld_mean))
-    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} std'.format(process_column),yld_std))
-    LOGGER.info('{:<30} {}   {:.5f} '.format('  ','{} CV'.format(process_column), 100 * yld_std / yld_mean))
+    LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column),yld_mean))
+    LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column),yld_std))
+    LOGGER.info('{}.....{: .5f} '.format('{} CV'.format(process_column), 100 * yld_std / yld_mean))
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
         inspect.currentframe().f_code.co_name, '',

@@ -232,7 +232,11 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
     """
     if not isinstance(inputGeoDataFrame, GeoDataFrame):
         raise TypeError('Invalid Type : inputGeodataFrame')
-
+    
+    if inputGeoDataFrame.empty:
+        warnings.warn("inputGeoDataFrame is empty")
+        return
+    
     # if out_shapefilename doesn't include a path then add tempdir as well as overwriting it
     if output_filename is not None and not os.path.isabs(output_filename):
         output_filename = os.path.join(TEMPDIR, output_filename)
