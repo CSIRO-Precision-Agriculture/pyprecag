@@ -1621,10 +1621,20 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     if not isinstance(max_iterations, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
-    if not isinstance(raster_files, list):
-        raise TypeError('Invalid Type: raster_files should be a list')
+    if not isinstance(raster_files, (list,dict)):
+        raise TypeError('Invalid Type: raster_files should be a dictionary of filename and alias')
 
-    not_exists = [my_file for my_file in raster_files if not os.path.exists(my_file)]
+    if isinstance(raster_files, list):
+        warnings.warn('raster_files has now been converted to a dictionary pairs of filenames and unique alias. \n Converting now', DeprecationWarning)
+        raster_files = { ea: os.path.basename(os.path.splitext(ea)[0]) for ea in raster_files }
+    else:
+        if len(set(raster_files.values())) == 1:  # all aliases are the same.
+            warnings.warn('raster_files have no aliases, create from filename')
+            raster_files = {ea: os.path.basename(os.path.splitext(ea)[0]) for ea in raster_files}
+        elif len(set(raster_files.values())) != len(raster_files.values()):
+            raise ValueError('Raster Aliases are not unique')
+
+    not_exists = [my_file for my_file in raster_files.keys() if not os.path.exists(my_file)]
     if len(not_exists) > 0:
         raise IOError('raster_files: {} raster file(s) do '
                       'not exist\n\t({})'.format(len(not_exists), '\n\t'.join(not_exists)))
@@ -1632,7 +1642,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     temp_file_list = []
     start_time = time.time()
 
-    images_combined, band_list = stack_and_clip_rasters(raster_files,
+    images_combined, band_list = stack_and_clip_rasters(list(raster_files.keys()),
                                                         output_tif='1_kmeans_combined.tif')
     temp_file_list.append(images_combined)
 
@@ -1687,21 +1697,23 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     _, code = kmeans2(data=norm_stack.T, k=n_clusters, iter=max_iterations, minit='points')
 
     # adjust the class values to start from 1 so 0 can be used as nodata
-    code = code + 1
 
     # Write to file
     cluster_data = np.empty_like(template_band, dtype='int')
     np.place(cluster_data, ~cluster_data.mask, code.T)
 
     # set nodata to 0
-    cluster_data = np.ma.masked_values(cluster_data, 0)
-    cluster_dtype = rasterio.dtypes.get_minimum_dtype([0] + cluster_data)
+    cluster_data = np.ma.masked_values(cluster_data, -1)
+    cluster_dtype = rasterio.dtypes.get_minimum_dtype([-1] + cluster_data.data)
 
     cluster_meta = stack_meta.copy()
-    cluster_meta.update({'count': 1, 'nodata': 0, 'dtype': cluster_dtype})
+    cluster_meta.update({'count': 1, 'nodata': -1, 'dtype': cluster_dtype})
 
-    with rasterio.open(output_tif, 'w', **cluster_meta) as dst:
-        dst.write(cluster_data.astype(cluster_dtype), 1)
+    # create a raster in memory
+    clust_memfile = MemoryFile()
+    # open the in-memory raster for writing
+    with clust_memfile.open(**cluster_meta) as dest:
+        dest.write(cluster_data.astype(cluster_dtype), 1)
 
     LOGGER.info('{:<30} {:<15} {dur}'.format('Clustering complete', '',
                                              dur=str(timedelta(seconds=time.time() - step_time))))
@@ -1712,7 +1724,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     # create a table to store statistics
     results_df = pd.DataFrame(columns=['zone'])
 
-    with rasterio.open(output_tif) as src_clust, \
+    with clust_memfile.open() as src_clust, \
             rasterio.open(images_combined) as src_img:
 
         # get the list of clusters to process
@@ -1736,8 +1748,16 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
-                        new_row[src_img.descriptions[i] + ', mean'] = np.nanmean(ea_band)
-                        new_row[src_img.descriptions[i] + ', std'] = np.nanstd(ea_band)
+                        alias = next(val for key, val in raster_files.items() if src_img.descriptions[i] in key)
+
+                        if not alias:
+                            alias = src_img.descriptions[i]
+
+                        new_row[alias+ ', mean'] = np.nanmean(ea_band)
+                        new_row[alias + ', std'] = np.nanstd(ea_band)
+
+                        # add a blank column inorder for populating later
+                        new_row[alias + ', vesper'] = np.nan
 
             # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
             try:
@@ -1745,11 +1765,67 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             except TypeError:
                 results_df = new_row.append(results_df, ignore_index=True)
 
-        # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
-        columns = list(results_df.columns)
-        columns.insert(0, columns.pop(columns.index('zone')))
-        results_df = results_df.reindex(columns=columns)
-        results_df.sort_values(by=['zone'], ascending=True, axis=0, inplace=True)
+        # reorder zones based on mean value of all inputs
+        mean_cols = [col for col in results_df.columns if ', mean' in col]
+
+        results_df['zone_mean'] = results_df[mean_cols].mean(axis=1)
+        results_df['new_zone'] = results_df['zone_mean'].rank(ascending=False).astype(int)
+        n_dict = results_df.set_index('zone').to_dict()['new_zone']
+
+        # remap it in the statistics
+        results_df['zone'] = results_df['new_zone']
+        results_df.drop(['zone_mean','new_zone'],axis=1,inplace=True)
+        results_df.sort_values(by='zone', inplace=True)
+
+        # add nodata to 0 to remap
+        n_dict[cluster_data.fill_value] = 0
+
+        # remap to new values
+        reclass = cluster_data.copy()
+        # set the nodata value
+        reclass.fill_value = 0
+        reclass.filled(0)
+
+        # remap the array
+        for k, v in n_dict.items():
+            reclass.data[cluster_data.data == k] = v
+
+        # update the metadata
+        cluster_dtype = rasterio.dtypes.get_minimum_dtype([reclass.fill_value] + reclass.data)
+        cluster_meta.update({'nodata': reclass.fill_value,
+                             'dtype': cluster_dtype})
+
+        # and write to file
+        with rasterio.open(output_tif, 'w', **cluster_meta) as dst:
+            dst.write(reclass.astype(cluster_dtype), 1)
+
+        # loop through and add 95Conf level & MeanPredSE
+        new_row = pd.DataFrame(['95ConfLevel', 'MedianPredSE'], columns=['zone'])
+
+        col_order = list(results_df.columns)
+        col_order.insert(0, col_order.pop(col_order.index('zone')))
+
+        with rasterio.open(images_combined) as src_img:
+            for iband in range(1, src_img.count + 1):
+                for tag in ['PAT_MedianPredSE', 'PAT_95ConfLevel']:
+                    if tag in src_img.tags(iband):
+                        tag_col = tag.replace('PAT_', '')
+                        # get the alias
+                        alias = next(val for key, val in raster_files.items() if src_img.tags(iband)['name'] in key)
+                        if not alias:
+                            alias = src_img.tags(iband)['name']
+
+                        new_row.loc[new_row['zone'] == tag_col, '{}, vesper'.format(alias)] = src_img.tags(iband)[tag]
+
+        try:
+            results_df = results_df.append(new_row, ignore_index=True, sort=False)
+
+        except TypeError:
+            results_df = results_df.append(new_row, ignore_index=True)
+            # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
+            results_df = results_df.reindex(columns=columns)
+
+        results_df.dropna(axis='columns', how='all',inplace=True)
 
         # write to csv without ', ' to assist when loading into ESRI
         col_names = results_df.columns.str.replace(', ', '_').values
