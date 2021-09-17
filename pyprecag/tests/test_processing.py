@@ -1,43 +1,38 @@
 import shutil
 import tempfile
 import unittest
+from pyprecag.tests import make_dummy_data, setup_folder
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
-from pyprecag.tests import make_dummy_data
 from pyprecag import convert, raster_ops
 from pyprecag.processing import *
 
-pyFile = os.path.basename(__file__)
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
-
-this_dir = os.path.abspath(os.path.dirname(__file__))
+PY_FILE = os.path.basename(__file__)
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-
 
 class TestProcessing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestProcessing, cls).setUpClass()
+        config.set_debug_mode(True)
 
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
-        global testFailed
-        testFailed = False
+        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(cls.TmpDir)
+        
+        cls.testFailed = False
 
     @classmethod
     def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        if not cls.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -47,15 +42,15 @@ class TestProcessing(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+        
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_BlockGrid(self):
-        poly = os.path.realpath(this_dir + "/data/area2_onebox_94mga54.shp")
+        poly = os.path.realpath(THIS_DIR + "/data/area2_onebox_94mga54.shp")
 
-        file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
+        file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
         vect_desc = VectorDescribe(poly)
         output_files = block_grid(in_shapefilename=poly,
                    pixel_size=5,
@@ -77,9 +72,9 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(dataset.dtypes, ('int16',))
 
     def test_BlockGrid_GrpBy(self):
-        poly = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
+        poly = os.path.realpath(THIS_DIR + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
 
-        file_sub_name = os.path.join(TmpDir, os.path.splitext(os.path.basename(poly))[0])
+        file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
 
         output_files = block_grid(in_shapefilename=poly,
                    pixel_size=5,
@@ -102,11 +97,11 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(dataset.dtypes, ('int16',))
 
     def test_cleanTrimPoints(self):
-        in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
-        in_poly = os.path.join(this_dir + "/data/area2_onebox_94mga54.shp")
-        out_csv = os.path.join(TmpDir, os.path.basename(in_csv))
-        out_shp = os.path.join(TmpDir, os.path.basename(in_csv).replace('.csv', '.shp'))
-        out_rm_shp = os.path.join(TmpDir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
+        in_csv = os.path.join(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
+        in_poly = os.path.join(THIS_DIR + "/data/area2_onebox_94mga54.shp")
+        out_csv = os.path.join(self.TmpDir, os.path.basename(in_csv))
+        out_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '.shp'))
+        out_rm_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
@@ -123,9 +118,9 @@ class TestProcessing(unittest.TestCase):
         self.assertIn('EN_EPSG', out_gdf.columns)
 
     def test_createPolygonFromPointTrail(self):
-        in_csv = os.path.join(this_dir + "/data/area2_yield_ISO-8859-1.csv")
+        in_csv = os.path.join(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
 
-        out_polyfile = os.path.join(TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
+        out_polyfile = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
             in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
@@ -145,8 +140,7 @@ class TestProcessing(unittest.TestCase):
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif
-        out_shp = os.path.join(
-            TmpDir, os.path.basename(raster_file).replace('.tif', '_randpts.shp'))
+        out_shp = os.path.join(self.TmpDir, os.path.basename(raster_file).replace('.tif', '_randpts.shp'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
@@ -157,23 +151,23 @@ class TestProcessing(unittest.TestCase):
         self.assertEqual(rand_crs, rast_crs)
 
     def test_kmeansCluster(self):
-        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/*one*.tif'))
-        raster_files += [os.path.realpath(this_dir +
+        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/*one*.tif'))
+        raster_files += [os.path.realpath(THIS_DIR +
                                           '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')]
 
-        out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
+        out_img = os.path.join(self.TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
-        raster_files.remove(os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
+        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
-        raster_files.remove(os.path.realpath(this_dir + '/data/rasters/area1_onebox_NDRE_250cm.tif'))
+        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_onebox_NDRE_250cm.tif'))
 
         out_df = kmeans_clustering(raster_files, out_img)
 
@@ -194,22 +188,22 @@ class TestProcessing(unittest.TestCase):
             )
 
     def test_PersistorAllYears(self):
-        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
-        raster_files += [os.path.realpath(this_dir +
+        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/Year*.tif'))
+        raster_files += [os.path.realpath(THIS_DIR +
                                           '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif') ]
 
-        out_img = os.path.join(TmpDir, 'persistor_allyears.tif')
+        out_img = os.path.join(self.TmpDir, 'persistor_allyears.tif')
 
         # check for raised pixel size error
         with self.assertRaises(TypeError) as msg:
             persistor_all_years(raster_files,out_img, True, 10)
         self.assertIn("raster_files are of different pixel sizes", str(msg.exception))
-        raster_files.remove(os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
+        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
 
         persistor_all_years(raster_files, out_img, True, 10)
         self.assertTrue(os.path.exists(out_img))
 
-        src_img = os.path.realpath(this_dir + '/data/rasters/persistor_allyears.tif')
+        src_img = os.path.realpath(THIS_DIR + '/data/rasters/persistor_allyears.tif')
         with rasterio.open(src_img) as src, \
             rasterio.open(os.path.normpath(out_img)) as test:
             self.assertEqual(src.profile, test.profile)
@@ -221,15 +215,15 @@ class TestProcessing(unittest.TestCase):
             six.assertCountEqual(self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
-        raster_files = glob.glob(os.path.realpath(this_dir + '/data/rasters/Year*.tif'))
+        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/Year*.tif'))
 
-        out_img = os.path.join(TmpDir, 'persistor_targetprob.tif')
+        out_img = os.path.join(self.TmpDir, 'persistor_targetprob.tif')
 
         persistor_target_probability(raster_files, 10, 75,
                                      raster_files, -10, 75, out_img)
 
         self.assertTrue(os.path.exists(out_img))
-        src_img = os.path.realpath(this_dir + '/data/rasters/persistor_targetprob.tif')
+        src_img = os.path.realpath(THIS_DIR + '/data/rasters/persistor_targetprob.tif')
         with rasterio.open(src_img) as src, \
                 rasterio.open(os.path.normpath(out_img)) as test:
             self.assertEqual(src.profile, test.profile)
@@ -243,24 +237,22 @@ class TestProcessing(unittest.TestCase):
 
 class TestStripTrials(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestStripTrials, cls).setUpClass()
+        super(TestStripTrials, self).setUpClass()
 
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
-        global testFailed
-        testFailed = False
+
+        self.singletif, self.multitif = make_dummy_data.make_dummy_tif_files(self.TmpDir)
+        
+        self.testFailed = False
 
     @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+    def tearDownClass(self):
+        if not self.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -270,10 +262,10 @@ class TestStripTrials(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+        
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_CreateStripTreatmentPoints(self):
         import pandas
@@ -281,8 +273,8 @@ class TestStripTrials(unittest.TestCase):
         print ('Pandas Version is ', pandas.__version__)
         print ('GeoPandas Version is ', geopandas.__version__)
 
-        out_points_file = os.path.join(TmpDir, 'testCreateStripTreatment_Points.shp')
-        out_lines_file = os.path.join(TmpDir, 'testCreateStripTreatment_Lines.shp')
+        out_points_file = os.path.join(self.TmpDir, 'testCreateStripTreatment_Points.shp')
+        out_lines_file = os.path.join(self.TmpDir, 'testCreateStripTreatment_Lines.shp')
 
         in_lines_gdf = GeoDataFrame(
             {'geometry': [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
@@ -401,19 +393,19 @@ class TestStripTrials(unittest.TestCase):
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 
-        values_rast = os.path.realpath(this_dir + "/data/rasters/Yield_withStrip_PRED_2m.tif")
-        control_raster = os.path.realpath(this_dir + "/data/rasters/Yield_withoutStrip_PRED_2m.tif")
-        zone_raster = os.path.realpath(this_dir + "/data/rasters/k-means_3clusters_3rasters_2m.tif")
+        values_rast = os.path.realpath(THIS_DIR + "/data/rasters/Yield_withStrip_PRED_2m.tif")
+        control_raster = os.path.realpath(THIS_DIR + "/data/rasters/Yield_withoutStrip_PRED_2m.tif")
+        zone_raster = os.path.realpath(THIS_DIR + "/data/rasters/k-means_3clusters_3rasters_2m.tif")
 
         result = ttest_analysis(gdf_points, crs_points,
-                                values_rast, TmpDir,
+                                values_rast, self.TmpDir,
                                 zone_raster=zone_raster,
                                 control_raster=control_raster)
 
         self.assertEqual(13, len(result.columns))
-        file_csv = glob.glob(os.path.join(TmpDir, '*.csv'))
-        file_graph = glob.glob(os.path.join(TmpDir, '*graph.png'))
-        file_map = glob.glob(os.path.join(TmpDir, '*map.png'))
+        file_csv = glob.glob(os.path.join(self.TmpDir, '*.csv'))
+        file_graph = glob.glob(os.path.join(self.TmpDir, '*graph.png'))
+        file_map = glob.glob(os.path.join(self.TmpDir, '*map.png'))
 
         self.assertEqual(4, len(file_csv))
         self.assertEqual(4, len(file_graph))
@@ -422,24 +414,21 @@ class TestStripTrials(unittest.TestCase):
 
 class TestExtractRasterStatisticsForPoints(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestExtractRasterStatisticsForPoints, cls).setUpClass()
+        super(TestExtractRasterStatisticsForPoints, self).setUpClass()
 
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
-        global testFailed
-        testFailed = False
+        self.singletif, self.multitif = make_dummy_data.make_dummy_tif_files(self.TmpDir)
+        
+        self.testFailed = False
 
     @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+    def tearDownClass(self):
+        if not self.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -449,16 +438,15 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+        
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_SingleBand_MGA(self):
 
         raster_file = self.singletif
-        out_csv = os.path.join(TmpDir,
-                               os.path.basename(raster_file).replace('.tif', '_b1grdext.csv'))
+        out_csv = os.path.join(self.TmpDir, os.path.basename(raster_file).replace('.tif', '_b1grdext.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
@@ -479,7 +467,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         _ = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         raster_file = self.singletif
-        out_csv = os.path.join(TmpDir,
+        out_csv = os.path.join(self.TmpDir,
                                os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
@@ -504,23 +492,20 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
 
 class TestCalculateImageIndices(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestCalculateImageIndices, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        super(TestCalculateImageIndices, self).setUpClass()
+        
+        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
 
-        os.makedirs(TmpDir)
-
-        global testFailed
-        testFailed = False
+        
+        self.testFailed = False
 
     @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+    def tearDownClass(self):
+        if not self.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -530,10 +515,10 @@ class TestCalculateImageIndices(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+        
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_allOptions(self):
 
@@ -544,12 +529,10 @@ class TestCalculateImageIndices(unittest.TestCase):
             Use Shapefile AND groupby field
         """
 
-        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'all-opts')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1, mask=5),
@@ -572,12 +555,10 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertAlmostEqual(src.read(1)[52, 23], 0.20820355, 4)
 
     def test_dontApplyNonVineMask(self):
-        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-nonvine')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
@@ -605,11 +586,9 @@ class TestCalculateImageIndices(unittest.TestCase):
             No Shapfile,
             No Non-Vine mask
         """
-        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-shapefile')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
@@ -636,13 +615,12 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertEqual(src.read(1)[int(row), int(col)], -9999)
 
     def test_noGroupby(self):
-        out_dir = os.path.join(TmpDir, 'TestCalculateImageIndices', 'no-groupby')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         indices = CalculateIndices(**bm).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
@@ -662,24 +640,20 @@ class TestCalculateImageIndices(unittest.TestCase):
 
 class TestResampleToBlock(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestResampleToBlock, cls).setUpClass()
+        super(TestResampleToBlock, self).setUpClass()
 
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
 
-        os.makedirs(TmpDir)
-
-        global testFailed
-        testFailed = False
+        
+        self.testFailed = False
 
     @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+    def tearDownClass(self):
+        if not self.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -689,10 +663,10 @@ class TestResampleToBlock(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+        
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_allOptions(self):
 
@@ -703,13 +677,10 @@ class TestResampleToBlock(unittest.TestCase):
             Use Shapefile AND groupby field
         """
 
-        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'all-opts')
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         files = resample_bands_to_block(image_file, 2,
                                         out_dir, band_nums=[6], image_epsg=32754, image_nodata=0,
                                         polygon_shapefile=poly_shapefile,
@@ -734,11 +705,11 @@ class TestResampleToBlock(unittest.TestCase):
             No Shapfile,
             No Non-Vine mask
         """
-        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'no-shapefile')
+        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'no-shapefile')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, out_epsg=28354)
 
@@ -761,12 +732,12 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.read(1)[int(row), int(col)], 0)
 
     def test_noGroupby(self):
-        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'no-groupby')
+        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'no-groupby')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, polygon_shapefile=poly_shapefile,
                                         out_epsg=28354)
@@ -783,7 +754,7 @@ class TestResampleToBlock(unittest.TestCase):
     def test_nonStandardNoDataNotSet(self):
         """ change input image nodata to 7777 in the image but leave the nodata as none."""
 
-        out_dir = os.path.join(TmpDir, 'TestResampleToBlock', 'nonstandard-nodata-notset')
+        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'nonstandard-nodata-notset')
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
@@ -791,7 +762,7 @@ class TestResampleToBlock(unittest.TestCase):
         new_image = os.path.join(out_dir, 'geotif_32754_no-nodata-7777.tif')
         crs_sutm54 = rasterio.crs.CRS.from_epsg(32754)
 
-        image_file = os.path.realpath(this_dir + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         with rasterio.open(image_file) as src:
             meta = src.meta.copy()
             del meta['crs']
@@ -802,7 +773,7 @@ class TestResampleToBlock(unittest.TestCase):
                     np.putmask(data, data == 0, 7777)
                     dest.write(data, i)
 
-        poly_shapefile = os.path.realpath(this_dir + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
         files = resample_bands_to_block(new_image, 2.5, out_dir, band_nums=[6], image_epsg=32754,
                                         image_nodata=7777, polygon_shapefile=poly_shapefile,
                                         out_epsg=28354)

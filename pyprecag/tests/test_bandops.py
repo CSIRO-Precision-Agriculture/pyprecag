@@ -3,35 +3,30 @@ import shutil
 import tempfile
 import time
 import unittest
-
+from pyprecag.tests import setup_folder
 from pyprecag.bandops import CalculateIndices, BandMapping
 
-pyFile = os.path.basename(__file__)
-this_dir = os.path.abspath(os.path.dirname(__file__))
+PY_FILE = os.path.basename(__file__)
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 
 
 class TestBandOps(unittest.TestCase):
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(self):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestBandOps, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        super(TestBandOps, self).setUpClass()
+        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-
-        global testFailed
-        testFailed = False
+        
+        self.testFailed = False
 
     @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+    def tearDownClass(self):
+        if not self.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -86,7 +81,7 @@ class TestBandOps(unittest.TestCase):
         ci.band_map = bm
         self.assertEqual(ci.valid_indices(), ['NDVI', 'PCD', 'GNDVI'])
 
-        file_image = os.path.realpath(this_dir + "/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif")
+        file_image = os.path.realpath(THIS_DIR + "/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif")
 
         with self.assertRaises(KeyError) as msg:
             ci.calculate('NDVIa', file_image, src_nodata=0)

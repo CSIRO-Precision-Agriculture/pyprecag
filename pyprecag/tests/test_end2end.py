@@ -2,7 +2,7 @@ import platform
 import shutil
 import tempfile
 import unittest
-
+from pyprecag.tests import setup_folder
 
 from pyprecag import convert, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
@@ -11,22 +11,20 @@ from pyprecag.processing import *
 from pyprecag.raster_ops import rescale, normalise
 from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper, VesperControl
 
-pyFile = os.path.basename(__file__)
+PY_FILE = os.path.basename(__file__)
 
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 
-this_dir = os.path.abspath(os.path.dirname(__file__))
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+file_csv = os.path.realpath(THIS_DIR + "/data/area1_yield_ascii_wgs84.csv")
+fileBox = os.path.realpath(THIS_DIR + "/data/area1_onebox_94mga54.shp")
+fileBoxes = os.path.realpath(THIS_DIR + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
 
-file_csv = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
-fileBox = os.path.realpath(this_dir + "/data/area1_onebox_94mga54.shp")
-fileBoxes = os.path.realpath(this_dir + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
-
-rasters_dir = os.path.realpath(this_dir + "/data/rasters")
+rasters_dir = os.path.realpath(THIS_DIR + "/data/rasters")
 fileImage = os.path.realpath(rasters_dir + "/area1_rgbi_jan_50cm_84sutm54.tif")
 
 epsg = 28354
@@ -39,20 +37,16 @@ class TestEnd2End(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestEnd2End, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
 
-        os.mkdir(TmpDir)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD)
 
-        global testFailed
-        testFailed = False
+        cls.testFailed = False
 
     @classmethod
     def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        if not cls.testFailed:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -62,10 +56,10 @@ class TestEnd2End(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test01_csvDescribe_ASCII(self):
         csv_desc = CsvDescribe(file_csv)
@@ -78,9 +72,9 @@ class TestEnd2End(unittest.TestCase):
 
     def test02_createPolygonFromPointTrail(self):
         global filePoints, filePoly
-        filePoints = os.path.join(TmpDir,
+        filePoints = os.path.join(self.TmpDir,
                                   os.path.splitext(os.path.basename(file_csv))[0] + '_points.shp')
-        filePoly = os.path.join(TmpDir,
+        filePoly = os.path.join(self.TmpDir,
                                 os.path.splitext(os.path.basename(file_csv))[0] + '_poly.shp')
 
         if not os.path.exists(filePoly):
@@ -115,8 +109,8 @@ class TestEnd2End(unittest.TestCase):
     def test04_blockGrid(self):
 
         global fileBlockTif, file_block_txt
-        fileBlockTif = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block.tif')
-        file_block_txt = os.path.join(TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block_v.txt')
+        fileBlockTif = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block.tif')
+        file_block_txt = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_block_v.txt')
 
         vect_desc = VectorDescribe(fileBox)
 
@@ -143,15 +137,15 @@ class TestEnd2End(unittest.TestCase):
 
             print(vect_desc.crs.crs_wkt)
             print('SRS:\t{}'.format(dataset.crs))
-        print('Temp Files in {}'.format(TmpDir))
+        print('Temp Files in {}'.format(self.TmpDir))
 
     def test05_cleanTrimPoints(self):
         global fileTrimmed, data_col
-        fileTrimmed = os.path.join(TmpDir, os.path.splitext(
+        fileTrimmed = os.path.join(self.TmpDir, os.path.splitext(
             os.path.basename(file_csv))[0] + '_normtrimmed.csv')
-        file_shp = os.path.join(TmpDir, os.path.splitext(
+        file_shp = os.path.join(self.TmpDir, os.path.splitext(
             os.path.basename(file_csv))[0] + '_normtrimmed.shp')
-        file_removed = os.path.join(TmpDir, os.path.splitext(
+        file_removed = os.path.join(self.TmpDir, os.path.splitext(
             os.path.basename(file_csv))[0] + '_remove.shp')
 
         data_col = r'Yield'
@@ -193,7 +187,7 @@ class TestEnd2End(unittest.TestCase):
 
         if not os.path.exists(file_control):
             bat_file, file_control = prepare_for_vesper_krige(df_csv, data_col, file_block_txt,
-                                                              TmpDir,
+                                                              self.TmpDir,
                                                               control_textfile=file_control,
                                                               coord_columns=[], epsg=epsg,
                                                               control_options=vc)
@@ -201,9 +195,9 @@ class TestEnd2End(unittest.TestCase):
             self.assertTrue(os.path.exists(bat_file))
             self.assertTrue(os.path.exists(file_control))
 
-        self.assertTrue(os.path.exists(os.path.join(TmpDir, r'Vesper',
+        self.assertTrue(os.path.exists(os.path.join(self.TmpDir, r'Vesper',
                                                     sub_file + '_vesperdata_' + data_col + '.csv')))
-        df_csv = pd.read_csv(os.path.join(TmpDir, r'Vesper',
+        df_csv = pd.read_csv(os.path.join(self.TmpDir, r'Vesper',
                                           sub_file + '_vesperdata_' + data_col + '.csv'))
 
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
@@ -237,7 +231,7 @@ class TestEnd2End(unittest.TestCase):
             self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
             self.assertTrue(dataset.tags()['PAT_MedianPredSE'])
             self.assertTrue(dataset.tags()['PAT_95ConfLevel'])
-            self.assertEqual(dataset.tags()['PAT_MedianPredSE'],SE)
+            self.assertEqual(dataset.tags()['PAT_MedianPredSE'], SE)
             self.assertEqual(dataset.tags()['PAT_95ConfLevel'], CI95)
 
         with rasterio.open(os.path.normpath(out_setif)) as dataset:
@@ -250,7 +244,7 @@ class TestEnd2End(unittest.TestCase):
 
     def test08_randomPixelSelection(self):
         global rand_gdf, rand_crs
-        out_randompts = os.path.join(TmpDir,
+        out_randompts = os.path.join(self.TmpDir,
                                      os.path.basename(fileBlockTif).replace('.tif', '_randpts.shp'))
         rast_crs = crs.getCRSfromRasterFile(fileBlockTif)
 
@@ -262,7 +256,7 @@ class TestEnd2End(unittest.TestCase):
         self.assertEqual(rast_crs.epsg, rand_gdf.crs)
 
     def test09_calcImageIndices_allopts(self):
-        out_fold = os.path.join(TmpDir, 'calcindex_allopts')
+        out_fold = os.path.join(self.TmpDir, 'calcindex_allopts')
         if not os.path.exists(out_fold):
             os.mkdir(out_fold)
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
@@ -282,7 +276,7 @@ class TestEnd2End(unittest.TestCase):
             self.assertEqual(src.count, 1)
 
     def test10_resampleBands2Block_allopts(self):
-        out_fold = os.path.join(TmpDir, 'resamp2block_allopts')
+        out_fold = os.path.join(self.TmpDir, 'resamp2block_allopts')
         if not os.path.exists(out_fold):
             os.mkdir(out_fold)
 
@@ -314,12 +308,12 @@ class TestEnd2End(unittest.TestCase):
         out_meta['count'] = 1  # contains only one band
         out_meta['dtype'] = np.float32
 
-        out_rescale = os.path.join(TmpDir,
+        out_rescale = os.path.join(self.TmpDir,
                                    os.path.basename(in_file).replace('.tif', '_rescale0-255.tif'))
         with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
             out.write_band(1, rescaled)
 
-        out_normalised = os.path.join(TmpDir,
+        out_normalised = os.path.join(self.TmpDir,
                                       os.path.basename(in_file).replace('.tif', '_normalised.tif'))
         with rasterio.open(os.path.normpath(out_normalised), 'w', **out_meta) as out:
             out.write_band(1, rescaled2)
@@ -327,14 +321,14 @@ class TestEnd2End(unittest.TestCase):
         self.assertAlmostEqual(2.0000722408294678, float(np.nanmax(norm)), 4)
         self.assertAlmostEqual(-2.266947031021118, float(np.nanmin(norm)), 4)
 
-        self.assertEqual(0, np.nanmin(rescaled) )
+        self.assertEqual(0, np.nanmin(rescaled))
         self.assertEqual(255, np.nanmax(rescaled))
 
         self.assertEqual(0, np.nanmin(rescaled2))
         self.assertEqual(5, np.nanmax(rescaled2))
 
     def test12_kmeansCluster(self):
-        out_img = os.path.join(TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
+        out_img = os.path.join(self.TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files + [fileImage], out_img)
@@ -365,9 +359,8 @@ class TestEnd2End(unittest.TestCase):
 
             six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
 
-
     def test99_gridExtract(self):
-        out_fold = os.path.join(TmpDir, 'gridextract')
+        out_fold = os.path.join(self.TmpDir, 'gridextract')
         if not os.path.exists(out_fold):
             os.mkdir(out_fold)
         global rand_gdf, rand_crs

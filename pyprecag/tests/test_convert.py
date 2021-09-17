@@ -1,7 +1,7 @@
 import shutil
 import unittest
 
-from pyprecag.tests import make_dummy_data
+from pyprecag.tests import make_dummy_data, setup_folder
 
 from pyprecag.convert import *
 from pyprecag import crs as pyprecag_crs
@@ -13,37 +13,31 @@ from shapely.geometry import LineString
 import geopandas as gpd
 from pyprecag.tests.test_crs import EPSG_28354_WKT
 
-pyFile = os.path.basename(__file__)
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
-# TmpDir = tempfile.mkdtemp(dir=tempfile.gettempdir(),prefix= os.path.splitext(pyFile)[0] + '_')
+PY_FILE = os.path.basename(__file__)
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 
-this_dir = os.path.abspath(os.path.dirname(__file__))
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
+
 
 class TestConvert(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestConvert, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-
-        global testFailed
-        testFailed = False
+        cls.testFailed = False
 
     @classmethod
     def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        if not cls.testFailed:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
         else:
-            print ('Tests Failed .. {}'.format(TmpDir))
+            print('Tests Failed .. {}'.format(TEMP_FOLD))
 
     def setUp(self):
         self.startTime = time.time()
@@ -53,16 +47,15 @@ class TestConvert(unittest.TestCase):
         print("%s: %.3f" % (self.id(), t))
 
     def run(self, result=None):
-        global testFailed
+
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            testFailed = True
+            self.testFailed = True
 
     def test_convert_csv_to_points_EastingNorthings(self):
-        in_file = os.path.realpath(this_dir + "/data/area1_yield_ascii_wgs84.csv")
+        in_file = os.path.realpath(THIS_DIR + "/data/area1_yield_ascii_wgs84.csv")
         epsg = 28354
-        out_file = os.path.join(TmpDir,
-                                os.path.basename(in_file).replace('.csv', '_{}.shp'.format(epsg)))
+        out_file = os.path.join(self.TmpDir, os.path.basename(in_file).replace('.csv', '_{}.shp'.format(epsg)))
 
         gdf_data, gdf_crs = convert_csv_to_points(in_file, out_file,
                                                   coord_columns=['Easting', 'Northing'],
@@ -74,16 +67,16 @@ class TestConvert(unittest.TestCase):
         self.assertTrue(os.path.exists(out_file))
 
     def test_convert_csv_to_points_WGS84(self):
-        in_file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
+        in_file = os.path.realpath(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
         out_epsg = 28354
-        out_file = os.path.join(TmpDir, os.path.basename(in_file).replace(
+        out_file = os.path.join(self.TmpDir, os.path.basename(in_file).replace(
             '.csv', '_{}.shp'.format(out_epsg)))
 
         gdf_data, gdf_crs = convert_csv_to_points(in_file, out_file, coord_columns_epsg=4326,
                                                   out_epsg=out_epsg)
 
         self.assertTrue(os.path.exists(out_file))
-        self.assertIsInstance(gdf_data,  gpd.GeoDataFrame)
+        self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
         self.assertEqual(len(gdf_data), 1543)
         self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
 
@@ -95,13 +88,13 @@ class TestConvert(unittest.TestCase):
         self.assertEqual(gdf_crs.crs_wkt[:154], EPSG_28354_WKT[:154])
 
     def test_convert_csv_to_points_WGS84_GuessEPSG(self):
-        in_file = os.path.realpath(this_dir + "/data/area2_yield_ISO-8859-1.csv")
+        in_file = os.path.realpath(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
 
-        out_file = os.path.join(TmpDir, os.path.basename(in_file).replace('.csv', '_guessepsg.shp'))
+        out_file = os.path.join(self.TmpDir, os.path.basename(in_file).replace('.csv', '_guessepsg.shp'))
         gdf_data, gdf_crs = convert_csv_to_points(in_file, out_file, coord_columns_epsg=4326,
                                                   out_epsg=-1)
         self.assertTrue(os.path.exists(out_file))
-        self.assertIsInstance(gdf_data,  gpd.GeoDataFrame)
+        self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
         self.assertEqual(len(gdf_data), 1543)
         self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
         self.assertEqual(gdf_crs.epsg_number, 28354)
@@ -130,10 +123,10 @@ class TestConvert(unittest.TestCase):
     def test_pts_linebearing(self):
         # line_bearing uses point_to_point_bearing so this doubles as it's tests as well
         c_line_gdf = gpd.GeoDataFrame({'geometry': [LineString([(740873, 6169764), (741269, 6169764)]),
-                                   LineString([(741000, 6169800), (741003, 6170012)]),
-                                   LineString([(741401, 6169800), (741057, 6170012)]),
-                                   LineString([(740900, 6169912), (740979, 6170094)])],
-                                    'LineID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
+                                                    LineString([(741000, 6169800), (741003, 6170012)]),
+                                                    LineString([(741401, 6169800), (741057, 6170012)]),
+                                                    LineString([(740900, 6169912), (740979, 6170094)])],
+                                       'LineID'  : [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         c_line_gdf = GeoDataFrame(c_line_gdf, crs=pyprecag_crs.from_epsg(28354))
 
@@ -143,11 +136,11 @@ class TestConvert(unittest.TestCase):
         self.assertAlmostEqual(23.464022404707464, line_bearing(c_line_gdf.iloc[3]), 4)
 
     def test_drop_z(self):
-        c_line_gdf = gpd.GeoDataFrame( {'geometry': [LineString([(740873, 6169764, 5), (741269, 6169764, 5)]),
-                                   LineString([(741000, 6169800), (741003, 6170012)]),
-                                   LineString([(741401.415, 6169800,4), (741057, 6170012,3)]),
-                                   LineString([(740900.861, 6169912,2), (740979, 6170094,5)])],
-                      'LineID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
+        c_line_gdf = gpd.GeoDataFrame({'geometry': [LineString([(740873, 6169764, 5), (741269, 6169764, 5)]),
+                                                    LineString([(741000, 6169800), (741003, 6170012)]),
+                                                    LineString([(741401.415, 6169800, 4), (741057, 6170012, 3)]),
+                                                    LineString([(740900.861, 6169912, 2), (740979, 6170094, 5)])],
+                                       'LineID'  : [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         c_line_gdf['geometry2'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
 

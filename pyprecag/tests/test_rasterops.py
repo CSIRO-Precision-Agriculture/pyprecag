@@ -6,14 +6,13 @@ import unittest
 import rasterio
 import six
 
-from pyprecag.tests import make_dummy_data
+from pyprecag.tests import make_dummy_data, setup_folder
 from pyprecag import raster_ops
 import numpy as np
 
-pyFile = os.path.basename(__file__)
+PY_FILE = os.path.basename(__file__)
 
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 
 
 class test_rasterOps(unittest.TestCase):
@@ -21,21 +20,17 @@ class test_rasterOps(unittest.TestCase):
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(test_rasterOps, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-        os.mkdir(TmpDir)
-
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
-        global testFailed
-        testFailed = False
+        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(cls.TmpDir)
+        
+        cls.testFailed = False
 
     @classmethod
     def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        if not cls.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()

@@ -11,16 +11,14 @@ import logging
 
 from pkg_resources import parse_version
 
-from pyprecag.tests import make_dummy_data
+from pyprecag.tests import make_dummy_data, setup_folder
 from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, distance_metres_to_dd
-
 from pyprecag.crs import from_epsg
 
-this_dir = os.path.abspath(os.path.dirname(__file__))
+PY_FILE = os.path.basename(__file__)
+TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 
-pyFile = os.path.basename(__file__)
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
+THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -76,20 +74,16 @@ class TestCrsClass(TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestCrsClass, cls).setUpClass()
 
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
-
-        os.mkdir(TmpDir)
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(TmpDir)
-        global testFailed
-        testFailed = False
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
+        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(cls.TmpDir)
+        
+        cls.testFailed = False
 
     @classmethod
     def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
+        if not cls.testFailed:
+            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
@@ -200,7 +194,7 @@ class TestCrsClass(TestCase):
 
     def test_getRasterFileCrs(self):
         rast_crs = getCRSfromRasterFile(os.path.realpath(
-            this_dir + r"/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif"))
+            THIS_DIR + r"/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif"))
         self.assertEqual(rast_crs.epsg_number, None)
         self.assertEqual(rast_crs.crs_wkt, None)
 
