@@ -256,10 +256,8 @@ class TestEnd2End(unittest.TestCase):
         self.assertEqual(rast_crs.epsg, rand_gdf.crs)
 
     def test09_calcImageIndices_allopts(self):
-        out_fold = os.path.join(self.TmpDir, 'calcindex_allopts')
-        if not os.path.exists(out_fold):
-            os.mkdir(out_fold)
-        bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
+        out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+       bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
         indices = CalculateIndices(**bm).valid_indices()
         files = calc_indices_for_block(fileImage, 2.5, bm, out_fold, indices, image_nodata=0,
                                        image_epsg=32754, polygon_shapefile=fileBox, out_epsg=28354)
@@ -276,9 +274,7 @@ class TestEnd2End(unittest.TestCase):
             self.assertEqual(src.count, 1)
 
     def test10_resampleBands2Block_allopts(self):
-        out_fold = os.path.join(self.TmpDir, 'resamp2block_allopts')
-        if not os.path.exists(out_fold):
-            os.mkdir(out_fold)
+        out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
         files = resample_bands_to_block(fileImage, 2.5, out_fold, band_nums=[6],
                                         image_nodata=0, image_epsg=32754,
@@ -360,9 +356,8 @@ class TestEnd2End(unittest.TestCase):
             six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
 
     def test99_gridExtract(self):
-        out_fold = os.path.join(self.TmpDir, 'gridextract')
-        if not os.path.exists(out_fold):
-            os.mkdir(out_fold)
+        out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
         global rand_gdf, rand_crs
         stats_gdf, stats_crs = extract_pixel_statistics_for_points(
             rand_gdf, rand_crs, self.gridextract_files, function_list=[np.nanmean, np.nanstd],

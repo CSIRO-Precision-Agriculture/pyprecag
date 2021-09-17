@@ -44,9 +44,14 @@ class TestProcessing(unittest.TestCase):
     def run(self, result=None):
         
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if len(result.failed_tests) > 0 or len(result.errors) > 0:
             self.testFailed = True
 
+        # clean up folders that pass
+        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
+        for ea in glob.glob("{}//*//".format(self.TmpDir)):
+            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
+                shutil.rmtree(ea)
     def test_BlockGrid(self):
         poly = os.path.realpath(THIS_DIR + "/data/area2_onebox_94mga54.shp")
 
@@ -264,8 +269,12 @@ class TestStripTrials(unittest.TestCase):
     def run(self, result=None):
         
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if len(result.failed_tests) > 0 or len(result.errors) > 0:
             self.testFailed = True
+        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
+        for ea in glob.glob("{}//*//".format(self.TmpDir)):
+            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
+                shutil.rmtree(ea)
 
     def test_CreateStripTreatmentPoints(self):
         import pandas
@@ -440,9 +449,13 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
     def run(self, result=None):
         
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if len(result.failed_tests) > 0 or len(result.errors) > 0:
             self.testFailed = True
 
+        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
+        for ea in glob.glob("{}//*//".format(self.TmpDir)):
+            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
+                shutil.rmtree(ea)
     def test_SingleBand_MGA(self):
 
         raster_file = self.singletif
@@ -517,17 +530,21 @@ class TestCalculateImageIndices(unittest.TestCase):
     def run(self, result=None):
         
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if len(result.failed_tests) > 0 or len(result.errors) > 0:
             self.testFailed = True
 
+        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
+        for ea in glob.glob("{}//*//".format(self.TmpDir)):
+            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
+                shutil.rmtree(ea)
     def test_allOptions(self):
 
-        """ All Options includes:
-            Use a non-vine mask.
-            Original image nodata is None so set to 0
-            Reproject Image
-            Use Shapefile AND groupby field
-        """
+        # '''All Options includes:
+        #     Use a non-vine mask.
+        #     Original image nodata is None so set to 0
+        #     Reproject Image
+        #     Use Shapefile AND groupby field
+        # '''
 
         out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
@@ -665,8 +682,12 @@ class TestResampleToBlock(unittest.TestCase):
     def run(self, result=None):
         
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if len(result.failed_tests) > 0 or len(result.errors) > 0:
             self.testFailed = True
+        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
+        for ea in glob.glob("{}//*//".format(self.TmpDir)):
+            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
+                shutil.rmtree(ea)
 
     def test_allOptions(self):
 
@@ -705,9 +726,7 @@ class TestResampleToBlock(unittest.TestCase):
             No Shapfile,
             No Non-Vine mask
         """
-        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'no-shapefile')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
         image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
@@ -732,9 +751,7 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.read(1)[int(row), int(col)], 0)
 
     def test_noGroupby(self):
-        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'no-groupby')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
         image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
         poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
@@ -754,9 +771,7 @@ class TestResampleToBlock(unittest.TestCase):
     def test_nonStandardNoDataNotSet(self):
         """ change input image nodata to 7777 in the image but leave the nodata as none."""
 
-        out_dir = os.path.join(self.TmpDir, 'TestResampleToBlock', 'nonstandard-nodata-notset')
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
+        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
         # change nodata to 7777 but don't set it in the output
         new_image = os.path.join(out_dir, 'geotif_32754_no-nodata-7777.tif')
