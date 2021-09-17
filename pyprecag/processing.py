@@ -59,7 +59,7 @@ LOGGER.addHandler(logging.NullHandler())
 
 
 def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilename,
-              out_epsg=0,groupby=None, nodata_val=-9999, snap=True, overwrite=False):
+              out_epsg=0, groupby=None, nodata_val=-9999, snap=True, overwrite=False):
     """Convert a polygon boundary to a 0,1 raster and generate a VESPER compatible list of
        coordinates for kriging.
 
@@ -84,7 +84,6 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
 
     if not isinstance(pixel_size, number_types):
         raise TypeError('Pixel size must be an integer or floating number.')
-
     
     for ea_arg in [('nodata_val', nodata_val), ('out_epsg', out_epsg)]:
         if not isinstance(ea_arg[1], six.integer_types):
@@ -112,7 +111,7 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
     #-------------------------------------------------------------------------------------------
     # reproject shapefile
     if out_epsg != 0 and  desc_poly_shp.crs.epsg_number != out_epsg:
-        gdf_poly.to_crs(epsg=out_epsg,inplace=True)
+        gdf_poly.to_crs(epsg=out_epsg, inplace=True)
 
     del desc_poly_shp
 
@@ -146,9 +145,9 @@ def block_grid(in_shapefilename, pixel_size, out_rasterfilename, out_vesperfilen
             feat_name = 'All Polygons'
 
         # From shapes create a blockgrid mask. -----------------------------------------------------
-        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size,snap_extent_to_pixel=snap)
+        blockgrid, new_blockmeta = convert_polygon_feature_to_raster(feat, pixel_size, snap_extent_to_pixel=snap)
 
-        with rasterio.open(out_file, 'w', driver='GTiff', count=1,tfw='YES',
+        with rasterio.open(out_file, 'w', driver='GTiff', count=1, tfw='YES',
                            crs=from_epsg(out_epsg), **new_blockmeta) as dest:
             dest.write(blockgrid, 1)
         output_files += [out_file]
@@ -337,7 +336,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         dur=str(timedelta(seconds=time.time() - start_time))
     ))
 
-    thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
+    thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() / 
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
 
     LOGGER.debug('{:<25} {:.5f}'.format('Thin Ratio : ', thin_ratio))
@@ -421,7 +420,6 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if not isinstance(argCheck[1], bool):
             raise TypeError('{} should be a boolean.'.format(argCheck[0]))
 
-
     points_geodataframe.crs = points_crs.epsg
 
     norm_column = 'nrm_' + process_column
@@ -453,38 +451,44 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points.drop(dropcols, axis=1, inplace=True)
 
     step_time = time.time()
-    total_count = len(gdf_points)
-    step_count =  len(gdf_points)
+    
     # set defaults
     gdf_points['filter'] = np.nan
     gdf_points['filter_inc'] = 0
 
-    def add_filter_message(filter_string,total_count, left_count,del_count):
+    def add_filter_message(filter_string):
         # use ..... to space out values as QGIS doesn't honour multiple spaces or tabs in the log panel.
-        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count,del_count,filter_string))
+        if filter_string in gdf_points['filter'].unique():
+            total_count = len(gdf_points)
+            left_count = len(gdf_points[gdf_points['filter'].isnull()])
+            del_count = gdf_points.groupby('filter').size()[filter_string]
+             
+            LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count, del_count, filter_string))
+        
     # Remove rows where data col is empty/null
     subset = gdf_points[gdf_points[process_column].isnull()]
+    
     if len(subset) > 0:
-        step_count = step_count - len(subset)
         gdf_points.loc[subset.index, 'filter'] = 'nulls'
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc']  = len(gdf_points['filter'].value_counts())
+        gdf_points.loc[subset.index, 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
-        add_filter_message ('Remove Nulls',  len(gdf_points) , step_count, len(subset))
+        add_filter_message ('nulls')
         
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
     # Remove duplicated geometries
     # https://github.com/geopandas/geopandas/issues/521#issuecomment-382806444
     geom = subset["geometry"].apply(lambda geom: geom.wkb)
-    step_count = len(subset) 
-    del_count = len(subset) - len(geom)
-      
-    subset = subset.loc[geom.drop_duplicates().index]
-    gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'Duplicate XY'
-    gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
-
-    add_filter_message( 'Remove Duplicate XYs', total_count , step_count, del_count) 
-
+    nodups = geom.drop_duplicates()
+    
+    if len(geom) != len(nodups):
+        subset = subset.loc[nodups.index]
+        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'Duplicate XY'
+        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
+        
+        add_filter_message('Duplicate XY') 
+    del geom, nodups
+    
     subset = gdf_points[gdf_points['filter'].isnull()].copy()
 
     if boundary_polyfile is not None:
@@ -498,26 +502,27 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
             LOGGER.info('{: <30} {: >10}   {:<15}'.format(
                 'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number)))
-                #dur=str(timedelta(seconds=time.time() - step_time))))
+                # dur=str(timedelta(seconds=time.time() - step_time))))
 
         step_time = time.time()
 
         # Clip to boundary then apply to filter column
-        subset = subset[subset.intersects(gdf_poly.unary_union)].copy()
-        del gdf_poly
-
+        clipped = subset[subset.intersects(gdf_poly.unary_union)].copy()
+        
         if len(subset) == 0:
             raise GeometryError('Clipping removed all features. Check coordinate systems and/or '
                                 'clip polygon layer and try again')
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'clip'
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
-
-        del_count = step_count - len(subset) 
-        step_count = len(subset)
-        add_filter_message( 'Clip', total_count , step_count, del_count) 
-
+        if len(subset) != len(clipped):
+            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter'] = 'clip'
+            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
+    
+            add_filter_message('clip') 
+        del gdf_poly, clipped
+        
         step_time = time.time()
-
+    
+    subset = gdf_points[gdf_points['filter'].isnull()].copy()
+    
     if remove_zeros:
         subset = subset[subset[process_column] <= 0]
         gdf_points.loc[subset.index, 'filter'] = 'zero'
@@ -526,10 +531,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if len(gdf_points[gdf_points['filter'].isnull()]) == 0:
             raise GeometryError("Zero filter removed all points "
                                 "in column {}".format(process_column))
-
-        del_count = len(subset) 
-        step_count =step_count - len(subset) 
-        add_filter_message( 'Remove Zeros', total_count , step_count, del_count) 
+ 
+        add_filter_message( 'zero')   
 
     if stdevs > 0:
         i = 0
@@ -542,23 +545,18 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             yld_std = subset[process_column].std()
             subset[norm_column] = subset[process_column].apply(lambda x: (x - yld_mean) / yld_std)
             subset = subset[subset[norm_column].abs() >= stdevs]
-
-            gdf_points.loc[subset.index, 'filter'] = '{} std iter {}'.format(stdevs, int(i))
+            
+            filter_str = '{} std iter {}'.format(stdevs, int(i))
+            gdf_points.loc[subset.index, 'filter'] = filter_str
             gdf_points.loc[subset.index, 'filter_inc'] = len(gdf_points['filter'].value_counts())
 
             if not iterative:
                 break
 
-            del_count = len(subset)
-            step_count = step_count - len(subset) 
-            add_filter_message( 'Std Iteration {}'.format(i), total_count , step_count, del_count) 
+            add_filter_message(filter_str) 
 
     gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()],
                                       points_crs, thin_dist_m)
-
-    del_count = step_count - len(gdf_thin)
-    step_count = len(subset) 
-    add_filter_message( 'Thin By Distance {}m'.format(thin_dist_m), total_count , step_count, del_count) 
     
     step_time = time.time()
 
@@ -576,8 +574,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     # after last iteration of thin by distance subset should be
     yld_mean = gdf_points[gdf_points['filter'].isnull()].mean()[process_column]
     yld_std = gdf_points[gdf_points['filter'].isnull()].std()[process_column]
-    gdf_points.loc[gdf_points['filter'].isnull(), norm_column] = \
-        (gdf_points[process_column] - yld_mean) / yld_std
+    gdf_points.loc[gdf_points['filter'].isnull(), norm_column] = (gdf_points[process_column] - yld_mean) / yld_std
 
     # prepare some summary results for filtered features.
     # Filter is the reason a point is removed,and filter_inc keeps them in the order they were
@@ -634,7 +631,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         file_encoding = config.read_config()['geoCSV']['file_encoding']
     except KeyError:
         file_encoding = 'utf-8'
-    #file_encoding = get_dataframe_encoding(gdf_final)
+    # file_encoding = get_dataframe_encoding(gdf_final)
 
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
@@ -672,8 +669,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
         results_table.to_string(index=False, justify='center')))
 
-    LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column),yld_mean))
-    LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column),yld_std))
+    LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column), yld_mean))
+    LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column), yld_std))
     LOGGER.info('{}.....{: .5f} '.format('{} CV'.format(process_column), 100 * yld_std / yld_mean))
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
@@ -831,8 +828,8 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if not isinstance(rasterfiles, list):
         raise TypeError('Invalid Type: rasterfiles should be a list')
 
-    if isinstance(rasterfiles[0],tuple):
-        not_exists = [my_file for my_file,name in rasterfiles if not os.path.exists(my_file)]
+    if isinstance(rasterfiles[0], tuple):
+        not_exists = [my_file for my_file, name in rasterfiles if not os.path.exists(my_file)]
     else:
         not_exists = [my_file for my_file in rasterfiles if not os.path.exists(my_file)]
         
@@ -844,8 +841,8 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     pix = None
     res_error = []
     for ea_raster in rasterfiles:
-        if isinstance(ea_raster,tuple):
-            ea_raster,_=ea_raster
+        if isinstance(ea_raster, tuple):
+            ea_raster, _ = ea_raster
             
         with rasterio.open(ea_raster) as src:
             if pix is None:
@@ -863,7 +860,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     start_time = time.time()
     
     # drop null geometry
-    points_geodataframe.dropna(subset=['geometry'], axis=0,inplace=True)
+    points_geodataframe.dropna(subset=['geometry'], axis=0, inplace=True)
     
     # overwrite the gdf proj4 string with the epsg mapping equivalent
     points_geodataframe.crs = points_crs.epsg
@@ -875,7 +872,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
 
     for ea_raster in rasterfiles:
         
-        if isinstance(ea_raster,tuple):
+        if isinstance(ea_raster, tuple):
             ea_raster, prefix = ea_raster
         else:
             prefix = ''
@@ -894,14 +891,14 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         with rasterio.open(ea_raster) as src:
             meta = src.meta.copy()
             if cur_pixel:
-                focal_stats += [focal_statistics(src, size=1,out_colname=prefix)]
+                focal_stats += [focal_statistics(src, size=1, out_colname=prefix)]
 
             for ea_size in size_list:
                 for ea_function in function_list:
                     focal_stats += [focal_statistics(src, size=ea_size, function=ea_function, out_colname=prefix)]
 
         # Update the metadata for the desired focal_stats outputs.
-        meta.update({'driver': 'GTiff', 'nodata': -9999, 'crs': rast_crs.crs_wkt,
+        meta.update({'driver': 'GTiff', 'nodata':-9999, 'crs': rast_crs.crs_wkt,
                      'dtype': rasterio.float32, 'count': len(focal_stats)})
 
         # create a raster in memory
@@ -1641,7 +1638,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     if not isinstance(max_iterations, six.integer_types):
         raise TypeError('Size must be an Integer.')
 
-    if not isinstance(raster_files, (list,dict)):
+    if not isinstance(raster_files, (list, dict)):
         raise TypeError('Invalid Type: raster_files should be a dictionary of filename and alias')
 
     if isinstance(raster_files, list):
@@ -1727,7 +1724,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     cluster_dtype = rasterio.dtypes.get_minimum_dtype([-1] + cluster_data.data)
 
     cluster_meta = stack_meta.copy()
-    cluster_meta.update({'count': 1, 'nodata': -1, 'dtype': cluster_dtype})
+    cluster_meta.update({'count': 1, 'nodata':-1, 'dtype': cluster_dtype})
 
     # create a raster in memory
     clust_memfile = MemoryFile()
@@ -1773,7 +1770,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                         if not alias:
                             alias = src_img.descriptions[i]
 
-                        new_row[alias+ ', mean'] = np.nanmean(ea_band)
+                        new_row[alias + ', mean'] = np.nanmean(ea_band)
                         new_row[alias + ', std'] = np.nanstd(ea_band)
 
                         # add a blank column inorder for populating later
@@ -1794,7 +1791,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
         # remap it in the statistics
         results_df['zone'] = results_df['new_zone']
-        results_df.drop(['zone_mean','new_zone'],axis=1,inplace=True)
+        results_df.drop(['zone_mean', 'new_zone'], axis=1, inplace=True)
         results_df.sort_values(by='zone', inplace=True)
 
         # add nodata to 0 to remap
@@ -1845,7 +1842,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
             # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
             results_df = results_df.reindex(columns=columns)
 
-        results_df.dropna(axis='columns', how='all',inplace=True)
+        results_df.dropna(axis='columns', how='all', inplace=True)
 
         # write to csv without ', ' to assist when loading into ESRI
         col_names = results_df.columns.str.replace(', ', '_').values
@@ -2307,7 +2304,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     del dfnulls
 
     # create a unique id for each line/point
-    gdf_points.insert(1, 'TrialPtID', gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'],x['PointID']), axis=1))
+    gdf_points.insert(1, 'TrialPtID', gdf_points.apply(lambda x: "'{}-{}'".format(x['TrialID'], x['PointID']), axis=1))
 
     # Apply bearing to all transects
     for group_name, gdf_group in gdf_points.groupby(['TrialID', transect_column]):
@@ -2474,7 +2471,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             if iscenario == 1:
                 # get start middle and ends of lines for labelling
                 start_end_pts = gdf_map[gdf_map[transect_column] == 'Strip'].iloc[[0, -1]]
-                middle_pts = gdf_map[gdf_map['PointID'] ==
+                middle_pts = gdf_map[gdf_map['PointID'] == 
                                      gdf_map.iloc[int(len(gdf_map) / 2)]['PointID']]
 
                 # create lines
@@ -2701,7 +2698,7 @@ def persistor_all_years(raster_files, output_tif, greater_than, target_percentag
             del band, band_new
 
     kwargs.pop('count')
-    kwargs.update({'nodata': -9999, 'dtype': np.int16})
+    kwargs.update({'nodata':-9999, 'dtype': np.int16})
     with rasterio.open(output_tif, 'w', count=1, **kwargs) as dst_allyrs:
         dst_allyrs.write(sum_of_rasters.astype(np.int16), 1)
 
