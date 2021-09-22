@@ -7,8 +7,6 @@ from pyprecag.table_ops import calculate_strip_stats
 
 PY_FILE = os.path.basename(__file__)
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
-THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-
 
 class TestTableOps(TestCase):
     def test_calculate_strip_stats(self):

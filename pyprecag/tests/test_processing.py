@@ -1,7 +1,7 @@
 import shutil
 import tempfile
 import unittest
-from pyprecag.tests import make_dummy_data, setup_folder
+from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
@@ -10,100 +10,109 @@ from pyprecag.processing import *
 
 PY_FILE = os.path.basename(__file__)
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
-THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+
+def write2csv(csv_file, line):
+    import csv
+    # csv_file = os.path.join(folder,"test_PixelVals.csv")
+    new_csv = not os.path.exists(csv_file)
+
+    header = ['x', 'y', 'expected', 'dec_places', 'actual', 'source']
+    with open(csv_file, 'a', encoding='UTF8', newline='') as f:
+        writer = csv.writer(f)
+        if new_csv: writer.writerow(header)
+        writer.writerow(line)
+
+
 class TestProcessing(unittest.TestCase):
+    failedTests = []
+
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestProcessing, cls).setUpClass()
-        config.set_debug_mode(True)
 
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
-
-        cls.singletif, cls.multitif = make_dummy_data.make_dummy_tif_files(cls.TmpDir)
-        
-        cls.testFailed = False
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
 
     @classmethod
     def tearDownClass(cls):
-        if not cls.testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failed_tests) > 0 or len(result.errors) > 0:
-            self.testFailed = True
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
-        # clean up folders that pass
-        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
-        for ea in glob.glob("{}//*//".format(self.TmpDir)):
-            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
-                shutil.rmtree(ea)
     def test_BlockGrid(self):
-        poly = os.path.realpath(THIS_DIR + "/data/area2_onebox_94mga54.shp")
+        poly = os.path.realpath(os.path.join(THIS_DIR, "area2_onebox_94mga54.shp"))
 
         file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
         vect_desc = VectorDescribe(poly)
         output_files = block_grid(in_shapefilename=poly,
-                   pixel_size=5,
-                   out_rasterfilename=file_sub_name + '_block.tif',
-                   out_vesperfilename=file_sub_name + '_block_v.txt',
-                   out_epsg=vect_desc.crs.epsg_number,
-                   snap=True,
-                   overwrite=True)
+                                  pixel_size=5,
+                                  out_rasterfilename=file_sub_name + '_block.tif',
+                                  out_vesperfilename=file_sub_name + '_block_v.txt',
+                                  out_epsg=vect_desc.crs.epsg_number,
+                                  snap=True,
+                                  overwrite=True)
 
         self.assertTrue(os.path.exists(file_sub_name + '_block.tif'))
         self.assertTrue(os.path.exists(file_sub_name + '_block_v.txt', ))
-        self.assertTrue(len(output_files),1)
+        self.assertTrue(len(output_files), 1)
 
-        with rasterio.open(os.path.normpath(file_sub_name + '_block.tif')) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 87)
-            self.assertEqual(dataset.height, 66)
-            self.assertEqual(dataset.nodatavals, (-9999.0,))
-            self.assertEqual(dataset.dtypes, ('int16',))
+        with rasterio.open(os.path.normpath(file_sub_name + '_block.tif')) as src:
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(87, src.width, 'Incorrect image width')
+            self.assertEqual(66, src.height, 'Incorrect image height')
+            self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
+            self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
 
     def test_BlockGrid_GrpBy(self):
-        poly = os.path.realpath(THIS_DIR + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
+        poly = os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
 
         file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
 
         output_files = block_grid(in_shapefilename=poly,
-                   pixel_size=5,
-                   out_rasterfilename=file_sub_name + '_block.tif',
-                   out_vesperfilename=file_sub_name + '_block_v.txt',
-                   out_epsg=28354,
-                   groupby='part_type',
-                   snap=True,
-                   overwrite=True)
+                                  pixel_size=5,
+                                  out_rasterfilename=file_sub_name + '_block.tif',
+                                  out_vesperfilename=file_sub_name + '_block_v.txt',
+                                  out_epsg=28354,
+                                  groupby='part_type',
+                                  snap=True,
+                                  overwrite=True)
 
-        self.assertTrue(len(output_files), 2)
+        self.assertTrue(2, len(output_files))
         self.assertTrue(os.path.exists(file_sub_name + '_block_MultiPart.tif'))
         self.assertTrue(os.path.exists(file_sub_name + '_block_SinglePart_v.txt', ))
 
-        with rasterio.open(os.path.normpath(file_sub_name + '_block_MultiPart.tif')) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 99)
-            self.assertEqual(dataset.height, 68)
-            self.assertEqual(dataset.nodatavals, (-9999.0,))
-            self.assertEqual(dataset.dtypes, ('int16',))
+        with rasterio.open(os.path.normpath(file_sub_name + '_block_MultiPart.tif')) as src:
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(99, src.width, 'Incorrect image width')
+            self.assertEqual(68, src.height, 'Incorrect image height')
+            self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
+            self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
 
     def test_cleanTrimPoints(self):
-        in_csv = os.path.join(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
-        in_poly = os.path.join(THIS_DIR + "/data/area2_onebox_94mga54.shp")
+        in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
+        in_poly = os.path.join(THIS_DIR, "area2_onebox_94mga54.shp")
         out_csv = os.path.join(self.TmpDir, os.path.basename(in_csv))
         out_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
@@ -118,12 +127,12 @@ class TestProcessing(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs, from_epsg(28354)) #  {'init': 'epsg:28354', 'no_defs': True})
+        self.assertEqual(out_gdf.crs, from_epsg(28354))  # {'init': 'epsg:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
         self.assertIn('EN_EPSG', out_gdf.columns)
 
     def test_createPolygonFromPointTrail(self):
-        in_csv = os.path.join(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
+        in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
 
         out_polyfile = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
@@ -156,9 +165,8 @@ class TestProcessing(unittest.TestCase):
         self.assertEqual(rand_crs, rast_crs)
 
     def test_kmeansCluster(self):
-        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/*one*.tif'))
-        raster_files += [os.path.realpath(THIS_DIR +
-                                          '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')]
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
+        raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
         out_img = os.path.join(self.TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
 
@@ -166,51 +174,47 @@ class TestProcessing(unittest.TestCase):
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
-        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
+        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif')))
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
 
         self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
-        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_onebox_NDRE_250cm.tif'))
+        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_onebox_NDRE_250cm.tif')))
 
         out_df = kmeans_clustering(raster_files, out_img)
 
         self.assertTrue(os.path.exists(out_img))
         self.assertTrue(os.path.exists(out_img.replace('.tif', '_statistics.csv')))
-        self.assertEqual(3, len(out_df['zone'].unique()))
+        self.assertEqual(5, len(out_df['zone'].unique()))
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            if hasattr(src.crs,'to_proj4'):
+            if hasattr(src.crs, 'to_proj4'):
                 self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
             else:
                 self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
-            six.assertCountEqual(
-                    self, np.array([0, 1, 2, 3]), np.unique(band1.data)
-            )
+            six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
 
     def test_PersistorAllYears(self):
-        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/Year*.tif'))
-        raster_files += [os.path.realpath(THIS_DIR +
-                                          '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif') ]
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
+        raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
         out_img = os.path.join(self.TmpDir, 'persistor_allyears.tif')
 
         # check for raised pixel size error
         with self.assertRaises(TypeError) as msg:
-            persistor_all_years(raster_files,out_img, True, 10)
+            persistor_all_years(raster_files, out_img, True, 10)
         self.assertIn("raster_files are of different pixel sizes", str(msg.exception))
-        raster_files.remove(os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif'))
+        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif')))
 
         persistor_all_years(raster_files, out_img, True, 10)
         self.assertTrue(os.path.exists(out_img))
 
-        src_img = os.path.realpath(THIS_DIR + '/data/rasters/persistor_allyears.tif')
-        with rasterio.open(src_img) as src, \
-            rasterio.open(os.path.normpath(out_img)) as test:
+        src_img = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'persistor_allyears.tif'))
+        with rasterio.open(src_img) as src, rasterio.open(os.path.normpath(out_img)) as test:
             self.assertEqual(src.profile, test.profile)
             self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test.crs)
 
@@ -220,7 +224,7 @@ class TestProcessing(unittest.TestCase):
             six.assertCountEqual(self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
-        raster_files = glob.glob(os.path.realpath(THIS_DIR + '/data/rasters/Year*.tif'))
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters','Year*.tif')))
 
         out_img = os.path.join(self.TmpDir, 'persistor_targetprob.tif')
 
@@ -228,9 +232,8 @@ class TestProcessing(unittest.TestCase):
                                      raster_files, -10, 75, out_img)
 
         self.assertTrue(os.path.exists(out_img))
-        src_img = os.path.realpath(THIS_DIR + '/data/rasters/persistor_targetprob.tif')
-        with rasterio.open(src_img) as src, \
-                rasterio.open(os.path.normpath(out_img)) as test:
+        src_img = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'persistor_targetprob.tif'))
+        with rasterio.open(src_img) as src, rasterio.open(os.path.normpath(out_img)) as test:
             self.assertEqual(src.profile, test.profile)
             self.assertEqual(rasterio.crs.CRS.from_epsg(28354), test.crs)
 
@@ -241,57 +244,57 @@ class TestProcessing(unittest.TestCase):
 
 
 class TestStripTrials(unittest.TestCase):
+    failedTests = []
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestStripTrials, self).setUpClass()
+        super(TestStripTrials, cls).setUpClass()
 
-        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-
-        self.singletif, self.multitif = make_dummy_data.make_dummy_tif_files(self.TmpDir)
-        
-        self.testFailed = False
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
 
     @classmethod
-    def tearDownClass(self):
-        if not self.testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        
+
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failed_tests) > 0 or len(result.errors) > 0:
-            self.testFailed = True
-        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
-        for ea in glob.glob("{}//*//".format(self.TmpDir)):
-            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
-                shutil.rmtree(ea)
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
     def test_CreateStripTreatmentPoints(self):
         import pandas
         import geopandas
-        print ('Pandas Version is ', pandas.__version__)
-        print ('GeoPandas Version is ', geopandas.__version__)
+        print('Pandas Version is ', pandas.__version__)
+        print('GeoPandas Version is ', geopandas.__version__)
 
-        out_points_file = os.path.join(self.TmpDir, 'testCreateStripTreatment_Points.shp')
-        out_lines_file = os.path.join(self.TmpDir, 'testCreateStripTreatment_Lines.shp')
+        out_points_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Points.shp')
+        out_lines_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Lines.shp')
 
         in_lines_gdf = GeoDataFrame(
-            {'geometry': [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
-                          LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
-                          LineString([(741400, 6169800, 7), (741355, 6169780, 7),
-                                      (741300, 6169800, 7), (741250, 6169950, 7),
-                                      (741150, 6169950, 7), (741100, 6170000, 7)]),
-                          LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
+            {'geometry'    : [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
+                              LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
+                              LineString([(741400, 6169800, 7), (741355, 6169780, 7),
+                                          (741300, 6169800, 7), (741250, 6169950, 7),
+                                          (741150, 6169950, 7), (741100, 6170000, 7)]),
+                              LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
                 , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         gdf_lines_crs = crs()
@@ -402,19 +405,19 @@ class TestStripTrials(unittest.TestCase):
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 
-        values_rast = os.path.realpath(THIS_DIR + "/data/rasters/Yield_withStrip_PRED_2m.tif")
-        control_raster = os.path.realpath(THIS_DIR + "/data/rasters/Yield_withoutStrip_PRED_2m.tif")
-        zone_raster = os.path.realpath(THIS_DIR + "/data/rasters/k-means_3clusters_3rasters_2m.tif")
+        values_rast = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Yield_withStrip_PRED_2m.tif'))
+        control_raster = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Yield_withoutStrip_PRED_2m.tif'))
+        zone_raster = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'k-means_3clusters_3rasters_2m.tif'))
 
         result = ttest_analysis(gdf_points, crs_points,
-                                values_rast, self.TmpDir,
+                                values_rast, self.test_outdir,
                                 zone_raster=zone_raster,
                                 control_raster=control_raster)
 
         self.assertEqual(13, len(result.columns))
-        file_csv = glob.glob(os.path.join(self.TmpDir, '*.csv'))
-        file_graph = glob.glob(os.path.join(self.TmpDir, '*graph.png'))
-        file_map = glob.glob(os.path.join(self.TmpDir, '*map.png'))
+        file_csv = glob.glob(os.path.join(self.test_outdir, 'Trial*.csv'))
+        file_graph = glob.glob(os.path.join(self.test_outdir, 'Trial*graph.png'))
+        file_map = glob.glob(os.path.join(self.test_outdir, 'Trial*map.png'))
 
         self.assertEqual(4, len(file_csv))
         self.assertEqual(4, len(file_graph))
@@ -422,44 +425,45 @@ class TestStripTrials(unittest.TestCase):
 
 
 class TestExtractRasterStatisticsForPoints(unittest.TestCase):
+    failedTests = []
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestExtractRasterStatisticsForPoints, self).setUpClass()
+        super(TestExtractRasterStatisticsForPoints, cls).setUpClass()
 
-        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-        self.singletif, self.multitif = make_dummy_data.make_dummy_tif_files(self.TmpDir)
-        
-        self.testFailed = False
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
 
     @classmethod
-    def tearDownClass(self):
-        if not self.testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failed_tests) > 0 or len(result.errors) > 0:
-            self.testFailed = True
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
-        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
-        for ea in glob.glob("{}//*//".format(self.TmpDir)):
-            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
-                shutil.rmtree(ea)
     def test_SingleBand_MGA(self):
 
         raster_file = self.singletif
-        out_csv = os.path.join(self.TmpDir, os.path.basename(raster_file).replace('.tif', '_b1grdext.csv'))
+
+        out_csv = os.path.join(self.test_outdir, os.path.basename(raster_file).replace('.tif', '_b1grdext.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
@@ -480,7 +484,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         _ = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         raster_file = self.singletif
-        out_csv = os.path.join(self.TmpDir,
+        out_csv = os.path.join(self.test_outdir,
                                os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
@@ -504,39 +508,38 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
 
 
 class TestCalculateImageIndices(unittest.TestCase):
+    failedTests = []
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestCalculateImageIndices, self).setUpClass()
-        
-        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
+        super(TestCalculateImageIndices, cls).setUpClass()
 
-        
-        self.testFailed = False
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
     @classmethod
-    def tearDownClass(self):
-        if not self.testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failed_tests) > 0 or len(result.errors) > 0:
-            self.testFailed = True
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
-        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
-        for ea in glob.glob("{}//*//".format(self.TmpDir)):
-            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
-                shutil.rmtree(ea)
     def test_allOptions(self):
 
         # '''All Options includes:
@@ -546,238 +549,291 @@ class TestCalculateImageIndices(unittest.TestCase):
         #     Use Shapefile AND groupby field
         # '''
 
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1, mask=5),
-                                       out_dir, indices=indices, image_epsg=32754, image_nodata=0,
+                                       self.test_outdir, indices=indices, image_epsg=32754, image_nodata=0,
                                        polygon_shapefile=poly_shapefile,
                                        groupby='part_type', out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
         self.assertEqual(len(files), 4)
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.count, 1)
-            self.assertEqual(src.crs.wkt, dst_crs.wkt)
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(src.crs.wkt, dst_crs.wkt, 'Incorrect coordinate system')
             self.assertEqual(src.tags(1)['name'], indices[0])
-            self.assertEqual(src.nodata, -9999)
-            self.assertEqual(src.meta['dtype'], 'float32')
+            self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
+            self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # coords 300725.0, 6181571.0
-            self.assertEqual(src.read(1)[47, 62], -9999)
-            # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 0.20820355, 4)
+            # [x coord, y coord, value, check to decimal places]
+            check_coords = [[300725.0, 6181571.0, -9999, 0],
+                            [300647.0, 6181561.0, 0.22253361, 4]]
+
+            for ea in check_coords:
+                x, y, val, decpts = ea
+                row, col = src.index(x, y)
+                actual_val = src.read(1)[row, col]
+
+                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+
+                if decpts == 0:
+                    self.assertEqual(val, actual_val,
+                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
+                else:
+                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                                                  os.path.basename(
+                                                                                                                      src.name)))
 
     def test_dontApplyNonVineMask(self):
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
-                                       out_dir, indices=indices, image_epsg=32754, image_nodata=0,
+                                       self.test_outdir, indices=indices, image_epsg=32754, image_nodata=0,
                                        polygon_shapefile=poly_shapefile,
                                        groupby='part_type', out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
-        self.assertEqual(len(files), 4)
+        self.assertEqual(4, len(files))
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.count, 1)
-            self.assertEqual(src.crs.wkt, dst_crs.wkt)
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(src.crs.wkt, dst_crs.wkt, 'Incorrect coordinate system')
             self.assertEqual(src.tags(1)['name'], indices[0])
-            self.assertEqual(src.nodata, -9999)
-            self.assertEqual(src.meta['dtype'], 'float32')
+            self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
 
-            # coords 300725.0, 6181571.0
-            self.assertEqual(src.read(1)[47, 62], -9999)
-            # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 0.070868947, 4)
+            self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
+
+            # [x coord, y coord, value, check to decimal places] 
+            check_coords = [[300725.0, 6181571.0, -9999, 0],
+                            [300647.0, 6181561.0, 0.02232674, 4]]
+
+            for ea in check_coords:
+                x, y, val, decpts = ea
+                row, col = src.index(x, y)
+                actual_val = src.read(1)[row, col]
+
+                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+
+                if decpts == 0:
+                    self.assertEqual(val, actual_val,
+                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
+                else:
+                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                                                  os.path.basename(
+                                                                                                                      src.name)))
 
     def test_noShapefile(self):
+        # Use Full Image......
+        #     No Shapfile,
+        #     No Non-Vine mask
 
-        """ Use Full Image......
-            No Shapfile,
-            No Non-Vine mask
-        """
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
         indices = CalculateIndices(red=3, infrared=4, mask=5).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
-                                       out_dir, indices=indices, image_epsg=32754, image_nodata=0,
+                                       self.test_outdir, indices=indices, image_epsg=32754, image_nodata=0,
                                        out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
         self.assertEqual(len(files), len(indices))
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.count, 1)
+            self.assertEqual(1, src.count, 'Incorrect band count')
             self.assertEqual(src.crs.wkt, dst_crs.wkt)
             self.assertEqual(src.tags(1)['name'], indices[0])
-            self.assertEqual(src.nodata, -9999)
-            self.assertEqual(src.meta['dtype'], 'float32')
+            self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
+            self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # test for values at coords
-            row, col = src.index(300725, 6181571)
-            self.assertAlmostEqual(src.read(1)[int(row), int(col)], -0.05087604, 4)
+            # [x coord, y coord, value, check to decimal places] 
+            check_coords = [[300725, 6181571, -0.05087604, 4],
+                            [300647.0, 6181561.0, 0.02232674, 4],
+                            [300881.342, 6181439.444, -9999, 0]]
 
-            row, col = src.index(300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[int(row), int(col)], 0.02232674, 4)
+            for ea in check_coords:
+                x, y, val, decpts = ea
+                row, col = src.index(x, y)
+                actual_val = src.read(1)[row, col]
 
-            row, col = src.index(300881.342, 6181439.444)
-            self.assertEqual(src.read(1)[int(row), int(col)], -9999)
+                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+
+                if decpts == 0:
+                    self.assertEqual(val, actual_val,
+                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
+                else:
+                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                                                  os.path.basename(
+                                                                                                                      src.name)))
 
     def test_noGroupby(self):
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
         bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
 
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
         indices = CalculateIndices(**bm).valid_indices()
         files = calc_indices_for_block(image_file, 2,
                                        BandMapping(red=3, green=2, infrared=4, rededge=1),
-                                       out_dir, indices=indices, image_epsg=32754, image_nodata=0,
+                                       self.test_outdir, indices=indices, image_epsg=32754, image_nodata=0,
                                        polygon_shapefile=poly_shapefile,
                                        out_epsg=28354)
 
         self.assertEqual(len(indices), 3)
         self.assertEqual(len(files), len(indices))
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.nodata, -9999)
-            self.assertEqual(src.crs, rasterio.crs.CRS.from_epsg(28354))
-            self.assertEqual(src.dtypes, ('float32',))
+            self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system ')
+            self.assertEqual(('float32',), src.dtypes, 'Incorrect data type')
             self.assertEqual(src.res, (2.0, 2.0))
-            self.assertEqual(src.count, 1)
+            self.assertEqual(1, src.count, 'Incorrect band count')
 
 
 class TestResampleToBlock(unittest.TestCase):
+    failedTests = []
+
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestResampleToBlock, self).setUpClass()
-
-        self.TmpDir = setup_folder(base_folder=TEMP_FOLD,  new_folder=__class__.__name__)
-
-        
-        self.testFailed = False
+        super(TestResampleToBlock, cls).setUpClass()
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
     @classmethod
-    def tearDownClass(self):
-        if not self.testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.startTime
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-        
+
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failed_tests) > 0 or len(result.errors) > 0:
-            self.testFailed = True
-        failed_tests = [ea.split('.')[-1] for ea in result.failed_tests]
-        for ea in glob.glob("{}//*//".format(self.TmpDir)):
-            if not os.path.basename(os.path.dirname(ea)) in list(failed_tests):
-                shutil.rmtree(ea)
+
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
     def test_allOptions(self):
 
-        """ All Options includes:
-            Use a non-vine mask.
-            Original image nodata is None so set to 0
-            Reproject Image
-            Use Shapefile AND groupby field
-        """
+        # All Options includes:
+        #     Use a non-vine mask.
+        #     Original image nodata is None so set to 0
+        #     Reproject Image
+        #     Use Shapefile AND groupby field
 
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
         files = resample_bands_to_block(image_file, 2,
-                                        out_dir, band_nums=[6], image_epsg=32754, image_nodata=0,
+                                        self.test_outdir, band_nums=[6], image_epsg=32754, image_nodata=0,
                                         polygon_shapefile=poly_shapefile,
                                         groupby='part_type', out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
         self.assertEqual(len(files), 2)
-        with rasterio.open(files[0]) as src:
-            self.assertEqual(src.count, 1)
-            self.assertEqual(src.crs.wkt, dst_crs.wkt)
-            self.assertEqual(src.nodata, 0)
-            self.assertEqual(src.meta['dtype'], 'float32')
 
-            # coords 300725.0, 6181571.0
-            self.assertEqual(src.read(1)[47, 62], 0)
-            # coords (300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[52, 23], 855.23999, 4)
+        with rasterio.open(files[0]) as src:
+            self.assertEqual(src.count, 1, 'Incorrect band count')
+            self.assertEqual(src.crs.wkt, dst_crs.wkt, 'Incorrect coordinate system ')
+            self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
+            self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
+
+            # [x coord, y coord, value, check to decimal places] 
+            check_coords = [[300663, 6181573, 0, 0],
+                            [300675, 6181651, 893.1667, 4]]
+
+            for ea in check_coords:
+                x, y, val, decpts = ea
+                row, col = src.index(x, y)
+                actual_val = src.read(1)[row, col]
+
+                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+
+                if decpts == 0:
+                    self.assertEqual(val, actual_val,
+                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
+                else:
+                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                                                  os.path.basename(
+                                                                                                                      src.name)))
 
     def test_noShapefile(self):
+        # Use Full Image......
+        #     No Shapfile,
+        #     No Non-Vine mask
 
-        """ Use Full Image......
-            No Shapfile,
-            No Non-Vine mask
-        """
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        files = resample_bands_to_block(image_file, 2, self.test_outdir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, out_epsg=28354)
 
         dst_crs = rasterio.crs.CRS.from_epsg(28354)
 
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.count, 1)
-            self.assertEqual(src.crs.wkt, dst_crs.wkt)
-            self.assertEqual(src.nodata, 0)
-            self.assertEqual(src.meta['dtype'], 'float32')
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(src.crs.wkt, dst_crs.wkt, 'Incorrect coordinate system ')
+            self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
+            self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
             # test for values at coords
-            row, col = src.index(300725, 6181571)
-            self.assertAlmostEqual(src.read(1)[int(row), int(col)], 0, 4)
+            # [x coord, y coord, value, check to decimal places] 
+            check_coords = [[300725, 6181571, 0, 4],
+                            [300647.0, 6181561.0, 917.34998, 4],
+                            [300881.342, 6181439.444, 0, 0]]
 
-            row, col = src.index(300647.0, 6181561.0)
-            self.assertAlmostEqual(src.read(1)[int(row), int(col)], 917.34998, 4)
+            for ea in check_coords:
+                x, y, val, decpts = ea
+                row, col = src.index(x, y)
+                actual_val = src.read(1)[row, col]
 
-            row, col = src.index(300881.342, 6181439.444)
-            self.assertEqual(src.read(1)[int(row), int(col)], 0)
+                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+
+                if decpts == 0:
+                    self.assertEqual(val, actual_val,
+                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
+                else:
+                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                                                  os.path.basename(
+                                                                                                                      src.name)))
 
     def test_noGroupby(self):
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
-        files = resample_bands_to_block(image_file, 2, out_dir, band_nums=[6], image_epsg=32754,
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
+        files = resample_bands_to_block(image_file, 2, self.test_outdir, band_nums=[6], image_epsg=32754,
                                         image_nodata=0, polygon_shapefile=poly_shapefile,
                                         out_epsg=28354)
 
-        self.assertEqual(len(files), 1)
+        self.assertEqual(1, len(files))
 
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.nodata, 0.0)
-            self.assertEqual(src.crs, rasterio.crs.CRS.from_epsg(28354))
-            self.assertEqual(src.dtypes, ('float32',))
-            self.assertEqual(src.res, (2.0, 2.0))
-            self.assertEqual(src.count, 1)
+            self.assertEqual(0.0, src.nodata, 'Incorrect Image Nodata value')
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system ')
+            self.assertEqual(('float32',), src.dtypes, 'Incorrect data type')
+            self.assertEqual((2.0, 2.0), src.res, 'Incorrect pixel size')
+            self.assertEqual(1, src.count, 'Incorrect band count')
 
     def test_nonStandardNoDataNotSet(self):
-        """ change input image nodata to 7777 in the image but leave the nodata as none."""
 
-        out_dir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+        # change input image nodata to 7777 in the image but leave the nodata as none
 
-        # change nodata to 7777 but don't set it in the output
-        new_image = os.path.join(out_dir, 'geotif_32754_no-nodata-7777.tif')
+        new_image = os.path.join(self.test_outdir, 'geotif_32754_no-nodata-7777.tif')
         crs_sutm54 = rasterio.crs.CRS.from_epsg(32754)
 
-        image_file = os.path.realpath(THIS_DIR + '/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif')
+        image_file = os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
         with rasterio.open(image_file) as src:
             meta = src.meta.copy()
             del meta['crs']
@@ -788,16 +844,16 @@ class TestResampleToBlock(unittest.TestCase):
                     np.putmask(data, data == 0, 7777)
                     dest.write(data, i)
 
-        poly_shapefile = os.path.realpath(THIS_DIR + '/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp')
-        files = resample_bands_to_block(new_image, 2.5, out_dir, band_nums=[6], image_epsg=32754,
+        poly_shapefile = os.path.realpath(os.path.join(THIS_DIR, 'PolyMZ_wgs84_MixedPartFieldsTypes.shp'))
+        files = resample_bands_to_block(new_image, 2.5, self.test_outdir, band_nums=[6], image_epsg=32754,
                                         image_nodata=7777, polygon_shapefile=poly_shapefile,
                                         out_epsg=28354)
 
         self.assertEqual(len(files), 1)
 
         with rasterio.open(files[0]) as src:
-            self.assertEqual(src.nodata, 7777)
-            self.assertEqual(src.crs, rasterio.crs.CRS.from_epsg(28354))
-            self.assertEqual(src.dtypes, ('float32',))
-            self.assertEqual(src.res, (2.5, 2.5))
-            self.assertEqual(src.count, 1)
+            self.assertEqual(7777, src.nodata, 'Incorrect image nodata value')
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system ')
+            self.assertEqual(('float32',), src.dtypes, 'Incorrect data type')
+            self.assertEqual((2.5, 2.5), src.res, 'Incorrect pixel size')
+            self.assertEqual(1, src.count, 'Incorrect band count')

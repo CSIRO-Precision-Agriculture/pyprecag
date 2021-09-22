@@ -5,7 +5,7 @@ import os
 from pkg_resources import parse_version, get_distribution
 
 from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe, VectorDescribe
-THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data')
 
 class test_GeneralDescribe(TestCase):
     def setUp(self):
@@ -30,7 +30,7 @@ class test_GeneralDescribe(TestCase):
             ['longitude', 'latitude'])
 
     def test_from_ISO_8859_1_csv(self):
-        file = os.path.realpath(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
+        file = os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv"))
         descCSV = CsvDescribe(file)
         self.assertEqual(predictCoordinateColumnNames(descCSV.get_column_names()), ['Longitude', 'Latitude'])
 
@@ -46,13 +46,13 @@ class test_VectorDescribe_QGIS(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_wgs84_mixedPartLine_MZ_qgisprj(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/LineMZ_wgs84_MixedPartFieldsTypes_exportedqgis.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "LineMZ_wgs84_MixedPartFieldsTypes_exportedqgis.shp")))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'MultiLineString')
 
     def test_mga_singlePartPoly_qgisprj(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/Poly_mga54_SinglePartFieldsTypes_qgis-prj.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "Poly_mga54_SinglePartFieldsTypes_qgis-prj.shp")))
         self.assertEqual(vDesc.crs.epsg_number, 28354)
         self.assertFalse(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'Polygon')
@@ -67,13 +67,13 @@ class test_VectorDescribe_ESRI(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_noprojection_mixedPartPoint_MZ(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/PointMZ_mga54_MixedPartFieldsTypes_noPrj.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "PointMZ_mga54_MixedPartFieldsTypes_noPrj.shp")))
         self.assertIsNone(vDesc.crs.srs)
         self.assertIsNone(vDesc.crs.epsg_number)
         self.assertEqual(vDesc.geometry_type, 'MultiPoint')
 
     def test_wgs84_mixedPartLine_MZ_esriprj(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/LineMZ_wgs84_MixedPartFieldsTypes_esri.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "LineMZ_wgs84_MixedPartFieldsTypes_esri.shp")))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'MultiLineString')
@@ -99,7 +99,7 @@ class test_VectorDescribe_ESRI(TestCase):
             self.assertDictEqual(vDesc.column_properties[key], val)
 
     def test_wgs84_mixedPartLine_MZ_esriprj_GH(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/LineMZ_wgs84_MixedPartFieldsTypes_esri.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "LineMZ_wgs84_MixedPartFieldsTypes_esri.shp")))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'MultiLineString')
@@ -131,7 +131,7 @@ class test_VectorDescribe_ESRI(TestCase):
                                                                   ('geometry', {'shapefile': 'geometry', 'alias': 'geometry', 'type': 'geometry', 'dtype': 'object'})]))
                                                                   
     def test_wgs84_mixedPartPoly_MZ_esriprj(self):
-        vDesc = VectorDescribe(os.path.realpath(THIS_DIR + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
+        vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp")))
         self.assertEqual(vDesc.crs.epsg_number, 4326)
         self.assertTrue(vDesc.is_mz_aware)
         self.assertEqual(vDesc.geometry_type, 'MultiPolygon')
@@ -146,7 +146,7 @@ class test_CsvDescribe(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_csvfile_UTF8(self):
-        csvDesc = CsvDescribe(os.path.realpath(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv"))
+        csvDesc = CsvDescribe(os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")))
 
 
         # chardet seems to detect this file as ISO-8869-9, which is described
@@ -171,7 +171,7 @@ class test_CsvDescribe(TestCase):
         self.assertFalse(all(ord(char) < 128 for char in csvDesc.get_column_names()[-2]))
 
     def test_csvfile_ascii(self):
-        csvDesc = CsvDescribe(os.path.realpath(THIS_DIR + "/data/area1_yield_ascii_wgs84.csv"))
+        csvDesc = CsvDescribe(os.path.realpath(os.path.join(THIS_DIR, "area1_yield_ascii_wgs84.csv")))
 
         self.assertEqual(csvDesc.file_encoding, 'ascii')
         self.assertEqual(csvDesc.row_count, 13756)

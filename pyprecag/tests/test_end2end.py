@@ -2,7 +2,7 @@ import platform
 import shutil
 import tempfile
 import unittest
-from pyprecag.tests import setup_folder
+from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
 
 from pyprecag import convert, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
@@ -12,25 +12,24 @@ from pyprecag.raster_ops import rescale, normalise
 from pyprecag.kriging_ops import prepare_for_vesper_krige, vesper_text_to_raster, run_vesper, VesperControl
 
 PY_FILE = os.path.basename(__file__)
-
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
-
-THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-file_csv = os.path.realpath(THIS_DIR + "/data/area1_yield_ascii_wgs84.csv")
-fileBox = os.path.realpath(THIS_DIR + "/data/area1_onebox_94mga54.shp")
-fileBoxes = os.path.realpath(THIS_DIR + "/data/PolyMZ_wgs84_MixedPartFieldsTypes.shp")
+file_csv = os.path.realpath(os.path.join(THIS_DIR, "area1_yield_ascii_wgs84.csv"))
+fileBox = os.path.realpath(os.path.join(THIS_DIR, "area1_onebox_94mga54.shp"))
+fileBoxes = os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
 
-rasters_dir = os.path.realpath(THIS_DIR + "/data/rasters")
-fileImage = os.path.realpath(rasters_dir + "/area1_rgbi_jan_50cm_84sutm54.tif")
+rasters_dir = os.path.realpath(os.path.join(THIS_DIR, "rasters"))
+fileImage = os.path.realpath(os.path.join(rasters_dir , "area1_rgbi_jan_50cm_84sutm54.tif"))
 
 epsg = 28354
 
 
 class TestEnd2End(unittest.TestCase):
+    failedTests = []
     gridextract_files = []
 
     @classmethod
@@ -40,11 +39,9 @@ class TestEnd2End(unittest.TestCase):
 
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD)
 
-        cls.testFailed = False
-
     @classmethod
     def tearDownClass(cls):
-        if not cls.testFailed:
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
             print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
@@ -56,10 +53,9 @@ class TestEnd2End(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def run(self, result=None):
-
         unittest.TestCase.run(self, result)  # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            self.testFailed = True
+            self.failedTests.append(self._testMethodName)
 
     def test01_csvDescribe_ASCII(self):
         csv_desc = CsvDescribe(file_csv)
@@ -128,25 +124,22 @@ class TestEnd2End(unittest.TestCase):
         self.assertTrue(os.path.exists(fileBlockTif))
         self.assertTrue(os.path.exists(file_block_txt))
 
-        with rasterio.open(os.path.normpath(fileBlockTif)) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 95)
-            self.assertEqual(dataset.height, 95)
-            self.assertEqual(dataset.nodatavals, (-9999.0,))
-            self.assertEqual(dataset.dtypes, ('int16',))
+        with rasterio.open(os.path.normpath(fileBlockTif)) as src:
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(95, src.width, 'Incorrect image width')
+            self.assertEqual(95, src.height, 'Incorrect image height')
+            self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
+            self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
 
             print(vect_desc.crs.crs_wkt)
-            print('SRS:\t{}'.format(dataset.crs))
+            print('SRS:\t{}'.format(src.crs))
         print('Temp Files in {}'.format(self.TmpDir))
 
     def test05_cleanTrimPoints(self):
         global fileTrimmed, data_col
-        fileTrimmed = os.path.join(self.TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_normtrimmed.csv')
-        file_shp = os.path.join(self.TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_normtrimmed.shp')
-        file_removed = os.path.join(self.TmpDir, os.path.splitext(
-            os.path.basename(file_csv))[0] + '_remove.shp')
+        fileTrimmed = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_normtrimmed.csv')
+        file_shp = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_normtrimmed.shp')
+        file_removed = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(file_csv))[0] + '_remove.shp')
 
         data_col = r'Yield'
 
@@ -222,25 +215,26 @@ class TestEnd2End(unittest.TestCase):
             SE = test_lines[0].split(':')[-1].strip()
             CI95 = test_lines[1].split(':')[-1].strip()
 
-        with rasterio.open(os.path.normpath(out_predtif)) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 94)
-            self.assertEqual(dataset.height, 93)
-            self.assertEqual(dataset.nodatavals, (-9999.0,))
-            self.assertEqual(dataset.dtypes, ('float32',))
-            self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
-            self.assertTrue(dataset.tags()['PAT_MedianPredSE'])
-            self.assertTrue(dataset.tags()['PAT_95ConfLevel'])
-            self.assertEqual(dataset.tags()['PAT_MedianPredSE'], SE)
-            self.assertEqual(dataset.tags()['PAT_95ConfLevel'], CI95)
+        with rasterio.open(os.path.normpath(out_predtif)) as src:
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(94, src.width, 'Incorrect image width')
+            self.assertEqual(93, src.height, 'Incorrect image height')
+            self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
+            self.assertEqual(('float32',), src.dtypes, 'Incorrect data type')
 
-        with rasterio.open(os.path.normpath(out_setif)) as dataset:
-            self.assertEqual(dataset.count, 1)
-            self.assertEqual(dataset.width, 94)
-            self.assertEqual(dataset.height, 93)
-            self.assertEqual(dataset.nodatavals, (-9999.0,))
-            self.assertEqual(dataset.dtypes, ('float32',))
-            self.assertEqual(dataset.crs, rasterio.crs.CRS.from_epsg(28354))
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system')
+            self.assertTrue(src.tags()['PAT_MedianPredSE'])
+            self.assertTrue(src.tags()['PAT_95ConfLevel'])
+            self.assertEqual(src.tags()['PAT_MedianPredSE'], SE)
+            self.assertEqual(src.tags()['PAT_95ConfLevel'], CI95)
+
+        with rasterio.open(os.path.normpath(out_setif)) as src:
+            self.assertEqual(1, src.count, 'Incorrect band count')
+            self.assertEqual(94, src.width, 'Incorrect image width')
+            self.assertEqual(93, src.height, 'Incorrect image height')
+            self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
+            self.assertEqual(('float32',), src.dtypes, 'Incorrect data type')
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system')
 
     def test08_randomPixelSelection(self):
         global rand_gdf, rand_crs
@@ -256,8 +250,9 @@ class TestEnd2End(unittest.TestCase):
         self.assertEqual(rast_crs.epsg, rand_gdf.crs)
 
     def test09_calcImageIndices_allopts(self):
+
         out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-       bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
+        bm = BandMapping(green=2, infrared=4, rededge=1, mask=5)
         indices = CalculateIndices(**bm).valid_indices()
         files = calc_indices_for_block(fileImage, 2.5, bm, out_fold, indices, image_nodata=0,
                                        image_epsg=32754, polygon_shapefile=fileBox, out_epsg=28354)
@@ -268,10 +263,10 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(files[0]) as src:
             self.assertEqual(src.nodata, -9999)
-            self.assertEqual(src.crs, rasterio.crs.CRS.from_epsg(28354))
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system ')
             self.assertEqual(src.meta['dtype'], 'float32')
             self.assertEqual(src.res, (2.5, 2.5))
-            self.assertEqual(src.count, 1)
+            self.assertEqual(1, src.count, 'Incorrect band count')
 
     def test10_resampleBands2Block_allopts(self):
         out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
@@ -285,10 +280,10 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(files[0]) as src:
             self.assertEqual(src.nodata, 0.0)
-            self.assertEqual(src.crs, rasterio.crs.CRS.from_epsg(28354))
+            self.assertEqual(rasterio.crs.CRS.from_epsg(28354), src.crs, 'Incorrect coordinate system ')
             self.assertEqual(src.meta['dtype'], 'float32')
             self.assertEqual(src.res, (2.5, 2.5))
-            self.assertEqual(src.count, 1)
+            self.assertEqual(1, src.count, 'Incorrect band count')
 
     def test11_rescaleNormaliseRaster(self):
         in_file = self.gridextract_files[-1]
@@ -332,7 +327,7 @@ class TestEnd2End(unittest.TestCase):
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(self.gridextract_files +
-                                  [os.path.realpath(rasters_dir + '/area1_onebox_NDRE_250cm.tif')],
+                                  [os.path.realpath(os.path.join(rasters_dir, 'area1_onebox_NDRE_250cm.tif'))],
                                   out_img)
 
         self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
@@ -341,7 +336,7 @@ class TestEnd2End(unittest.TestCase):
 
         self.assertTrue(os.path.exists(out_img))
         self.assertTrue(os.path.exists(out_img.replace('.tif', '_statistics.csv')))
-        self.assertEqual(3, len(out_df['zone'].unique()))
+        self.assertEqual(5, len(out_df['zone'].unique()))
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)

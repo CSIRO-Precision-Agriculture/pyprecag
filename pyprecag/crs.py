@@ -87,7 +87,7 @@ class crs:
             code = source.GetAuthorityCode(None)
 
             if code is None:
-                if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+                if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
                     pyproj_crs = pyproj.CRS(source.GetName())
                     code = pyproj_crs.to_epsg()
             if code is None:
@@ -128,30 +128,20 @@ class crs:
             self.set_epsg(epsg)
             self.epsg_predicted = False
 
-    def getEPSGFromSRS(self, osr_srs, bOnlineLookup=False, bUpdateToCorrectDefn=False):
+    def getEPSGFromSRS(self, osr_srs, bUpdateToCorrectDefn=False):
         """Get the EPSG number for a Spatial Reference System.
 
            If the Spatial reference system does not contain an EPSG number it will attempt to find one.
-
-           If bOnlineLookup is set to True it will use the online lookup service at  http://prj2epsg.org to attempt to
-           identify the EPSG. This service will return a list of potential EPSG numbers. If a direct match is not found,
-           then it will return None.
-
-           If bOnlineLookup is set to False OR the online lookup fails, then it will attempt to match the input
-           spatial reference system by looping through the list and attempting a proj4 string match if this still fails,
-           then it will attempt a match to australian projected coordinate system
 
            adapted from : https://gis.stackexchange.com/a/8888
 
         Args:
             osr_srs (osgeo.osr.SpatialReference):
-            bOnlineLookup (bool): Use the Open Geo Lookup Service
             bUpdateToCorrectDefn (bool): overwrite existing with the found definition
         Returns:
             int: EPSG Number for the matched Spatial Reference System.
 
         """
-        warnings.warn('bOnlineLookup is deprecated', DeprecationWarning)
 
         if osr_srs is None:
             return
@@ -209,26 +199,26 @@ class crs:
             self.getFromEPSG(int(epsg))
             self.set_epsg(epsg)
 
-        return int(epsg)
+            return int(epsg)
 
 
 def from_epsg(epsg_number):
     """
     Get a coordinate system for the epsg number.
-    if pyproj is pre 2.5.0 then use a string created using fiona.crs.from_epsg, otherwise use the pyproj option.
+    if pyproj is pre 2.4.0 then use a string created using fiona.crs.from_epsg, otherwise use the pyproj option.
     Args:
         epsg_number: The epsg number representing the coordinate system.
 
     Returns:
-        object: pyproj.crs     The newer pyproj 2.5+ crs object compatible with Proj 6+
+        object: pyproj.crs     The newer pyproj 2.4+ crs object compatible with Proj 6+
                 or
                string          Derived from epsg using fiona.
     """
-    if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+    if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
         crs = pyproj.CRS.from_epsg(epsg_number)
     else:
-        import fiona
-        crs = fiona.crs.from_epsg(epsg_number)
+        from fiona import crs as fio_crs
+        crs = fio_crs.from_epsg(epsg_number)
     return crs
 
 
@@ -327,7 +317,7 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
 
     # Coordinates need to be in wgs84 so project them
     if xy_epsg != 4326:
-        if parse_version(pyproj.__version__) >= parse_version('2.5.0'):
+        if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
             inProj = from_epsg(xy_epsg)                  #Proj(init='epsg:{}'.format(xy_epsg))
             outProj = from_epsg(4326)                    #Proj(init='epsg:4326')
 

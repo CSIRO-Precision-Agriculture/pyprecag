@@ -5,16 +5,16 @@ import time
 import unittest
 
 from pyprecag.convert import convert_csv_to_points
-from pyprecag.tests import setup_folder
+from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
 from pyprecag.vector_ops import thin_point_by_distance
 
 PY_FILE = os.path.basename(__file__)
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
-
-THIS_DIR = os.path.abspath(os.path.dirname(__file__))
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data')
 
 
 class test_vectorOps(unittest.TestCase):
+    failedTests = []
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
@@ -22,12 +22,9 @@ class test_vectorOps(unittest.TestCase):
 
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
-        
-        cls.testFailed = False
-
     @classmethod
     def tearDownClass(cls):
-        if not cls.testFailed:
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
             print('Folder Exists.. Deleting {}'.format(TEMP_FOLD))
             shutil.rmtree(TEMP_FOLD)
 
@@ -42,11 +39,11 @@ class test_vectorOps(unittest.TestCase):
         
         unittest.TestCase.run(self, result) # call superclass run method
         if len(result.failures) > 0 or len(result.errors) > 0:
-            self.testFailed=True
+            self.failedTests=True
 
     def test_thinPointByDistance_mga54(self):
 
-        file = os.path.realpath(THIS_DIR + "/data/area2_yield_ISO-8859-1.csv")
+        file = os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv"))
         out_epsg = 28354
         out_file = os.path.join(self.TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(out_epsg)))
         gdf, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
