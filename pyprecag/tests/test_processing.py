@@ -1,11 +1,15 @@
 import shutil
 import tempfile
 import unittest
+
+
 from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
 from pyprecag import convert, raster_ops
+from pyprecag.convert import add_point_geometry_to_dataframe
+
 from pyprecag.processing import *
 
 PY_FILE = os.path.basename(__file__)
@@ -224,7 +228,7 @@ class TestProcessing(unittest.TestCase):
             six.assertCountEqual(self, [-9999, 0, 1, 2, 3], np.unique(band1.data).tolist())
 
     def test_PersistorTargetProb(self):
-        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters','Year*.tif')))
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
 
         out_img = os.path.join(self.TmpDir, 'persistor_targetprob.tif')
 
@@ -343,7 +347,7 @@ class TestStripTrials(unittest.TestCase):
                                                                           lines_crs, 31, 25)
 
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
-        self.assertEqual(69, len(out_points_gdf))
+        self.assertEqual(69, len(out_points_gdf), "Row count doesn't match")
 
         self.assertEqual(lines_crs.epsg_number, out_crs.epsg_number)
         self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
@@ -419,9 +423,9 @@ class TestStripTrials(unittest.TestCase):
         file_graph = glob.glob(os.path.join(self.test_outdir, 'Trial*graph.png'))
         file_map = glob.glob(os.path.join(self.test_outdir, 'Trial*map.png'))
 
-        self.assertEqual(4, len(file_csv))
-        self.assertEqual(4, len(file_graph))
-        self.assertEqual(2, len(file_map))
+        self.assertEqual(4, len(file_csv), "CSV File count doesn't match")
+        self.assertEqual(4, len(file_graph), "Graph File count doesn't match")
+        self.assertEqual(2, len(file_map), "Map File count doesn't match")
 
 
 class TestExtractRasterStatisticsForPoints(unittest.TestCase):
@@ -435,6 +439,9 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
         cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
+
+        df = pd.read_csv(os.path.realpath(os.path.join(THIS_DIR, 'area1_dummypoints_94mga54.csv')))
+        cls.gdf_points,  cls.crs_points = add_point_geometry_to_dataframe(df, ['X', 'Y'], 28354)
 
     @classmethod
     def tearDownClass(cls):
@@ -459,7 +466,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
                 shutil.rmtree(self.test_outdir)
 
-    def test_SingleBand_MGA(self):
+    def test_SingleBand_ptsMGA(self):
 
         raster_file = self.singletif
 
@@ -467,44 +474,38 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            pts_gdf, pts_crs = random_pixel_selection(raster, rast_crs, 50)
-
             out_gdf, out_crs = \
-                extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
+                extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
                                                     function_list=[np.nanmean, raster_ops.nancv],
                                                     size_list=[1, 3, 7], output_csvfile=out_csv)
 
-        self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(len(out_gdf), len(pts_gdf))
-        self.assertTrue(len(pts_gdf.columns), len(out_gdf.columns) + 5)
-        self.assertTrue(out_crs, rast_crs)
+        self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
+        self.assertEqual(len(out_gdf), len(self.gdf_points), "Row count doesn't match")
 
-    def test_SingleBand_WGS84(self):
-        raster_file = self.singletif
-        _ = pyprecag_crs.getCRSfromRasterFile(raster_file)
+        self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
+        self.assertEqual(rast_crs.crs_wkt, out_crs.crs_wkt,  "Coordinate system doesn't match raster")
+        self.assertEqual(self.crs_points.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match GDF")
+
+    def test_SingleBand_ptsWGS84(self):
+
+        # reproject points to wgs84
+        self.crs_points.getFromEPSG(4326)
+        self.gdf_points.to_crs(epsg=4326, inplace=True)
 
         raster_file = self.singletif
-        out_csv = os.path.join(self.test_outdir,
-                               os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
+
+        out_csv = os.path.join(self.test_outdir, os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
-        with rasterio.open(os.path.normpath(raster_file)) as raster:
-            pts_gdf, pts_crs = random_pixel_selection(raster, rast_crs, 50)
+        out_gdf, out_crs = extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
+                                                               function_list=[np.nanmean, raster_ops.nancv],
+                                                               size_list=[1, 3, 7], output_csvfile=out_csv)
 
-        pts_crs.getFromEPSG(4326)
-        pts_gdf.to_crs(epsg=4326, inplace=True)
-
-        out_gdf, out_crs = \
-            extract_pixel_statistics_for_points(pts_gdf, pts_crs, [raster_file],
-                                                function_list=[np.nanmean, raster_ops.nancv],
-                                                size_list=[1, 3, 7], output_csvfile=out_csv)
-
-        self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(len(out_gdf), len(pts_gdf))
-        self.assertTrue(len(pts_gdf.columns), len(out_gdf.columns) + 5)
-        self.assertTrue(out_crs, rast_crs)
-        self.assertTrue(pts_crs, out_crs)
-        self.assertEqual(out_gdf['mean7x7_test_singleband_94mga54'].isnull().sum(), 0)
+        self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
+        self.assertEqual(len(self.gdf_points), len(out_gdf), "Row count doesn't match")
+        self.assertEqual(len(self.gdf_points.columns)+8, len(out_gdf.columns), "Column count doesn't match")
+        self.assertEqual(self.crs_points, out_crs, "Coordinate system doesn't match GDF")
+        self.assertEqual(2, out_gdf['mean7x7_dummy_singleband_94mga54'].isnull().sum(), 'There should be 2 nodata values')
 
 
 class TestCalculateImageIndices(unittest.TestCase):
@@ -644,7 +645,7 @@ class TestCalculateImageIndices(unittest.TestCase):
         self.assertEqual(len(files), len(indices))
         with rasterio.open(files[0]) as src:
             self.assertEqual(1, src.count, 'Incorrect band count')
-            self.assertEqual(src.crs.wkt, dst_crs.wkt)
+            self.assertEqual(src.crs.wkt, dst_crs.wkt, 'Incorrect Coordinate System')
             self.assertEqual(src.tags(1)['name'], indices[0])
             self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')

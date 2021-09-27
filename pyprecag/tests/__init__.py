@@ -7,10 +7,16 @@ import numpy as np
 
 import rasterio
 import shutil
-from pyprecag import config
 
-KEEP_TEST_OUTPUTS = False
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
+
+from pyprecag import config
+from pyprecag.crs import crs
+
+KEEP_TEST_OUTPUTS = True
 config.set_debug_mode(False)
+
 
 def setup_folder(base_folder, new_folder=''):
     """Usage:
@@ -30,6 +36,7 @@ def setup_folder(base_folder, new_folder=''):
 
     return out_path
 
+
 def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
     """
     Add a traceback to warnings to help locate where it being triggered
@@ -43,7 +50,7 @@ def warn_with_traceback(message, category, filename, lineno, file=None, line=Non
     Use     warnings.resetwarnings()     to reset
 
    """
-    log = file if hasattr(file,'write') else sys.stderr
+    log = file if hasattr(file, 'write') else sys.stderr
     traceback.print_stack(file=log)
     log.write(warnings.formatwarning(message, category, filename, lineno, line))
 
@@ -63,7 +70,7 @@ def make_dummy_tif_files(out_dir):
     """
 
     # create and apply a transform based on epsg_number:28354
-    xmin, ymax = [350110, 6060000]  # UL  coordinate required for transform
+    xmin, ymax = [300600, 6181500]  # UL  coordinate required for transform
     from rasterio.transform import from_origin
     transform = from_origin(xmin, ymax, 1, 1)
 
@@ -95,14 +102,14 @@ def make_dummy_tif_files(out_dir):
     band2[np.isnan(band2)] = -9999
     band3[np.isnan(band3)] = -9999
 
-    in_tif_single = os.path.join(out_dir, 'test_singleband_94mga54.tif')
+    in_tif_single = os.path.join(out_dir, 'dummy_singleband_94mga54.tif')
     with rasterio.open(os.path.normpath(in_tif_single), 'w', crs='EPSG:28354', driver='GTiff',
                        height=Z.shape[0], width=Z.shape[1],
                        dtype=np.float32, count=1, nodata=-9999,
                        transform=transform) as dst:
         dst.write(band1.astype(np.float32), 1)
 
-    in_tif_multi = os.path.join(out_dir, 'test_3band_94mga54.tif')
+    in_tif_multi = os.path.join(out_dir, 'dummy_3band_94mga54.tif')
     with rasterio.open(os.path.normpath(in_tif_multi), 'w', crs='EPSG:28354', driver='GTiff',
                        height=Z.shape[0], width=Z.shape[1],
                        dtype=np.float32, count=3, nodata=-9999,

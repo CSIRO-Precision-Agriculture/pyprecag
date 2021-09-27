@@ -89,19 +89,19 @@ class test_rasterOps(unittest.TestCase):
             arr = arr.astype(np.float32)
             self.assertEqual(0.0363851934671402, float(np.nanmin(arr)) )
             self.assertEqual( 6.991053581237793, float(np.nanmax(arr)) )
-            self.assertEqual('mean5x5_test_singleband_94mga54',col, 'Incorrect column name')
+            self.assertEqual('mean5x5_dummy_singleband_94mga54',col, 'Incorrect column name')
 
             arr, col = raster_ops.focal_statistics(src, size=3, function=raster_ops.nancv)
             arr = arr.astype(np.float32)
             self.assertEqual( 2.632201585583971e-06, float(np.nanmin(arr)))
             self.assertEqual(0.5194834470748901, float(np.nanmax(arr)) )
-            self.assertEqual('cv3x3_test_singleband_94mga54', col, 'Incorrect column name')
+            self.assertEqual('cv3x3_dummy_singleband_94mga54', col, 'Incorrect column name')
 
             arr, col = raster_ops.focal_statistics(src, size=9, function=raster_ops.pixelcount)
             arr = arr.astype(np.float32)
             self.assertEqual(5.0, float(np.nanmin(arr)),)
             self.assertEqual(81.0, float(np.nanmax(arr)), )
-            self.assertEqual('pixelcount9x9_test_singleband_94mga54', col, 'Incorrect column name')
+            self.assertEqual('pixelcount9x9_dummy_singleband_94mga54', col, 'Incorrect column name')
 
     def test_focalStatisticsMultiBand(self):
         with rasterio.open(os.path.normpath(self.multitif)) as src:
@@ -109,16 +109,16 @@ class test_rasterOps(unittest.TestCase):
             arr = arr.astype(np.float32)
             self.assertEqual( 1.1673586413962767e-05, float(np.nanmin(arr)))
             self.assertEqual(0.3216133415699005, float(np.nanmax(arr)) )
-            self.assertEqual('std5x5bd1_test_3band_94mga54', col, 'Incorrect column name')
+            self.assertEqual('std5x5bd1_dummy_3band_94mga54', col, 'Incorrect column name')
 
             arr, col = raster_ops.focal_statistics(src, band_num=3, size=3, function=raster_ops.nancv)
             arr = arr.astype(np.float32)
             self.assertEqual(-34.32146072387695, float(np.nanmin(arr)) )
             self.assertEqual(517.6610717773438, float(np.nanmax(arr)) )
-            self.assertEqual('cv3x3bd3_test_3band_94mga54', col, 'Incorrect column name')
+            self.assertEqual('cv3x3bd3_dummy_3band_94mga54', col, 'Incorrect column name')
 
             arr, col = raster_ops.focal_statistics(src, band_num=2, size=9, function=raster_ops.pixelcount)
             arr = arr.astype(np.float32)
             self.assertEqual(5.0, float(np.nanmin(arr)))
             self.assertEqual(81.0, float(np.nanmax(arr)))
-            self.assertEqual('pixelcount9x9bd2_test_3band_94mga54', col, 'Incorrect column name')
+            self.assertEqual('pixelcount9x9bd2_dummy_3band_94mga54', col, 'Incorrect column name')
