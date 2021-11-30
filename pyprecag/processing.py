@@ -513,10 +513,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                 'clip polygon layer and try again')
         if len(subset) != len(clipped):
             gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter'] = 'clip'
-            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter_inc'] = len(
-                gdf_points['filter'].value_counts())
-
-            add_filter_message('clip')
+            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
+    
+            add_filter_message('clip') 
         del gdf_poly, clipped
 
         step_time = time.time()
@@ -587,11 +586,12 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     # Get a count of features per filter. filter_inc maintains the sort order
     results_table = results_table.groupby(['filter_inc', 'filter']).size() \
         .to_frame('feat_count').reset_index('filter')
-
+    
+    results_table['percent'] = (results_table['feat_count'] / results_table['feat_count'].sum()) * 100
+    
     # and add the total of the results
-    total_row = pd.DataFrame(data=[[len(results_table) + 1, 'Total',
-                                    results_table['feat_count'].sum()]],
-                             columns=['filter_inc', 'filter', 'feat_count']).set_index('filter_inc')
+    total_row = pd.DataFrame(data=[[len(results_table) + 1, 'Total',results_table['feat_count'].sum(),100]],
+                                    columns=['filter_inc', 'filter', 'feat_count','percent']).set_index('filter_inc')
 
     # Add this to results table
     results_table = results_table.append(total_row)
@@ -668,7 +668,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                 dur=str(timedelta(seconds=time.time() - step_time))))
 
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
-        results_table.to_string(index=False, justify='center')))
+        results_table.to_string(index=False, justify='center',formatters={'feat_count':"{:,d}".format,'percent':"{:.2f}%".format})))
 
     LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column), yld_mean))
     LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column), yld_std))
