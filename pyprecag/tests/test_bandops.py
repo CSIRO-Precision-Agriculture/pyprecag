@@ -9,22 +9,12 @@ from pyprecag.bandops import CalculateIndices, BandMapping
 PY_FILE = os.path.basename(__file__)
 THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data', 'rasters')
 
-TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
-
-
 class TestBandOps(unittest.TestCase):
     failedTests = []
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestBandOps, cls).setUpClass()
-        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
-
-    @classmethod
-    def tearDownClass(cls):
-        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
-            print ('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
-            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.startTime = time.time()

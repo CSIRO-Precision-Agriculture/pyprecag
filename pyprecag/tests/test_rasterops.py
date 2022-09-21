@@ -24,8 +24,6 @@ class test_rasterOps(unittest.TestCase):
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
         cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
-        
-        
 
     @classmethod
     def tearDownClass(cls):
@@ -35,6 +33,15 @@ class test_rasterOps(unittest.TestCase):
 
     def setUp(self):
         self.startTime = time.time()
+        self.test_outdir = ''
+
+    def run(self, result=None):
+        unittest.TestCase.run(self, result)  # call superclass run method
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
     def tearDown(self):
         t = time.time() - self.startTime
@@ -54,31 +61,63 @@ class test_rasterOps(unittest.TestCase):
         )
 
     def test_rescaleSingleBand(self):
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
         with rasterio.open(os.path.normpath(self.singletif)) as src:
-            rescaled = raster_ops.rescale(src, 0, 255)
-            rescaled2 = raster_ops.rescale(src, 0, 5)
-            outMeta = src.meta.copy()
+            rescaled0_255 = raster_ops.rescale(src, 0, 255)
+            rescaled0_5 = raster_ops.rescale(src, 0, 5)
+            out_meta = src.meta.copy()
 
-        self.assertEqual(0, np.nanmin(rescaled), )
-        self.assertEqual(255, np.nanmax(rescaled),)
+        if KEEP_TEST_OUTPUTS:
+            out_rescale = os.path.join(self.test_outdir,  'output_singleband_rescale0-255.tif')
+            with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+                out.write_band(1, rescaled0_255)
 
-        self.assertEqual(0, np.nanmin(rescaled2), )
-        self.assertEqual(5, np.nanmax(rescaled2), )
+            out_rescale = os.path.join(self.test_outdir, 'output_singleband_rescale0-5.tif')
+            with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+                out.write_band(1, rescaled0_5)
+
+        self.assertEqual(0, np.nanmin(rescaled0_255), )
+        self.assertEqual(255, np.nanmax(rescaled0_255),)
+
+        self.assertEqual(0, np.nanmin(rescaled0_5), )
+        self.assertEqual(5, np.nanmax(rescaled0_5), )
 
     def test_rescaleMultiBand(self):
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
         with rasterio.open(os.path.normpath(self.multitif)) as src:
-            rescaled = raster_ops.rescale(src, 0, 255, band_num=3)
-            rescaled2 = raster_ops.rescale(src, 0, 5, band_num=3)
+            rescaled0_255 = raster_ops.rescale(src, 0, 255, band_num=3)
+            rescaled0_5 = raster_ops.rescale(src, 0, 5, band_num=3)
+            out_meta = src.meta.copy()
 
-        self.assertEqual(0, int(np.nanmin(rescaled)), )
-        self.assertEqual(255, int(np.nanmax(rescaled)),)
+        out_meta.update({'count': 1})
+        if KEEP_TEST_OUTPUTS:
+            out_rescale = os.path.join(self.test_outdir,  'output_multiband_rescale0-255.tif')
+            with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+                out.write_band(1, rescaled0_255)
 
-        self.assertEqual(0, int(np.nanmin(rescaled2)),)
-        self.assertEqual(5, int(np.nanmax(rescaled2)))
+            out_rescale = os.path.join(self.test_outdir, 'output_multiband_rescale0-5.tif')
+            with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+                out.write_band(1, rescaled0_5)
+
+        self.assertEqual(0, int(np.nanmin(rescaled0_255)), )
+        self.assertEqual(255, int(np.nanmax(rescaled0_255)),)
+
+        self.assertEqual(0, int(np.nanmin(rescaled0_5)),)
+        self.assertEqual(5, int(np.nanmax(rescaled0_5)))
 
     def test_normalise(self):
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
         with rasterio.open(os.path.normpath(self.singletif)) as src:
             norm = raster_ops.normalise(src)
+            out_meta = src.meta.copy()
+
+        if KEEP_TEST_OUTPUTS:
+            out_norm = os.path.join(self.test_outdir,'output_singletif_normalised.tif')
+            with rasterio.open(os.path.normpath(out_norm), 'w', **out_meta) as out:
+                out.write_band(1, norm)
 
         self.assertEqual(3.3085429668426514, float(np.nanmax(norm)), )
         self.assertEqual( -2.758878707885742, float(np.nanmin(norm)),)

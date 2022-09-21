@@ -81,6 +81,7 @@ class TestVesperControl(unittest.TestCase):
         vc.update(modtyp=4)
 
     def test_write_to_file(self):
+        out_folder = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
         vc = VesperControl(datfil="MyDataFile.txt",
                            outdir='c:/data/temp',
                            modtyp='Exponential',
@@ -92,7 +93,7 @@ class TestVesperControl(unittest.TestCase):
         self.assertEqual('Output folder c:/nonexistent/path does not exist',
                          str(msg.exception))
 
-        out_file = os.path.join(tempfile.gettempdir(), 'test_control.txt')
+        out_file = os.path.join(out_folder, 'test_control.txt')
         vc.write_to_file(out_file)
 
         self.assertTrue(out_file)
@@ -114,16 +115,17 @@ class TestKrigingOps(unittest.TestCase):
         # 'https://stackoverflow.com/a/34065561'
         super(TestKrigingOps, cls).setUpClass()
 
-        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD)
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
 
     @classmethod
     def tearDownClass(cls):
         if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
-            print('Tests Passed .. Deleting {}'.format(cls.TmpDir))
-            shutil.rmtree(cls.TmpDir)
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
 
     def setUp(self):
         self.start_time = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
 
     def tearDown(self):
         t = time.time() - self.start_time
@@ -132,8 +134,11 @@ class TestKrigingOps(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if len(result.failures) > 0 or len(result.errors) > 0:
+        if self.id() in result.failed_tests or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
     def test1_CreateControlHighDensity_VesperControlClass(self):
         # check using VesperControl class
@@ -147,21 +152,21 @@ class TestKrigingOps(unittest.TestCase):
         vc = VesperControl()
         vc.update(xside=30, yside=30)
         global g_ctrl_file
-        file_bat, g_ctrl_file = prepare_for_vesper_krige(df_csv, data_col, grid_file, self.TmpDir,
+        file_bat, g_ctrl_file = prepare_for_vesper_krige(df_csv, data_col, grid_file, self.test_outdir,
                                                          control_textfile='test_high_5m_control.txt',
                                                          coord_columns=[],
                                                          epsg=28354,
                                                          control_options=vc)
         if os.path.exists(kriging_ops.vesper_exe):
-            self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper', 'Do_Vesper.bat')))
+            self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper', 'Do_Vesper.bat')))
         else:
             self.assertEqual('', file_bat)
 
-        self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper', 'test_high_5m_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper', 'test_high_5m_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper', 'test_high_5m_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper', 'test_high_5m_vesperdata.csv')))
 
         src_df = pd.read_csv(os.path.realpath(os.path.join(THIS_DIR, 'VESPER', 'high_5m_vesperdata.csv')))
-        test_df = pd.read_csv(os.path.join(self.TmpDir, 'Vesper', 'test_high_5m_vesperdata.csv'))
+        test_df = pd.read_csv(os.path.join(self.test_outdir, 'Vesper', 'test_high_5m_vesperdata.csv'))
 
         pd.testing.assert_frame_equal(src_df, test_df)
 
@@ -182,19 +187,19 @@ class TestKrigingOps(unittest.TestCase):
                           'iwei'   : 'no_pairs/variance', 'CO': 92.71, 'C1': 277.9, 'A1': 116.0})
 
         file_bat, file_ctrl = prepare_for_vesper_krige(csv_desc.open_pandas_dataframe(),
-                                                       data_col, grid_file, self.TmpDir,
+                                                       data_col, grid_file, self.test_outdir,
                                                        control_textfile='test_low_control.txt',
                                                        control_options=ctrl_para,
                                                        coord_columns=[], epsg=28354)
         if os.path.exists(kriging_ops.vesper_exe):
-            self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper/Do_Vesper.bat')))
+            self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper/Do_Vesper.bat')))
         else:
             self.assertEqual('', file_bat)
 
-        self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper', 'test_low_control.txt')))
-        self.assertTrue(os.path.exists(os.path.join(self.TmpDir, 'Vesper', 'test_low_vesperdata.csv')))
+        self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper', 'test_low_control.txt')))
+        self.assertTrue(os.path.exists(os.path.join(self.test_outdir, 'Vesper', 'test_low_vesperdata.csv')))
 
-        df_csv = pd.read_csv(os.path.join(self.TmpDir, 'Vesper', 'test_low_vesperdata.csv'))
+        df_csv = pd.read_csv(os.path.join(self.test_outdir, 'Vesper', 'test_low_vesperdata.csv'))
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
         self.assertEqual('EASTING', x_column.upper())
         self.assertEqual('NORTHING', y_column.upper())
@@ -215,20 +220,20 @@ class TestKrigingOps(unittest.TestCase):
         del data
 
         src_df = pd.read_csv(os.path.realpath(os.path.join(THIS_DIR, 'VESPER', 'low_vesperdata.csv')))
-        test_df = pd.read_csv(os.path.join(self.TmpDir, 'Vesper', 'test_low_vesperdata.csv'))
+        test_df = pd.read_csv(os.path.join(self.test_outdir, 'Vesper', 'test_low_vesperdata.csv'))
 
         pd.testing.assert_frame_equal(src_df, test_df)
 
         with open(os.path.realpath(os.path.join(THIS_DIR, 'VESPER', 'low_control.txt'))) as src_file, \
-                open(os.path.join(self.TmpDir, 'Vesper', 'test_low_control.txt')) as test_file:
+                open(os.path.join(self.test_outdir, 'Vesper', 'test_low_control.txt')) as test_file:
             self.assertEqual(src_file.readlines()[11:], test_file.readlines()[11:])
 
     def test3_vesperTextToRaster(self):
         # copy the test data to temp.
         for ea_file in glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'VESPER', 'high_5m*'))):
-            shutil.copy(ea_file, self.TmpDir)
+            shutil.copy(ea_file, self.test_outdir)
 
-        ctrl_file = os.path.realpath(os.path.join(self.TmpDir, 'high_5m_control.txt'))
+        ctrl_file = os.path.realpath(os.path.join(self.test_outdir, 'high_5m_control.txt'))
         # these are requirements so check first
         self.assertTrue(os.path.exists(ctrl_file))
 
@@ -274,14 +279,14 @@ class TestKrigingOps(unittest.TestCase):
         if platform.system() != 'Windows':
             print('Skipping test4_RunVesper - VESPER only present on Windows')
         else:
+            #DON'T NEED AN OUTPUT FOLDER
+            shutil.rmtree(self.test_outdir)
 
-            # for this to work this file needs updating first
-            # these are requirements so check first
             self.assertTrue(os.path.exists(g_ctrl_file))
 
             vesper_exe = kriging_ops.vesper_exe
 
-            os.path.join(self.TmpDir, 'Vesper', 'high_kriged.tif')
+            os.path.join( 'Vesper', 'high_kriged.tif')
             try:
                 print('Running Vesper, Please wait....')
                 run_vesper(g_ctrl_file)

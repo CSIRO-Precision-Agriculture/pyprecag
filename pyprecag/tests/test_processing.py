@@ -2,7 +2,6 @@ import shutil
 import tempfile
 import unittest
 
-
 from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS
 
 from pyprecag.bandops import BandMapping, CalculateIndices
@@ -68,7 +67,7 @@ class TestProcessing(unittest.TestCase):
     def test_BlockGrid(self):
         poly = os.path.realpath(os.path.join(THIS_DIR, "area2_onebox_94mga54.shp"))
 
-        file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
+        file_sub_name = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(poly))[0])
         vect_desc = VectorDescribe(poly)
         output_files = block_grid(in_shapefilename=poly,
                                   pixel_size=5,
@@ -88,11 +87,12 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(66, src.height, 'Incorrect image height')
             self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
             self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
+            self.assertEqual(28354, src.crs.to_epsg(), 'Incorrect EPSG')
 
     def test_BlockGrid_GrpBy(self):
         poly = os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
 
-        file_sub_name = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(poly))[0])
+        file_sub_name = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(poly))[0])
 
         output_files = block_grid(in_shapefilename=poly,
                                   pixel_size=5,
@@ -113,13 +113,14 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(68, src.height, 'Incorrect image height')
             self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
             self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
+            self.assertEqual(28354, src.crs.to_epsg(), 'Incorrect EPSG')
 
     def test_cleanTrimPoints(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
         in_poly = os.path.join(THIS_DIR, "area2_onebox_94mga54.shp")
-        out_csv = os.path.join(self.TmpDir, os.path.basename(in_csv))
-        out_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '.shp'))
-        out_rm_shp = os.path.join(self.TmpDir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
+        out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
+        out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
+        out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
@@ -131,14 +132,14 @@ class TestProcessing(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs, from_epsg(28354))  # {'init': 'epsg:28354', 'no_defs': True})
+        self.assertEqual(out_gdf.crs, from_epsg(28354))  # {'init': 'EPSG:28354', 'no_defs': True})
         self.assertEqual(len(out_gdf), 554)
         self.assertIn('EN_EPSG', out_gdf.columns)
 
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
 
-        out_polyfile = os.path.join(self.TmpDir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
+        out_polyfile = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
             in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
@@ -158,7 +159,7 @@ class TestProcessing(unittest.TestCase):
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif
-        out_shp = os.path.join(self.TmpDir, os.path.basename(raster_file).replace('.tif', '_randpts.shp'))
+        out_shp = os.path.join(self.test_outdir, os.path.basename(raster_file).replace('.tif', '_randpts.shp'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
@@ -172,7 +173,7 @@ class TestProcessing(unittest.TestCase):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
         raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
-        out_img = os.path.join(self.TmpDir, 'kmeans-cluster_3cluster_3rasters.tif')
+        out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
 
         with self.assertRaises(TypeError) as msg:
             _ = kmeans_clustering(raster_files, out_img)
@@ -195,9 +196,9 @@ class TestProcessing(unittest.TestCase):
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
             if hasattr(src.crs, 'to_proj4'):
-                self.assertEqual(src.crs.to_proj4(), '+init=epsg:28354')
+                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
             else:
-                self.assertEqual(src.crs.to_string(), '+init=epsg:28354')
+                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
@@ -206,7 +207,7 @@ class TestProcessing(unittest.TestCase):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
         raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
-        out_img = os.path.join(self.TmpDir, 'persistor_allyears.tif')
+        out_img = os.path.join(self.test_outdir, 'persistor_allyears.tif')
 
         # check for raised pixel size error
         with self.assertRaises(TypeError) as msg:
@@ -230,7 +231,7 @@ class TestProcessing(unittest.TestCase):
     def test_PersistorTargetProb(self):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
 
-        out_img = os.path.join(self.TmpDir, 'persistor_targetprob.tif')
+        out_img = os.path.join(self.test_outdir, 'persistor_targetprob.tif')
 
         persistor_target_probability(raster_files, 10, 75,
                                      raster_files, -10, 75, out_img)
@@ -570,7 +571,7 @@ class TestCalculateImageIndices(unittest.TestCase):
 
             # [x coord, y coord, value, check to decimal places]
             check_coords = [[300725.0, 6181571.0, -9999, 0],
-                            [300647.0, 6181561.0, 0.22253361, 4]]
+                            [300647.0, 6181561.0, 0.22253361, 2]]
 
             for ea in check_coords:
                 x, y, val, decpts = ea
@@ -760,8 +761,9 @@ class TestResampleToBlock(unittest.TestCase):
                 row, col = src.index(x, y)
                 actual_val = src.read(1)[row, col]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+                if KEEP_TEST_OUTPUTS:
+                    csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
+                    write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
 
                 if decpts == 0:
                     self.assertEqual(val, actual_val,

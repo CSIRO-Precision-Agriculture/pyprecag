@@ -95,9 +95,10 @@ class TestCrsClass(TestCase):
         self.assertEqual(28354, test.epsg_number, )
         self.assertEqual(from_epsg(test.epsg_number), test.epsg)
         self.assertEqual(EPSG_28354_WKT[:154], test.crs_wkt[:154], 'CRS WKT does not match')
-
-        self.assertEqual('+proj=utm +zone=54 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
-                         test.proj4.strip(),  'Proj4 does not match')
+        self.assertTrue('+proj=utm +zone=54 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs'==test.proj4.strip() or
+                        '+proj=utm +zone=54 +south +ellps=GRS80 +units=m +no_defs' == test.proj4.strip() ,  'Proj4 does not match' )
+        # self.assertEqual('+proj=utm +zone=54 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
+        #                  test.proj4.strip(),  'Proj4 does not match')
 
     def test_getFromWKT_GDA1(self):
         test = crs()

@@ -14,7 +14,7 @@ from shapely.geometry import Point
 from pyprecag import config
 from pyprecag.crs import crs
 
-KEEP_TEST_OUTPUTS = False
+KEEP_TEST_OUTPUTS = True
 config.set_debug_mode(False)
 
 
