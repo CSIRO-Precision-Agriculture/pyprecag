@@ -1,12 +1,8 @@
 ========
 pyprecag
 ========
-
 A suite of tools for Precision Agriculture data analysis
-<!--
-.. image:: https://travis-ci.com/CSIRO-Precision-Agriculture/pyprecag.svg?branch=master
-   :target: https://travis-ci.com/CSIRO-Precision-Agriculture/pyprecag
--->
+
 * Homepage: https://github.com/CSIRO-Precision-Agriculture/pyprecag
 * Documentation: https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs
 * `Installation <https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation>`__
