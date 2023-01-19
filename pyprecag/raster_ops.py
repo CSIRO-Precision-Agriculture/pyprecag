@@ -545,7 +545,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                     min_img_window = from_bounds(*min_bbox, transform=src.transform)
 
                     # find the intersection of the windows.
-                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+                    min_window = intersection(min_img_window, data_window).round_lengths()
 
                 # convert the window co coordinates
                 min_bbox = src.window_bounds(min_window)
@@ -565,8 +565,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
         raise  # re-raise current exception
 
     # Create the metadata for the overlapping extent image. ---------------------------------------
-    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0],
-                                                             buffer_by_pixels=5)
+    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0], buffer_by_pixels=5)
 
     # update the new image metadata ---------------------------------------------------------------
     kwargs = rasterio.open(raster_files[0]).meta.copy()
