@@ -1,8 +1,10 @@
 import shutil
 import tempfile
 import unittest
+import geopandas as gpd
+from pandas._testing import assert_frame_equal
 
-from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS
+from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS, warn_with_traceback
 
 from pyprecag.bandops import BandMapping, CalculateIndices
 from pyprecag.crs import crs
@@ -31,13 +33,13 @@ def write2csv(csv_file, line):
         writer.writerow(line)
 
 
-class TestProcessing(unittest.TestCase):
+class Test_BlockGrid(unittest.TestCase):
     failedTests = []
 
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
-        super(TestProcessing, cls).setUpClass()
+        super(Test_BlockGrid, cls).setUpClass()
 
         cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
         cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
@@ -115,15 +117,79 @@ class TestProcessing(unittest.TestCase):
             self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
             self.assertEqual(28354, src.crs.to_epsg(), 'Incorrect EPSG')
 
-    def test_cleanTrimPoints(self):
-        in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
-        in_poly = os.path.join(THIS_DIR, "area2_onebox_94mga54.shp")
+
+class Test_CleanTrim(unittest.TestCase):
+    failedTests = []
+
+    @classmethod
+    def setUpClass(cls):
+        # 'https://stackoverflow.com/a/34065561'
+        super(Test_CleanTrim, cls).setUpClass()
+
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
+
+    @classmethod
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
+
+    def setUp(self):
+        self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
+    def tearDown(self):
+        t = time.time() - self.startTime
+        print("%s: %.3f secs" % (self.id(), t))
+
+    def run(self, result=None):
+        unittest.TestCase.run(self, result)  # call superclass run method
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
+
+    def test_cleanTrimPoints_area1(self):
+        in_csv = os.path.join(THIS_DIR, "area1_yield_ascii_wgs84.csv")
+        in_poly = os.path.join(THIS_DIR, "area1_onebox_94mga54.shp")
         out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
         out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
+        out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, 'Yield',
+                                             out_csv, out_keep_shapefile=out_shp,
+                                             out_removed_shapefile=out_rm_shp,
+                                             boundary_polyfile=in_poly, thin_dist_m=2.5)
+
+        self.assertIsInstance(out_gdf, GeoDataFrame)
+        self.assertTrue(os.path.exists(out_csv))
+        self.assertTrue(gdf_pts_crs, out_crs)
+        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertIn('EN_EPSG', out_gdf.columns)
+        self.assertEqual(len(out_gdf), 550)
+
+        results = dict(filter=['01 nulls', '02 Duplicate XY', '03 clip', '04 <= zero', '05 3 std iter 1',
+                               '06 3 std iter 2', '07 pointXY (2.5m)'], count=[1000, 931, 12204, 62, 3, 4, 2])
+
+        res_df = gpd.read_file(out_rm_shp)
+        self.assertEqual(len(res_df), 14206)
+
+        res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
+        res_stats.reset_index(drop=False, inplace=True)
+        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+
+    def test_cleanTrimPoints_area2(self):
+        in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
+        in_poly = os.path.join(THIS_DIR, "area2_onebox_94mga54.shp")
+        out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
+        out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
+        out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
+
+        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326, out_epsg=28354)
         out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, 'Yld Mass(Dry)(tonne/ha)',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
@@ -132,9 +198,52 @@ class TestProcessing(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs, from_epsg(28354))  # {'init': 'EPSG:28354', 'no_defs': True})
-        self.assertEqual(len(out_gdf), 554)
+        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertEqual(len(out_gdf), 552)
         self.assertIn('EN_EPSG', out_gdf.columns)
+
+        results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[952, 39])
+
+        res_df = gpd.read_file(out_rm_shp)
+        self.assertEqual(len(res_df), 991)
+
+        res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
+        res_stats.reset_index(drop=False, inplace=True)
+        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+
+
+class Test_Processing(unittest.TestCase):
+    failedTests = []
+
+    @classmethod
+    def setUpClass(cls):
+        # 'https://stackoverflow.com/a/34065561'
+        super(Test_Processing, cls).setUpClass()
+
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
+
+    @classmethod
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
+
+    def setUp(self):
+        self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
+    def tearDown(self):
+        t = time.time() - self.startTime
+        print("%s: %.3f secs" % (self.id(), t))
+
+    def run(self, result=None):
+        unittest.TestCase.run(self, result)  # call superclass run method
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
 
     def test_createPolygonFromPointTrail(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
@@ -169,39 +278,7 @@ class TestProcessing(unittest.TestCase):
         self.assertTrue(os.path.exists(out_shp))
         self.assertEqual(rand_crs, rast_crs)
 
-    def test_kmeansCluster(self):
-        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
-        raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
-        out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
-
-        with self.assertRaises(TypeError) as msg:
-            _ = kmeans_clustering(raster_files, out_img)
-
-        self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
-        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif')))
-
-        with self.assertRaises(TypeError) as msg:
-            _ = kmeans_clustering(raster_files, out_img)
-
-        self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
-        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_onebox_NDRE_250cm.tif')))
-
-        out_df = kmeans_clustering(raster_files, out_img)
-
-        self.assertTrue(os.path.exists(out_img))
-        self.assertTrue(os.path.exists(out_img.replace('.tif', '_statistics.csv')))
-        self.assertEqual(5, len(out_df['zone'].unique()))
-
-        with rasterio.open(out_img) as src:
-            self.assertEqual(1, src.count)
-            if hasattr(src.crs, 'to_proj4'):
-                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
-            else:
-                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
-            self.assertEqual(0, src.nodata)
-            band1 = src.read(1, masked=True)
-            six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
 
     def test_PersistorAllYears(self):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
@@ -246,6 +323,118 @@ class TestProcessing(unittest.TestCase):
 
             band1 = test.read(1, masked=True)
             six.assertCountEqual(self, [-9999, -1, 0, 1], np.unique(band1.data).tolist())
+
+
+class TestKMeansCluster(unittest.TestCase):
+    failedTests = []
+
+    @classmethod
+    def setUpClass(cls):
+        # 'https://stackoverflow.com/a/34065561'
+        super(TestKMeansCluster, cls).setUpClass()
+
+        cls.TmpDir = setup_folder(base_folder=TEMP_FOLD, new_folder=__class__.__name__)
+
+        cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
+
+    @classmethod
+    def tearDownClass(cls):
+        if len(cls.failedTests) == 0 and not KEEP_TEST_OUTPUTS:
+            print('Tests Passed .. Deleting {}'.format(TEMP_FOLD))
+            shutil.rmtree(TEMP_FOLD)
+
+    def setUp(self):
+        self.startTime = time.time()
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+
+    def tearDown(self):
+        t = time.time() - self.startTime
+        print("%s: %.3f secs" % (self.id(), t))
+
+    def run(self, result=None):
+
+        unittest.TestCase.run(self, result)  # call superclass run method
+        if self.id() in result.failed_tests or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+            self.failedTests.append(self._testMethodName)
+        else:
+            if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
+                shutil.rmtree(self.test_outdir)
+
+    def test_kmeansCluster(self):
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
+        raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
+
+        out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
+
+        with self.assertRaises(TypeError) as msg:
+            _ = kmeans_clustering(raster_files, out_img)
+
+        self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
+        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif')))
+
+        with self.assertRaises(TypeError) as msg:
+            _ = kmeans_clustering(raster_files, out_img)
+
+        self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
+        raster_files.remove(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_onebox_NDRE_250cm.tif')))
+
+        out_df = kmeans_clustering(raster_files, out_img)
+
+        self.assertTrue(os.path.exists(out_img))
+        self.assertTrue(os.path.exists(out_img.replace('.tif', '_statistics.csv')))
+        self.assertEqual(5, len(out_df['zone'].unique()))
+
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            if hasattr(src.crs, 'to_proj4'):
+                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
+            self.assertEqual(0, src.nodata)
+            band1 = src.read(1, masked=True)
+            six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
+
+    def test_kmeansCluster_alias(self):
+        raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
+        raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
+
+        raster_files = {ea : os.path.basename(ea).split('_')[2] for ea in raster_files}
+
+        out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
+
+        with self.assertRaises(TypeError) as msg:
+            _ = kmeans_clustering(raster_files, out_img)
+
+        self.assertIn('raster_files are of different pixel sizes', str(msg.exception))
+        del raster_files[os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
+
+        with self.assertRaises(TypeError) as msg:
+            _ = kmeans_clustering(raster_files, out_img)
+
+        self.assertIn("1 raster(s) don't have coordinates systems assigned", str(msg.exception))
+        del raster_files[os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_onebox_NDRE_250cm.tif'))]
+
+        out_df = kmeans_clustering(raster_files, out_img)
+
+        out_alias = [ea.split(',')[0] for ea in out_df.columns if ',' in ea]
+
+        # compare contents of lists disregarding order use assertCountEqual
+        self.assertCountEqual(raster_files.values(), set(out_alias), 'Incorrect Alias')
+
+        self.assertTrue(os.path.exists(out_img))
+        self.assertTrue(os.path.exists(out_img.replace('.tif', '_statistics.csv')))
+        self.assertEqual(5, len(out_df['zone'].unique()))
+
+        with rasterio.open(out_img) as src:
+            self.assertEqual(1, src.count)
+            if hasattr(src.crs, 'to_proj4'):
+                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
+            else:
+                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
+            self.assertEqual(0, src.nodata)
+            band1 = src.read(1, masked=True)
+            six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
 
 
 class TestStripTrials(unittest.TestCase):
@@ -294,12 +483,12 @@ class TestStripTrials(unittest.TestCase):
         out_lines_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Lines.shp')
 
         in_lines_gdf = GeoDataFrame(
-            {'geometry'    : [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
-                              LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
-                              LineString([(741400, 6169800, 7), (741355, 6169780, 7),
-                                          (741300, 6169800, 7), (741250, 6169950, 7),
-                                          (741150, 6169950, 7), (741100, 6170000, 7)]),
-                              LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
+            {'geometry': [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
+                          LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
+                          LineString([(741400, 6169800, 7), (741355, 6169780, 7),
+                                      (741300, 6169800, 7), (741250, 6169950, 7),
+                                      (741150, 6169950, 7), (741100, 6170000, 7)]),
+                          LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
                 , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
         gdf_lines_crs = crs()
@@ -405,8 +594,7 @@ class TestStripTrials(unittest.TestCase):
                 [126, 3, "Strip", 13, 247.6, Point(300794, 6181787)],
                 [127, 3, "SE Strip", 13, 247.6, Point(300806, 6181771)]]
 
-        gdf_points = GeoDataFrame(data, columns=columns, geometry='geometry',
-                                  crs=from_epsg(28354))
+        gdf_points = GeoDataFrame(data, columns=columns, geometry='geometry', crs=28354)
         crs_points = crs()
         crs_points.getFromEPSG(28354)
 
@@ -442,7 +630,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         cls.singletif, cls.multitif = make_dummy_tif_files(cls.TmpDir)
 
         df = pd.read_csv(os.path.realpath(os.path.join(THIS_DIR, 'area1_dummypoints_94mga54.csv')))
-        cls.gdf_points,  cls.crs_points = add_point_geometry_to_dataframe(df, ['X', 'Y'], 28354)
+        cls.gdf_points, cls.crs_points = add_point_geometry_to_dataframe(df, ['X', 'Y'], 28354)
 
     @classmethod
     def tearDownClass(cls):
@@ -484,7 +672,7 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         self.assertEqual(len(out_gdf), len(self.gdf_points), "Row count doesn't match")
 
         self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
-        self.assertEqual(rast_crs.crs_wkt, out_crs.crs_wkt,  "Coordinate system doesn't match raster")
+        self.assertEqual(rast_crs.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match raster")
         self.assertEqual(self.crs_points.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match GDF")
 
     def test_SingleBand_ptsWGS84(self):
@@ -504,9 +692,10 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
 
         self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
         self.assertEqual(len(self.gdf_points), len(out_gdf), "Row count doesn't match")
-        self.assertEqual(len(self.gdf_points.columns)+8, len(out_gdf.columns), "Column count doesn't match")
+        self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
         self.assertEqual(self.crs_points, out_crs, "Coordinate system doesn't match GDF")
-        self.assertEqual(2, out_gdf['mean7x7_dummy_singleband_94mga54'].isnull().sum(), 'There should be 2 nodata values')
+        self.assertEqual(2, out_gdf['mean7x7_dummy_singleband_94mga54'].isnull().sum(),
+                         'There should be 2 nodata values')
 
 
 class TestCalculateImageIndices(unittest.TestCase):
