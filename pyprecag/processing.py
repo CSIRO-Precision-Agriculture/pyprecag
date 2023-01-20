@@ -20,8 +20,6 @@ import pandas as pd
 
 import rasterio
 
-from pyprecag.crs import from_epsg
-
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
@@ -40,6 +38,7 @@ from shapely.ops import linemerge
 
 from . import TEMPDIR, config, crs as pyprecag_crs, number_types
 
+from .crs import from_epsg
 from .table_ops import calculate_strip_stats
 from .convert import (convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster,
                       drop_z, deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
@@ -459,36 +458,25 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         # use ..... to space out values as QGIS doesn't honour multiple spaces or tabs in the log panel.
         if filter_string in gdf_points['filter'].unique():
             total_count = len(gdf_points)
-            left_count = len(gdf_points[gdf_points['filter'].isnull()])
-            del_count = gdf_points.groupby('filter').size()[filter_string]
+            del_count = gdf_points.fillna('').value_counts(['filter_inc', 'filter'],sort=False).iloc[-1]
+            left_count = gdf_points.fillna('').value_counts(['filter_inc', 'filter'],sort=False).iloc[0]
+            # left_count = len(gdf_points[gdf_points['filter'].isnull()])
+            # del_count = len(gdf_points[gdf_points['filter'] == filter_string])
 
-            LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count, del_count, filter_string))
+            LOGGER.info(f'remaining: {left_count:.>10,} ... removed: {del_count:.>10,} ... {filter_string}')
 
     # Remove rows where data col is empty/null
-    subset = gdf_points[gdf_points[process_column].isnull()]
+    gdf_points.loc[gdf_points[process_column].isnull(),
+                        ['filter', 'filter_inc']] = ['nulls', len(gdf_points['filter'].unique())]
 
-    if len(subset) > 0:
-        gdf_points.loc[subset.index, 'filter'] = 'nulls'
-        gdf_points.loc[subset.index, 'filter_inc'] = len(gdf_points['filter'].value_counts())
-
-        add_filter_message('nulls')
-
-    subset = gdf_points[gdf_points['filter'].isnull()].copy()
+    add_filter_message('nulls')
 
     # Remove duplicated geometries
     # https://github.com/geopandas/geopandas/issues/521#issuecomment-382806444
-    geom = subset["geometry"].apply(lambda geom: geom.wkb)
-    nodups = geom.drop_duplicates()
+    gdf_points.loc[(gdf_points['filter'].isnull()) & (gdf_points["geometry"].to_wkb().duplicated(keep='first')),
+                        ['filter', 'filter_inc']] = ['Duplicate XY', len(gdf_points['filter'].unique())]
 
-    if len(geom) != len(nodups):
-        subset = subset.loc[nodups.index]
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter'] = 'Duplicate XY'
-        gdf_points.loc[~gdf_points.index.isin(subset.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
-
-        add_filter_message('Duplicate XY')
-    del geom, nodups
-
-    subset = gdf_points[gdf_points['filter'].isnull()].copy()
+    add_filter_message('Duplicate XY')
 
     if boundary_polyfile is not None:
         gdf_poly = ply_desc.open_geo_dataframe()
@@ -506,106 +494,100 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         step_time = time.time()
 
         # Clip to boundary then apply to filter column
-        clipped = subset[subset.intersects(gdf_poly.unary_union)].copy()
+        gdf_points.loc[(gdf_points['filter'].isnull()) & (~gdf_points.geometry.within(gdf_poly.unary_union)),
+                            ['filter', 'filter_inc']] = ['clip', len(gdf_points['filter'].unique())]
+        add_filter_message('clip')
 
-        if len(subset) == 0:
+        if gdf_points['filter'].isnull().sum() == 0:
             raise GeometryError('Clipping removed all features. Check coordinate systems and/or '
                                 'clip polygon layer and try again')
-        if len(subset) != len(clipped):
-            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter'] = 'clip'
-            gdf_points.loc[~gdf_points['PT_UID'].isin(clipped.index), 'filter_inc'] = len(gdf_points['filter'].value_counts())
-    
-            add_filter_message('clip') 
-        del gdf_poly, clipped
+
+        del gdf_poly
 
         step_time = time.time()
 
-    subset = gdf_points[gdf_points['filter'].isnull()].copy()
-
     if remove_zeros:
-        subset = subset[subset[process_column] <= 0]
-        gdf_points.loc[subset.index, 'filter'] = 'zero'
-        gdf_points.loc[subset.index, 'filter_inc'] = len(gdf_points['filter'].value_counts())
-
-        if len(gdf_points[gdf_points['filter'].isnull()]) == 0:
-            raise GeometryError("Zero filter removed all points "
-                                "in column {}".format(process_column))
+        gdf_points.loc[(gdf_points['filter'].isnull()) & (gdf_points[process_column] <= 0),
+                            ['filter', 'filter_inc']] = ['<= zero', len(gdf_points['filter'].unique())]
 
         add_filter_message('zero')
+
+        if gdf_points['filter'].isnull().sum() == 0:
+            raise GeometryError("Zero filter removed all points "
+                                "in column {}".format(process_column))
 
     if stdevs > 0:
         i = 0
         # Get a fresh copy of subset.
-        subset = gdf_points[gdf_points['filter'].isnull()].copy()
+        subset = gdf_points.loc[gdf_points['filter'].isnull()].copy()
         while len(subset) > 0:
             i += 1
-            subset = gdf_points[gdf_points['filter'].isnull()].copy()
+
+            subset = gdf_points.loc[gdf_points['filter'].isnull()].copy()
+            filter_str = '{} std iter {}'.format(stdevs, int(i))
+
             yld_mean = subset[process_column].mean()
             yld_std = subset[process_column].std()
-            subset[norm_column] = subset[process_column].apply(lambda x: (x - yld_mean) / yld_std)
-            subset = subset[subset[norm_column].abs() >= stdevs]
 
-            filter_str = '{} std iter {}'.format(stdevs, int(i))
-            gdf_points.loc[subset.index, 'filter'] = filter_str
-            gdf_points.loc[subset.index, 'filter_inc'] = len(gdf_points['filter'].value_counts())
+            subset[norm_column] = subset[process_column].apply(lambda x: (x - yld_mean) / yld_std)
+            subset = subset.loc[subset[norm_column].abs() >= stdevs]
+
+            gdf_points.loc[subset.index, ['filter', 'filter_inc']] = [filter_str, len(gdf_points['filter'].unique())]
+
+            add_filter_message(filter_str)
 
             if not iterative:
                 break
 
-            add_filter_message(filter_str)
-
-    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()],
-                                      points_crs, thin_dist_m)
-
-    step_time = time.time()
+    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()], points_crs, thin_dist_m)
+    # update the filter incremental number
+    gdf_thin['filter_inc'] = gdf_thin['filter_inc'] + len(gdf_points['filter'].dropna().unique())
 
     # update(join/merge) gdfPoints['filter'] column with results from thinning.
-    gdf_points.loc[gdf_points.index.isin(gdf_thin.index), 'filter'] = gdf_thin['filter']
-
-    gdf_points.loc[gdf_points.index.isin(gdf_thin.index), 'filter_inc'] = gdf_thin['filter_inc'] + len(
-        gdf_points['filter_inc'].value_counts())
+    gdf_points.update(gdf_thin[gdf_thin['filter'].notnull()])
+    step_time = time.time()
 
     del gdf_thin
 
     # Add the incremental number to the filter column ie '01 clip'
     gdf_points['filter'] = gdf_points[['filter_inc', 'filter']].dropna().apply(
-        lambda x: '%02d %s' % (x[0], x[1]), axis=1)
+        lambda x: '{:02n} {}'.format(x[0], x[1]), axis=1)
 
-    # after last iteration of thin by distance subset should be
-    yld_mean = gdf_points[gdf_points['filter'].isnull()].mean()[process_column]
-    yld_std = gdf_points[gdf_points['filter'].isnull()].std()[process_column]
+    # recalculate normalised col.
+    yld_mean = gdf_points[gdf_points['filter'].isnull()][process_column].mean()
+    yld_std = gdf_points[gdf_points['filter'].isnull()][process_column].std()
     gdf_points.loc[gdf_points['filter'].isnull(), norm_column] = (gdf_points[process_column] - yld_mean) / yld_std
 
     # prepare some summary results for filtered features.
     # Filter is the reason a point is removed,and filter_inc keeps them in the order they were
     # removed. ie std it before thining by distance.
+
     results_table = gdf_points.copy()
-    results_table['filter'].fillna('Pts remaining', inplace=True)
-    results_table['filter_inc'].fillna(len(results_table['filter'].value_counts()), inplace=True)
+    results_table.loc[gdf_points['filter'].isnull(), ['filter_inc', 'filter']] = \
+        [len(gdf_points['filter'].unique()), 'Pts remaining']
 
-    # Get a count of features per filter. filter_inc maintains the sort order
-    results_table = results_table.groupby(['filter_inc', 'filter']).size() \
-        .to_frame('feat_count').reset_index('filter')
-    
-    results_table['percent'] = (results_table['feat_count'] / results_table['feat_count'].sum()) * 100
-    
-    # and add the total of the results
-    total_row = pd.DataFrame(data=[[len(results_table) + 1, 'Total',results_table['feat_count'].sum(),100]],
-                                    columns=['filter_inc', 'filter', 'feat_count','percent']).set_index('filter_inc')
+    results_table = results_table[['filter_inc', 'filter']].value_counts(sort=False).to_frame('count')
+    results_table.reset_index(drop=False, inplace=True)
 
-    # Add this to results table
-    results_table = results_table.append(total_row)
+    results_table.loc[results_table['filter'].isnull(),
+        ['filter_inc', 'filter']] = [len(results_table), 'Pts remaining']
+
+    results_table['%'] = ((results_table['count'] / results_table['count'].sum()) * 100).round(3)
+    results_table.sort_values('filter_inc', inplace=True)
+
+    results_table.loc['Total'] = results_table.sum(numeric_only=True)  # this will convert int's to floats !!
+    results_table.loc[results_table['filter'].isnull(), ['filter_inc', 'filter']] = [len(results_table), 'Total']
 
     # Clean up filtered results by removing all columns except those new ones which
     # have to be copied back to original
-    dropcols = [ea for ea in gdf_points.columns.tolist()
-                if ea not in ['geometry', norm_column, 'filter', id_col]]
-
-    gdf_points.drop(dropcols, axis=1, inplace=True)
-
     # Add x,y coordinates to match coordinate system
     gdf_points['Easting'] = gdf_points.geometry.apply(lambda p: p.x)
     gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
+
+    dropcols = [ea for ea in gdf_points.columns.tolist()
+                if ea not in [ norm_column, 'filter', id_col]]
+
+    gdf_points.drop(dropcols, axis=1, inplace=True)
 
     # Clean up the original input dataframe and remove existing geometry and coord columns
     alt_coord_columns = config.get_config_key('geoCSV')['xCoordinate_ColumnName']
@@ -613,13 +595,13 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Find and Drop coord columns if already exist.
     coord_columns = [fld for fld in points_geodataframe.columns if fld.upper() in alt_coord_columns]
-    coord_columns = coord_columns + ['geometry']
+    #coord_columns = coord_columns + ['geometry']
 
     if len(coord_columns) > 0:
         points_geodataframe.drop(coord_columns, axis=1, inplace=True)
 
     # Use geopandas merge instead of concat to maintain coordinate system info etc.
-    gdf_final = points_geodataframe.merge(gdf_points, on=id_col, how='outer')
+    gdf_final = points_geodataframe.merge(gdf_points, on=id_col, how='left')
     gdf_final['EN_EPSG'] = points_crs.epsg_number
     gdf_final.crs = points_crs.epsg
 
@@ -668,16 +650,17 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                 dur=str(timedelta(seconds=time.time() - step_time))))
 
     LOGGER.info('\nResults:---------------------------------------\n{}\n'.format(
-        results_table.to_string(index=False, justify='center',formatters={'feat_count':"{:,d}".format,'percent':"{:.2f}%".format})))
+        results_table.drop('filter_inc', axis=1).to_string(index=False, justify='center',
+                                                           formatters={'filter_inc': "{:,.0f}".format,
+                                                                       'count'     : "{:,.0f}".format,
+                                                                       '%'         : "{:.3f}%".format})))
 
     LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column), yld_mean))
     LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column), yld_std))
     LOGGER.info('{}.....{: .5f} '.format('{} CV'.format(process_column), 100 * yld_std / yld_mean))
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
-        inspect.currentframe().f_code.co_name, '',
-        dur=str(timedelta(seconds=time.time() - start_time)))
-    )
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
+                                               dur=str(timedelta(seconds=time.time() - start_time))) )
 
     return gdf_final[gdf_final['filter'].isnull()], points_crs
 
