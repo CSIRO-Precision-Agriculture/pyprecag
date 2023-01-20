@@ -7,7 +7,8 @@ import warnings
 import logging
 import os
 import six
-from rasterio import crs as riocrs
+
+
 from six.moves import zip as izip
 
 import random
@@ -23,13 +24,14 @@ import rasterio
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
+from rasterio import crs as riocrs
 from rasterio import features
 from rasterio.io import MemoryFile
 from rasterio.fill import fillnodata
 from rasterio.mask import mask as rio_mask
 from rasterio.warp import reproject, Resampling
-
 from rasterio.windows import get_data_window, intersection, from_bounds
+
 from scipy.cluster.vq import *
 from scipy import stats
 
@@ -44,7 +46,7 @@ from .convert import (convert_grid_to_vesper, numeric_pixelsize_to_string, conve
                       drop_z, deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
 
 from .raster_ops import (focal_statistics, save_in_memory_raster_to_file, reproject_image,
-                         calculate_image_indices, stack_and_clip_rasters )
+                         calculate_image_indices, stack_and_clip_rasters)
 
 from .describe import save_geopandas_tofile, VectorDescribe, predictCoordinateColumnNames
 from .errors import GeometryError
@@ -1605,10 +1607,12 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
     Each image will be resampled to a fixed coordinate to ensure pixels between images align.
 
     Args:
-        raster_files (List[str]): The list of input raster files
+        raster_files (dict[str]): The dictionary ({filename:alias}) of input raster files
+                                  and alias names.
         output_tif (str):   The output TIFF file
         n_clusters (int):  The number of clusters/zones to create.
-        max_iterations (int): Maximum number of iterations for k-means algorithm in a single run.
+        max_iterations (int): Maximum number of iterations for k-means algorithm in a
+                              single run.
 
     Returns:
         pandas.core.frame.DataFrame: A dataframe containing cluster statistics for each image.
@@ -1624,13 +1628,12 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
         raise TypeError('Invalid Type: raster_files should be a dictionary of filename and alias')
 
     if isinstance(raster_files, list):
-        warnings.warn(
-            'raster_files has now been converted to a dictionary pairs of filenames and unique alias. \n Converting now',
-            DeprecationWarning)
+        warnings.warn('raster_files has now been converted to dictionary pairs of filenames and unique alias. \n '
+                      'Converting now', DeprecationWarning)
         raster_files = {ea: os.path.basename(os.path.splitext(ea)[0]) for ea in raster_files}
     else:
         if len(set(raster_files.values())) == 1:  # all aliases are the same.
-            warnings.warn('raster_files have no aliases, create from filename')
+            warnings.warn('raster_files have no aliases, using filename')
             raster_files = {ea: os.path.basename(os.path.splitext(ea)[0]) for ea in raster_files}
         elif len(set(raster_files.values())) != len(raster_files.values()):
             raise ValueError('Raster Aliases are not unique')
