@@ -444,7 +444,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     points_geodataframe[id_col] = points_geodataframe.index
     gdf_points = points_geodataframe.copy()
 
-    # To speed things up, drop all unrequired columns
+    # To speed things up, drop all un-required columns
     dropcols = [ea for ea in gdf_points.columns.tolist()
                 if ea not in ['geometry', id_col, norm_column, process_column]]
 
@@ -469,9 +469,14 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Remove rows where data col is empty/null
     gdf_points.loc[gdf_points[process_column].isnull(),
-                        ['filter', 'filter_inc']] = ['nulls', len(gdf_points['filter'].unique())]
+                        ['filter', 'filter_inc']] = ['null/missing data', len(gdf_points['filter'].unique())]
 
-    add_filter_message('nulls')
+    add_filter_message('null/missing data')
+
+    # remove missing or empty geometry
+    gdf_points.loc[(gdf_points.is_empty | gdf_points.geometry.isna()), ['filter', 'filter_inc']] = [
+        'empty/missing geom', len(gdf_points['filter'].unique())]
+    add_filter_message('empty/missing geom')
 
     # Remove duplicated geometries
     # https://github.com/geopandas/geopandas/issues/521#issuecomment-382806444
@@ -512,7 +517,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         gdf_points.loc[(gdf_points['filter'].isnull()) & (gdf_points[process_column] <= 0),
                             ['filter', 'filter_inc']] = ['<= zero', len(gdf_points['filter'].unique())]
 
-        add_filter_message('zero')
+        add_filter_message('<= zero')
 
         if gdf_points['filter'].isnull().sum() == 0:
             raise GeometryError("Zero filter removed all points "
@@ -560,6 +565,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     yld_std = gdf_points[gdf_points['filter'].isnull()][process_column].std()
     gdf_points.loc[gdf_points['filter'].isnull(), norm_column] = (gdf_points[process_column] - yld_mean) / yld_std
 
+    # Add x,y coordinates to match coordinate system
+    gdf_points['Easting'] = gdf_points.geometry.x
+    gdf_points['Northing'] = gdf_points.geometry.y
+
     # prepare some summary results for filtered features.
     # Filter is the reason a point is removed,and filter_inc keeps them in the order they were
     # removed. ie std it before thining by distance.
@@ -582,9 +591,6 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Clean up filtered results by removing all columns except those new ones which
     # have to be copied back to original
-    # Add x,y coordinates to match coordinate system
-    gdf_points['Easting'] = gdf_points.geometry.apply(lambda p: p.x)
-    gdf_points['Northing'] = gdf_points.geometry.apply(lambda p: p.y)
 
     dropcols = [ea for ea in gdf_points.columns.tolist()
                 if ea not in [ norm_column, 'filter', id_col]]
