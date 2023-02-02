@@ -3,35 +3,18 @@ import shutil
 import tempfile
 import time
 import unittest
-
+from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
 from pyprecag.bandops import CalculateIndices, BandMapping
 
-pyFile = os.path.basename(__file__)
-this_dir = os.path.abspath(os.path.dirname(__file__))
-
-TmpDir = tempfile.gettempdir()
-TmpDir = os.path.join(TmpDir, os.path.splitext(pyFile)[0])
-
+PY_FILE = os.path.basename(__file__)
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data', 'rasters')
 
 class TestBandOps(unittest.TestCase):
+    failedTests = []
     @classmethod
     def setUpClass(cls):
         # 'https://stackoverflow.com/a/34065561'
         super(TestBandOps, cls).setUpClass()
-        if os.path.exists(TmpDir):
-            print('Folder Exists.. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
-
-        os.mkdir(TmpDir)
-
-        global testFailed
-        testFailed = False
-
-    @classmethod
-    def tearDownClass(cls):
-        if not testFailed:
-            print ('Tests Passed .. Deleting {}'.format(TmpDir))
-            shutil.rmtree(TmpDir)
 
     def setUp(self):
         self.startTime = time.time()
@@ -86,7 +69,7 @@ class TestBandOps(unittest.TestCase):
         ci.band_map = bm
         self.assertEqual(ci.valid_indices(), ['NDVI', 'PCD', 'GNDVI'])
 
-        file_image = os.path.realpath(this_dir + "/data/rasters/area1_rgbi_jan_50cm_84sutm54.tif")
+        file_image = os.path.realpath(os.path.join(THIS_DIR , "area1_rgbi_jan_50cm_84sutm54.tif"))
 
         with self.assertRaises(KeyError) as msg:
             ci.calculate('NDVIa', file_image, src_nodata=0)

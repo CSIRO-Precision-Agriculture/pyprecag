@@ -83,6 +83,9 @@ class VectorDescribe:
         self.feature_count = len(gdf)
         self.extent = list(gdf.total_bounds)
 
+        # drop null geometry
+        gdf.dropna(subset=['geometry'], axis=0, inplace=True)
+        
         # find the first element containing multi string, otherwise just use the first element from list.
         self.geometry_type = next((eaString for eaString in set(gdf.geom_type) if 'MULTI' in eaString.upper()),
                                   gdf.geom_type[0])
@@ -209,7 +212,7 @@ def get_esri_shapefile_schema(inputGeoDataFrame):
 
     # Edit it to ESRI Shapefile Standards
     properties = OrderedDict([
-        (re.sub('[^A-Za-z0-9_]+', '', name)[:10], fld_type) for name, fld_type in schema['properties'].iteritems()
+        (re.sub('[^A-Za-z0-9_]+', '', name)[:10], fld_type) for name, fld_type in schema['properties'].items()
     ])
     schema['properties'] = properties
     return schema
@@ -229,7 +232,11 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
     """
     if not isinstance(inputGeoDataFrame, GeoDataFrame):
         raise TypeError('Invalid Type : inputGeodataFrame')
-
+    
+    if inputGeoDataFrame.empty:
+        warnings.warn("inputGeoDataFrame is empty")
+        return
+    
     # if out_shapefilename doesn't include a path then add tempdir as well as overwriting it
     if output_filename is not None and not os.path.isabs(output_filename):
         output_filename = os.path.join(TEMPDIR, output_filename)
@@ -279,7 +286,7 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file',output_filename,
-                                              dur=datetime.timedelta(seconds=time.time() - step_time)))
+                                              dur=str(datetime.timedelta(seconds=time.time() - step_time))))
 
 
 def get_column_properties(dataframe):
@@ -365,7 +372,10 @@ def predictCoordinateColumnNames(column_names):
 
                 # create short list of matches and ratios
                 iter_items = six.iteritems(seqMatchDict)
-                valList.append(max(iter_items, key=lambda x: x[1]))
+                largest = max(iter_items, key=lambda x: x[1])
+                
+                if list(largest)[-1] > 0.60:
+                    valList.append(largest)
 
         # select the largest ratio as the best match
         if len(valList) > 0:

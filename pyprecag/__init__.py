@@ -33,8 +33,7 @@ LOGGER.addHandler(logging.NullHandler())
 if not os.environ.get('GDAL_DATA', None):
     try:
         # If gdal-config is available find the datadir (UNIX-systems)
-        process = subprocess.Popen(['gdal-config','--datadir'],
-            stdout=subprocess.PIPE)
+        process = subprocess.Popen(['gdal-config','--datadir'], stdout=subprocess.PIPE)
         output, error = process.communicate()
         output = six.ensure_str(output)
         # if there is no error in the subprocess, error is None
@@ -42,39 +41,33 @@ if not os.environ.get('GDAL_DATA', None):
         if error is not None:
             error = six.ensure_str(error)
         gdal_data = output.split('\n')[0]
-        assert os.path.isfile(os.path.join(gdal_data, 'gcs.csv'))
+        assert os.path.isfile(os.path.join(gdal_data, 'gt_datum.csv'))
     except:
         # Otherwise, search for gdal folder relative to the python executable
         env_root = os.path.split(sys.executable)[0]
         gdal_data = os.path.join(env_root, 'Library', 'share', 'gdal')
-        while not os.path.isfile(os.path.join(gdal_data, 'gcs.csv')):
+        while not os.path.isfile(os.path.join(gdal_data, 'gt_datum.csv')):
             gdal_data = os.path.split(gdal_data)[0]
-        assert os.path.isfile(
-            os.path.join(gdal_data, 'gcs.csv')
-        ), 'Could not find GDAL_DATA directory'
-    LOGGER.warn(
-        'Environment variable GDAL_DATA does not exist. Setting to {}'.format(
-            gdal_data)
-    )
+        assert os.path.isfile(os.path.join(gdal_data, 'gt_datum.csv')), 'Could not find GDAL_DATA directory'
+
+    LOGGER.warning('Environment variable GDAL_DATA does not exist. Setting to {}'.format(gdal_data))
     os.environ['GDAL_DATA'] = gdal_data
 
 if not os.environ.get('PROJ_LIB', None):
     try:
         # Find relative to pyproj installed path
         import pyproj.datadir
-        proj_lib = pyproj.datadir.pyproj_datadir
-        assert os.path.isfile(os.path.join(proj_lib, 'epsg'))
+        proj_lib = pyproj.datadir.get_data_dir()
+        assert os.path.isfile(os.path.join(proj_lib, 'other.extra'))
     except:
         # Otherwise, find relative to gdal_data
         gdal_data = os.path.normpath(os.environ['GDAL_DATA'])
         proj_lib = os.path.join(gdal_data.split(os.sep + 'gdal')[0], 'proj')
+
         if not os.path.exists(proj_lib):
             proj_lib = os.path.split(proj_lib)[0]
-        assert os.path.isfile(
-            os.path.join(proj_lib, 'epsg')
-        ), 'Could not find PROJ_LIB directory'
-    LOGGER.warn(
-        'Environment variable PROJ_LIB does not exist. Setting to {}'.format(
-            proj_lib)
-    )
+        assert os.path.isfile(os.path.join(proj_lib, 'other.extra')), 'Could not find PROJ_LIB directory'
+
+        LOGGER.warning('Environment variable PROJ_LIB does not exist. Setting to {}'.format(proj_lib))
+
     os.environ['PROJ_LIB'] = proj_lib

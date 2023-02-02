@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
-def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffer_by_pixels=0):
+def create_raster_transform(bounds, pixel_size, snap_extent_to_pixel=True, buffer_by_pixels=20):
     """Create parameters required for creating a new raster file based on a known extent and pixel
      size.
 
@@ -277,6 +277,9 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if not isinstance(ignore_nodata, bool):
         raise TypeError('{} should be a boolean.'.format(ignore_nodata))
 
+    if out_colname is None or out_colname == '':
+        out_colname = os.path.splitext(os.path.basename(raster.name))[0]
+
     start_time = time.time()
     col_name = []
     mask = raster.read_masks(band_num)
@@ -304,15 +307,13 @@ def focal_statistics(raster, band_num=1, ignore_nodata=True, size=3, function=np
     if clip_to_mask:
         # reapply the mask to remove values assigned to nodata pixels
         filtered = np.where(mask, filtered, np.nan)
-
-    title = os.path.splitext(os.path.basename(raster.name))[0]
-    if out_colname is None or out_colname == '':
-        out_colname = '{}_{}'.format(''.join(col_name), title)
+         
+    out_colname = '{}_{}'.format(''.join(col_name), out_colname)
 
     if config.get_debug_mode():
         LOGGER.info('{:50}  {dur:17} min: {:>.4f} max: {:>.4f}'.format(
             out_colname, np.nanmin(filtered), np.nanmax(filtered),
-            dur=timedelta(seconds=time.time() - start_time)))
+            dur=str(timedelta(seconds=time.time() - start_time))))
 
     return filtered.astype(np.float32), out_colname
 
@@ -366,7 +367,7 @@ def calculate_image_indices(image_file, band_map, out_image_file, indices=[], ou
 
     LOGGER.info(
         '{:<30} {:>10}   {:<15} {dur}'.format('Indices Calculate for Image', '', ', '.join(indices),
-                                              dur=timedelta(seconds=time.time() - start_time)))
+                                              dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
@@ -427,7 +428,7 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Processed Image', '', 'CRS: {} To  {}, nodata: {} To {}'.format(
                     image_epsg, out_epsg, src.nodata, image_nodata),
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=str(timedelta(seconds=time.time() - start_time))))
 
         else:
             # calculate the new affine transform for to use for reprojection.
@@ -456,7 +457,7 @@ def reproject_image(image_file, out_imagefile, out_epsg, band_nums=[],
 
             LOGGER.info('{:<30} {:>10}   {:<15} {dur}'.format(
                 'Reproject Image', '', 'From {} To  {}'.format(image_epsg, out_epsg),
-                dur=timedelta(seconds=time.time() - start_time)))
+                dur=str(timedelta(seconds=time.time() - start_time))))
 
             del transform
 
@@ -544,7 +545,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                     min_img_window = from_bounds(*min_bbox, transform=src.transform)
 
                     # find the intersection of the windows.
-                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+                    min_window = intersection(min_img_window, data_window).round_lengths()
 
                 # convert the window co coordinates
                 min_bbox = src.window_bounds(min_window)
@@ -553,7 +554,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
         if config.get_debug_mode():
             LOGGER.info('{:<30} {:<15} {dur} {}'.format(
                 'Found Common Extent', '', min_bbox,
-                dur=timedelta(seconds=time.time() - step_time)))
+                dur=str(timedelta(seconds=time.time() - step_time))))
 
     except rasterio.errors.WindowError as e:
         # reword 'windows do not intersect' error message
@@ -564,8 +565,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
         raise  # re-raise current exception
 
     # Create the metadata for the overlapping extent image. ---------------------------------------
-    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0],
-                                                             buffer_by_pixels=5)
+    transform, width, height, bbox = create_raster_transform(min_bbox, resolution[0], buffer_by_pixels=5)
 
     # update the new image metadata ---------------------------------------------------------------
     kwargs = rasterio.open(raster_files[0]).meta.copy()
@@ -592,12 +592,15 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                           dst_transform=transform,
                           resampling=Resampling.nearest)
 
-            dst.update_tags(i, **{'name': image})
+                # if a PAT tag exists then transfer it
+                pat_tags = {k: v for (k, v) in src.tags().items() if 'PAT' in k}
+                pat_tags['name'] = image
+                dst.update_tags(i, **pat_tags)
 
         dst.descriptions = band_list
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined', '',
-                                                 dur=timedelta(seconds=time.time() - step_time)))
+                                                 dur=str(timedelta(seconds=time.time() - step_time))))
 
     # find the common data area -------------------------------------------------------
     if use_common:
@@ -630,7 +633,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                 tmp_dst.write(mask, 1)
 
         LOGGER.info('{:<30} {:<15} {dur}'.format('Rasters Combined and clipped', '',
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
     gdal.SetConfigOption('GDAL_TIFF_INTERNAL_MASK', None)
 
@@ -676,7 +679,7 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
             for i in src.indexes:
                 dest.write(src.read(i), i)
 
-                cleaned_tags = dict([(key, val) for key, val in src.tags(i).iteritems()
+                cleaned_tags = dict([(key, val) for key, val in src.tags(i).items()
                                      if not key.upper().startswith('STATISTIC')])
 
                 if len(cleaned_tags) > 0:
@@ -684,6 +687,6 @@ def save_in_memory_raster_to_file(memory_raster, out_image):
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file', out_image,
-                                                 dur=timedelta(seconds=time.time() - start_time)))
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
     return out_image

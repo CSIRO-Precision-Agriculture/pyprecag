@@ -201,15 +201,15 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
 
     # There is a 100 character file path limitation set for the kriged and report outputs from
     #  vesper. By using the control filename we can find these truncated files and correct names.
-    if len(control_textfile) > 100:
-        search_dir = os.path.dirname(control_textfile)
-        search_file = os.path.basename(control_textfile[:101]).replace('control', '*')
-        suffix = control_textfile[101:]
-        for ea_file in glob.glob(os.path.join(search_dir, search_file)):
-            # only rename if there is no extension on the file
-            if os.path.splitext(ea_file)[-1] == '':
-                os.rename(ea_file, ea_file + suffix)
-                logging.debug('Renaming file {} to {}'.format(ea_file, ea_file + suffix))
+    # if len(control_textfile) > 100:
+    #     search_dir = os.path.dirname(control_textfile)
+    #     search_file = os.path.basename(control_textfile[:101]).replace('control', '*')
+    #     suffix = control_textfile[101:]
+    #     for ea_file in glob.glob(os.path.join(search_dir, search_file)):
+    #         # only rename if there is no extension on the file
+    #         if os.path.splitext(ea_file)[-1] == '':
+    #             os.rename(ea_file, ea_file + suffix)
+    #             logging.debug('Renaming file {} to {}'.format(ea_file, ea_file + suffix))
 
     krige_textfile = control_textfile.replace('control', 'kriged')
     out_ci_txt = control_textfile.replace('control', 'CI')
@@ -261,6 +261,8 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
                                     transform=out_pred.transform, fill=nodata_value)
 
         out_pred.write(burned, indexes=1)
+        out_pred.update_tags(PAT_MedianPredSE="{:.5f}".format(median_val),
+                             PAT_95ConfLevel="{:.5f}".format(2 * 1.96 * median_val))
 
     with rasterio.open(os.path.normpath(out_se_tif), 'w', driver='GTiff', width=x_cols,
                        height=y_rows, count=1,

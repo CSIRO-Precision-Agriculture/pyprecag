@@ -1,5 +1,5 @@
 import collections
-import datetime
+from datetime import timedelta
 import functools
 import inspect
 import logging
@@ -56,7 +56,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     if not isinstance(point_geodataframe, geopandas.GeoDataFrame):
         raise TypeError("Input Points should be a geopandas data frame")
 
-    if 'POINT' not in ','.join(list(point_geodataframe.geom_type.unique())).upper():
+    if 'POINT' not in ','.join(list(point_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise GeometryError('Invalid geometry. input shapefile should be point or multipoint')
 
     if not isinstance(point_crs, pyprecag_crs.crs):
@@ -115,6 +115,9 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             else:
                 prevPt = curRow
 
+    def add_filter_message(filter_string, left_count,del_count):
+        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count,del_count,filter_string))
+        
     global prevPt
     prevPt = ''
     subset = point_geodataframe[point_geodataframe['filter'].isnull()].copy()
@@ -154,13 +157,8 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
             raise TypeError(
                 "There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
 
-        LOGGER.info('{:<30} {:>10,}   {dur:<15} {}'.format(
-            'Filter by distance - {}'.format(
-                filter_string.replace('point', '')
-            ),
-            len(subset), 'del {} pts'.format(stepTotal),
-            dur=str(datetime.timedelta(seconds=time.time() - filterTime))
-        ))
+        add_filter_message('Filter by distance - {}'.format(filter_string.replace('point', '')),len(subset), stepTotal)
+        
 
     # set sort back to original row order
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)
@@ -208,7 +206,7 @@ def move_or_copy_vector_file(in_filename, out_filename, keepInput=True, overwrit
 
     LOGGER.debug('Successfully renamed from \n   {} \n    to    \n   {}'.format(in_filename, out_filename))
     LOGGER.info('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                              dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                              dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def explode_multi_part_features(in_shapefilename, out_shapefilename):
@@ -251,7 +249,7 @@ def explode_multi_part_features(in_shapefilename, out_shapefilename):
                     output.write({'geometry': mapping(line), 'properties': elem['properties']})
 
     LOGGER.info('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                             dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                             dur=str(timedelta(seconds=time.time() - start_time))))
 
 
 def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
@@ -347,5 +345,5 @@ def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
                                                                                      resultsDict['Length_m_NoOverlap']))
 
     LOGGER.debug('{} complete !!  Duration H:M:SS - {dur}'.format(inspect.currentframe().f_code.co_name,
-                                                            dur=datetime.timedelta(seconds=time.time() - start_time)))
+                                                            dur=(timedelta(seconds=time.time() - start_time))))
     return area, length
