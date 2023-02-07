@@ -1,6 +1,13 @@
 Changelog
 =========
-** 1.0.0 (2020-08-07)**
+** 0.4.1 (2023-02-07)**
+ * Support for newer versions of rasterio 1.3.3, geopandas 0.11.1, GDAL 3.6.1
+ * #45 Fix to k-means clustering
+ * #44 Fix to clean/trim
+ * #41 Fix for empty shapefile in Clean/trim
+ * Added vesper statistics as tags in output prediction tif
+
+** 0.4.0 (2020-08-07)**
  * #40 Port to Python3
  * Updated Blockgrid to support a group-by batch mode.
  * ``block_size`` argument removed from ``kriging_ops.prepare_for_vesper_krige``
