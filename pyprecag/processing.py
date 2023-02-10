@@ -565,14 +565,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     yld_std = gdf_points[gdf_points['filter'].isnull()][process_column].std()
     gdf_points.loc[gdf_points['filter'].isnull(), norm_column] = (gdf_points[process_column] - yld_mean) / yld_std
 
-    # Add x,y coordinates to match coordinate system
-    gdf_points['Easting'] = gdf_points.geometry.x
-    gdf_points['Northing'] = gdf_points.geometry.y
-
     # prepare some summary results for filtered features.
     # Filter is the reason a point is removed,and filter_inc keeps them in the order they were
     # removed. ie std it before thining by distance.
-
     results_table = gdf_points.copy()
     results_table.loc[gdf_points['filter'].isnull(), ['filter_inc', 'filter']] = \
         [len(gdf_points['filter'].unique()), 'Pts remaining']
@@ -610,8 +605,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Use geopandas merge instead of concat to maintain coordinate system info etc.
     gdf_final = points_geodataframe.merge(gdf_points, on=id_col, how='left')
-    gdf_final['EN_EPSG'] = points_crs.epsg_number
-    gdf_final.crs = points_crs.epsg
+    # Add x,y coordinates to match coordinate system
+    gdf_final['Easting'] = gdf_final.geometry.x
+    gdf_final['Northing'] = gdf_final.geometry.y
+    gdf_final['EN_EPSG'] = gdf_final.crs.to_epsg()
 
     # move newer columns to end (geometry, filter, etc)
     gdf_final.drop([id_col], inplace=True, axis=1)
