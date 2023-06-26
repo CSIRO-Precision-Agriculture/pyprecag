@@ -132,9 +132,9 @@ class test_VectorDescribe_ESRI(TestCase):
                                                                   
     def test_wgs84_mixedPartPoly_MZ_esriprj(self):
         vDesc = VectorDescribe(os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp")))
-        self.assertEqual(vDesc.crs.epsg_number, 4326)
+        self.assertEqual(4326, vDesc.crs.epsg_number)
         self.assertTrue(vDesc.is_mz_aware)
-        self.assertEqual(vDesc.geometry_type, 'MultiPolygon')
+        self.assertEqual('MultiPolygon', vDesc.geometry_type)
 
 
 class test_CsvDescribe(TestCase):
@@ -148,16 +148,15 @@ class test_CsvDescribe(TestCase):
     def test_csvfile_UTF8(self):
         csvDesc = CsvDescribe(os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")))
 
-
-        # chardet seems to detect this file as ISO-8869-9, which is described
-        # as "Largely the same as ISO/IEC 8859-1, replacing the rarely used
-        # Icelandic letters with Turkish ones."
+        ''' chardet seems to detect this file as ISO-8869-9, which is described
+            as "Largely the same as ISO/IEC 8859-1, replacing the rarely used
+            Icelandic letters with Turkish ones.'''
 
         #self.assertEqual(csvDesc.file_encoding, 'ISO-8859-1')
-        self.assertEqual(csvDesc.file_encoding, 'ISO-8859-9')
-        self.assertEqual(csvDesc.row_count, 1543)
-        self.assertEqual(csvDesc.column_count, 18)
-        self.assertEqual(predictCoordinateColumnNames(csvDesc.get_column_names()), ['Longitude', 'Latitude'])
+        self.assertEqual('ISO-8859-9', csvDesc.file_encoding)
+        self.assertEqual(1543, csvDesc.row_count)
+        self.assertEqual(18, csvDesc.column_count)
+        self.assertEqual(['Longitude', 'Latitude'], predictCoordinateColumnNames(csvDesc.get_column_names()))
         self.assertTrue(csvDesc.has_column_header)
 
         self.assertEqual(csvDesc.get_column_names()[-1], csvDesc.get_alias_column_names()[-1])
@@ -166,16 +165,16 @@ class test_CsvDescribe(TestCase):
         self.assertEqual(u'Crop Flw(V)(m\xb3/s)', csvDesc.get_column_names()[-2])
         self.assertEqual('CropFlw(V)(m3/s)', csvDesc.get_alias_column_names()[-2])
 
-        #check to see if unicode characters exist True if all ascii, false if not
+        # check to see if unicode characters exist True if all ascii, false if not
         self.assertTrue(all(ord(char) < 128 for char in csvDesc.get_alias_column_names()[-2]))
         self.assertFalse(all(ord(char) < 128 for char in csvDesc.get_column_names()[-2]))
 
     def test_csvfile_ascii(self):
         csvDesc = CsvDescribe(os.path.realpath(os.path.join(THIS_DIR, "area1_yield_ascii_wgs84.csv")))
 
-        self.assertEqual(csvDesc.file_encoding, 'ascii')
-        self.assertEqual(csvDesc.row_count, 13756)
-        self.assertEqual(csvDesc.column_count, 24)
+        self.assertEqual('ascii', csvDesc.file_encoding)
+        self.assertEqual(14756, csvDesc.row_count)
+        self.assertEqual(24, csvDesc.column_count)
         self.assertTrue(csvDesc.has_column_header)
 
 

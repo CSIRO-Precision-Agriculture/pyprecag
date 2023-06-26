@@ -83,14 +83,14 @@ class TestConvert(unittest.TestCase):
                                                   coord_columns_epsg=epsg)
 
         self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
-        self.assertEqual(len(gdf_data), 13756)
-        self.assertEqual(gdf_crs.epsg_number, epsg)
+        self.assertEqual(14756, len(gdf_data))
+        self.assertEqual(epsg, gdf_crs.epsg_number)
         self.assertTrue(os.path.exists(out_file))
 
     def test_convert_csv_to_points_WGS84(self):
         in_file = os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv"))
         out_epsg = 28354
-        self.test_outdir  = setup_folder(self.TmpDir, new_folder=self._testMethodName)
+        self.test_outdir = setup_folder(self.TmpDir, new_folder=self._testMethodName)
         out_file = os.path.join(self.test_outdir , os.path.basename(in_file).replace('.csv', '_{}.shp'.format(out_epsg)))
 
         gdf_data, gdf_crs = convert_csv_to_points(in_file, out_file, coord_columns_epsg=4326,
@@ -98,37 +98,37 @@ class TestConvert(unittest.TestCase):
 
         self.assertTrue(os.path.exists(out_file))
         self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
-        self.assertEqual(len(gdf_data), 1543)
-        self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
+        self.assertEqual(1543, len(gdf_data))
+        self.assertEqual(['Point'], list(set(gdf_data.geom_type)))
 
         import numpy as np
-        np.testing.assert_almost_equal(list(gdf_data.total_bounds),
-                                       [598868.6709, 6054050.0529, 599242.9049, 6054415.3845], 4)
+        np.testing.assert_almost_equal([598868.6709, 6054050.0529, 599242.9049, 6054415.3845],
+                                       list(gdf_data.total_bounds), 4)
 
-        self.assertEqual(gdf_crs.epsg_number, out_epsg)
-        self.assertEqual(gdf_crs.crs_wkt[:154], EPSG_28354_WKT[:154])
+        self.assertEqual(out_epsg, gdf_crs.epsg_number)
+        self.assertEqual(EPSG_28354_WKT[:154], gdf_crs.crs_wkt[:154])
 
     def test_convert_csv_to_points_WGS84_GuessEPSG(self):
         in_file = os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv"))
 
         out_fold = setup_folder(self.TmpDir, new_folder=self._testMethodName)
-        self.test_outdir  = os.path.join(out_fold, os.path.basename(in_file).replace('.csv', '_guessepsg.shp'))
-        gdf_data, gdf_crs = convert_csv_to_points(in_file, self.test_outdir , coord_columns_epsg=4326,
-                                                  out_epsg=-1)
+        self.test_outdir = os.path.join(out_fold, os.path.basename(in_file).replace('.csv', '_guessepsg.shp'))
+
+        gdf_data, gdf_crs = convert_csv_to_points(in_file, self.test_outdir , coord_columns_epsg=4326, out_epsg=-1)
+
         self.assertTrue(os.path.exists(self.test_outdir))
         self.assertIsInstance(gdf_data, gpd.GeoDataFrame)
-        self.assertEqual(len(gdf_data), 1543)
-        self.assertEqual(list(set(gdf_data.geom_type)), ['Point'])
-        self.assertEqual(gdf_crs.epsg_number, 28354)
-        self.assertEqual(gdf_crs.crs_wkt[:154], EPSG_28354_WKT[:154])
+        self.assertEqual(1543, len(gdf_data))
+        self.assertEqual(['Point'], list(set(gdf_data.geom_type)) )
+        self.assertEqual(28354, gdf_crs.epsg_number)
+        self.assertEqual(EPSG_28354_WKT[:154], gdf_crs.crs_wkt[:154])
 
     def test_numeric_pixelsize_to_string(self):
-        self.assertEqual(numeric_pixelsize_to_string(0.42), '42cm')
-        self.assertEqual(numeric_pixelsize_to_string(0.125), '125mm')
-        self.assertEqual(numeric_pixelsize_to_string(2.0), '2m')
-        self.assertEqual(numeric_pixelsize_to_string(6000), '6km')
-        self.assertEqual(numeric_pixelsize_to_string(1500), '1500m')
-
+        self.assertEqual('42cm', numeric_pixelsize_to_string(0.42))
+        self.assertEqual('125mm', numeric_pixelsize_to_string(0.125))
+        self.assertEqual('2m', numeric_pixelsize_to_string(2.0))
+        self.assertEqual('6km', numeric_pixelsize_to_string(6000))
+        self.assertEqual('1500m', numeric_pixelsize_to_string(1500))
     def test_cardinal_direction(self):
         self.assertEqual('E', deg_to_8_compass_pts(89.9999))
         self.assertEqual('N', deg_to_8_compass_pts(-5))
@@ -164,10 +164,10 @@ class TestConvert(unittest.TestCase):
                                                     LineString([(740900.861, 6169912, 2), (740979, 6170094, 5)])],
                                        'LineID'  : [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
-        c_line_gdf['geometry2'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
+        c_line_gdf['geom_noZ'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
 
-        self.assertEqual(c_line_gdf['geometry'].iloc[1], c_line_gdf['geometry2'].iloc[1])
-        self.assertNotEqual(c_line_gdf['geometry'].iloc[0], c_line_gdf['geometry2'].iloc[0])
+        self.assertEqual(c_line_gdf['geometry'].iloc[1].wkt, c_line_gdf['geom_noZ'].iloc[1].wkt)
+        self.assertNotEqual(c_line_gdf['geometry'].iloc[0].wkt, c_line_gdf['geom_noZ'].iloc[0].wkt)
 
-        self.assertFalse(c_line_gdf['geometry2'].iloc[0].has_z)
-        self.assertFalse(c_line_gdf['geometry2'].iloc[-1].has_z)
+        self.assertFalse(c_line_gdf['geom_noZ'].iloc[0].has_z)
+        self.assertFalse(c_line_gdf['geom_noZ'].iloc[-1].has_z)

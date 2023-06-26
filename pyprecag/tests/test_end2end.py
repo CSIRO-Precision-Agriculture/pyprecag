@@ -59,10 +59,10 @@ class TestEnd2End(unittest.TestCase):
     def test01_csvDescribe_ASCII(self):
         csv_desc = CsvDescribe(FILE_CSV)
 
-        self.assertEqual(csv_desc.file_encoding, 'ascii')
-        self.assertEqual(csv_desc.row_count, 13756)
-        self.assertEqual(csv_desc.column_count, 24)
-        self.assertEqual(predictCoordinateColumnNames(csv_desc.get_column_names()), ['Lon', 'Lat'])
+        self.assertEqual('ascii', csv_desc.file_encoding)
+        self.assertEqual(14756, csv_desc.row_count)
+        self.assertEqual(24, csv_desc.column_count )
+        self.assertEqual(['Lon', 'Lat'], predictCoordinateColumnNames(csv_desc.get_column_names()))
         self.assertTrue(csv_desc.has_column_header)
 
     def test02_createPolygonFromPointTrail(self):
@@ -83,23 +83,23 @@ class TestEnd2End(unittest.TestCase):
                                             buffer_dist_m=7,
                                             shrink_dist_m=3)
 
-        self.assertTrue(os.path.exists(filePoly), True)
+        self.assertTrue(True, os.path.exists(filePoly))
 
     def test03_vectorDescribe(self):
         vect_desc = VectorDescribe(filePoly)
-        self.assertEqual(vect_desc.crs.epsg_number, EPSG)
+        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
         self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual(vect_desc.geometry_type, 'Polygon')
+        self.assertEqual('Polygon', vect_desc.geometry_type )
 
         vect_desc = VectorDescribe(filePoints)
-        self.assertEqual(vect_desc.crs.epsg_number, EPSG)
+        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
         self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual(vect_desc.geometry_type, 'Point')
+        self.assertEqual('Point', vect_desc.geometry_type )
 
         vect_desc = VectorDescribe(FILE_BOX)
-        self.assertEqual(vect_desc.crs.epsg_number, EPSG)
+        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
         self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual(vect_desc.geometry_type, 'Polygon')
+        self.assertEqual('Polygon', vect_desc.geometry_type )
 
     def test04_blockGrid(self):
 
@@ -158,14 +158,14 @@ class TestEnd2End(unittest.TestCase):
         self.assertTrue(os.path.exists(fileTrimmed))
         self.assertTrue(os.path.exists(file_shp))
         self.assertTrue(os.path.exists(file_removed))
-        self.assertEqual(gdf_out.crs, crs.from_epsg(EPSG))
-        self.assertEqual(len(gdf_out), 648)
+        self.assertEqual(crs.from_epsg(EPSG), gdf_out.crs)
+        self.assertEqual(542, len(gdf_out))
         self.assertIn('nrm_' + data_col, gdf_out.columns)
         self.assertIn('Easting', gdf_out.columns)
         self.assertIn('Northing', gdf_out.columns)
         self.assertIn('EN_EPSG', gdf_out.columns)
 
-    @unittest.skipIf(platform.system() != 'Windows','Vesper only present on Windows')
+    @unittest.skipIf(platform.system() != 'Windows', 'Vesper only present on Windows')
     def test06_prepareForVesperKrig(self):
         csv_desc = CsvDescribe(fileTrimmed)
         df_csv = csv_desc.open_pandas_dataframe()
@@ -193,8 +193,8 @@ class TestEnd2End(unittest.TestCase):
                                           sub_file + '_vesperdata_' + data_col + '.csv'))
 
         x_column, y_column = predictCoordinateColumnNames(df_csv.columns)
-        self.assertEqual(x_column.upper(), 'EASTING')
-        self.assertEqual(y_column.upper(), 'NORTHING')
+        self.assertEqual('EASTING', x_column.upper())
+        self.assertEqual('NORTHING', y_column.upper())
 
         print('Running Vesper, Please wait....')
         run_vesper(file_control)

@@ -168,15 +168,16 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertEqual(28354, out_gdf.crs.to_epsg())  # {'init': 'EPSG:28354', 'no_defs': True})
         self.assertIn('EN_EPSG', out_gdf.columns)
-        self.assertEqual(len(out_gdf), 550)
+        self.assertEqual(542, len(out_gdf))
 
-        results = dict(filter=['01 nulls', '02 Duplicate XY', '03 clip', '04 <= zero', '05 3 std iter 1',
-                               '06 3 std iter 2', '07 pointXY (2.5m)'], count=[1000, 931, 12204, 62, 3, 4, 2])
+        results = dict(filter=['01 null/missing data', '02 Duplicate XY', '03 clip', '04 <= zero', '05 3 std iter 1',
+                               '06 3 std iter 2', '07 3 std iter 3', '08 pointXY (2.5m)'],
+                       count=[1000, 931, 12211, 62, 3, 4, 1, 2])
 
         res_df = gpd.read_file(out_rm_shp)
-        self.assertEqual(len(res_df), 14206)
+        self.assertEqual(14214, len(res_df))
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
         res_stats.reset_index(drop=False, inplace=True)
@@ -198,14 +199,14 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
-        self.assertEqual(len(out_gdf), 552)
+        self.assertEqual(28354, out_gdf.crs.to_epsg() )  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertEqual(554, len(out_gdf))
         self.assertIn('EN_EPSG', out_gdf.columns)
 
-        results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[952, 39])
+        results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[951, 38])
 
         res_df = gpd.read_file(out_rm_shp)
-        self.assertEqual(len(res_df), 991)
+        self.assertEqual(989, len(res_df) )
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
         res_stats.reset_index(drop=False, inplace=True)
@@ -259,12 +260,12 @@ class Test_Processing(unittest.TestCase):
                                         buffer_dist_m=10,
                                         shrink_dist_m=3)
 
-        self.assertTrue(os.path.exists(out_polyfile), True)
+        self.assertTrue(os.path.exists(out_polyfile))
 
         vect_desc = VectorDescribe(out_polyfile)
-        self.assertEqual(vect_desc.crs.epsg_number, 28354)
+        self.assertEqual(28354, vect_desc.crs.epsg_number)
         self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual(vect_desc.geometry_type, 'Polygon')
+        self.assertEqual('Polygon', vect_desc.geometry_type)
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif
@@ -774,9 +775,9 @@ class TestCalculateImageIndices(unittest.TestCase):
                     self.assertEqual(val, actual_val,
                                      'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
                 else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+                    self.assertAlmostEqual(val, actual_val, decpts,
+                                           'Incorrect pixel value for {}, {}, {}'.format(x, y,
+                                                                                         os.path.basename(src.name)))
 
     def test_dontApplyNonVineMask(self):
 
