@@ -2,13 +2,14 @@
 """
 Format conversion routines.
 """
-from  datetime import timedelta
+import warnings
+from datetime import timedelta
 import inspect
 import logging
 import math
 import os
 import time
-
+from . import _compat as compat
 import numpy as np
 
 import pandas as pd
@@ -125,6 +126,8 @@ def deg_to_8_compass_pts(degrees):
 
 
 def drop_z(geom):
+    warnings.warn('drop_z() is deprecated for shapely > 2.x. Please use shapely.force_2d() instead.', DeprecationWarning, stacklevel=2)
+
     if isinstance(geom, LineString):
         return LineString([xy[0:2] for xy in list(geom.coords)])
     if isinstance(geom, Point):

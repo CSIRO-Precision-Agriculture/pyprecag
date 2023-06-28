@@ -35,15 +35,22 @@ from rasterio.windows import get_data_window, intersection, from_bounds
 from scipy.cluster.vq import *
 from scipy import stats
 
-from shapely.geometry import LineString, Point, mapping
+from ._compat import SHAPELY_GE_20
+
+if SHAPELY_GE_20:
+    from shapely import Point, LineString, force_2d
+    from shapely.geometry import mapping
+else:
+    from shapely.geometry import Point, LineString, mapping
+    from .convert import drop_z as force_2d
+
 from shapely.ops import linemerge
 
 from . import TEMPDIR, config, crs as pyprecag_crs, number_types
-
 from .crs import from_epsg
 from .table_ops import calculate_strip_stats
 from .convert import (convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster,
-                      drop_z, deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
+                      deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
 
 from .raster_ops import (focal_statistics, save_in_memory_raster_to_file, reproject_image,
                          calculate_image_indices, stack_and_clip_rasters)
@@ -2005,7 +2012,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     gdf_lines.index.name = 'FID'
 
     if gdf_lines['geometry'][0].has_z:
-        gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: drop_z(x))
+        gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: force_2d(x))
 
     # Add TrialID  Side, Length and startoffset
     if 'TrialID' not in gdf_lines.columns:

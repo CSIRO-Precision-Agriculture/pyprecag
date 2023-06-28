@@ -16,6 +16,11 @@ import geopandas as gpd
 import pandas as pd
 import numpy.testing as npt
 
+if SHAPELY_GE_20:
+    from shapely import force_2d
+else:
+    from pyprecag.convert import drop_z as force_2d
+
 PY_FILE = os.path.basename(__file__)
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
 THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
@@ -164,7 +169,7 @@ class TestConvert(unittest.TestCase):
                                                     LineString([(740900.861, 6169912, 2), (740979, 6170094, 5)])],
                                        'LineID'  : [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
 
-        c_line_gdf['geom_noZ'] = c_line_gdf['geometry'].apply(lambda x: drop_z(x))
+        c_line_gdf['geom_noZ'] = c_line_gdf['geometry'].apply(lambda x: force_2d(x))
 
         self.assertEqual(c_line_gdf['geometry'].iloc[1].wkt, c_line_gdf['geom_noZ'].iloc[1].wkt)
         self.assertNotEqual(c_line_gdf['geometry'].iloc[0].wkt, c_line_gdf['geom_noZ'].iloc[0].wkt)
