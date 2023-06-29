@@ -10,15 +10,15 @@ import time
 import os
 import tempfile
 import logging
-from shapely.geometry import LineString
 
 import geopandas as gpd
 import pandas as pd
 import numpy.testing as npt
 
 if SHAPELY_GE_20:
-    from shapely import force_2d
+    from shapely import LineString, force_2d
 else:
+    from shapely.geometry import LineString
     from pyprecag.convert import drop_z as force_2d
 
 PY_FILE = os.path.basename(__file__)

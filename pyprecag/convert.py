@@ -9,7 +9,6 @@ import logging
 import math
 import os
 import time
-from . import _compat as compat
 import numpy as np
 
 import pandas as pd
@@ -24,8 +23,12 @@ from geopandas import GeoDataFrame, GeoSeries
 import rasterio
 from rasterio import features
 
-from fiona import collection as fionacoll
-from shapely.geometry import Point, mapping, shape, LineString
+from ._compat import SHAPELY_GE_20
+
+if SHAPELY_GE_20:
+    from shapely import Point, LineString
+else:
+    from shapely.geometry import Point, LineString
 
 from . import crs as pyprecag_crs
 from pyprecag.crs import from_epsg

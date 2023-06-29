@@ -6,15 +6,21 @@ import os
 import six
 import socket
 import warnings
+from geopandas import GeoDataFrame, GeoSeries
 
 from pkg_resources import parse_version
 from six.moves.urllib_parse import urlencode
 from six.moves.urllib_request import urlopen
 
 from osgeo import osr, gdal
-from shapely import geometry
-import pyproj
 
+from ._compat import SHAPELY_GE_20
+if SHAPELY_GE_20:
+    from shapely import Point
+else:
+    from shapely.geometry import Point
+
+import pyproj
 from . import config
 from .errors import SpatialReferenceError
 
@@ -404,8 +410,8 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
         newLong, newLat, alt = utm2wgs84_transform.TransformPoint(easting + distance_metres, northing, 0)
 
     # Create a point objects.
-    origPoint = geometry.Point(longitude, latitude)
-    adjPoint = geometry.Point(newLong, newLat)
+    origPoint = Point(longitude, latitude)
+    adjPoint = Point(newLong, newLat)
 
     # Calculate Distance
     distance_dd = origPoint.distance(adjPoint)
