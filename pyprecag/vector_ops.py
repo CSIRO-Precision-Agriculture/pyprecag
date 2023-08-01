@@ -219,6 +219,9 @@ def explode_multi_part_features(in_shapefilename, out_shapefilename):
     Returns:None
 
     """
+    warnings.warn('explode_multi_part_features() is deprecated and will be removed in a future release. Please use GeoDataFrame.explode() instead.',
+                  DeprecationWarning, stacklevel=2)
+
     start_time = time.time()
 
     if not os.path.exists(in_shapefilename):
@@ -266,6 +269,9 @@ def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
     Returns:
         list[area,length]: The Total Area and Length
     """
+    warnings.warn('calculate_area_length_in_metres() is deprecated and will be removed in a future release.\nPlease use  `gdf.to_crs(gdf.estimate_utm_crs().to_epsg()).geometry.area` or similar',
+                  DeprecationWarning, stacklevel=2)
+
     start_time = time.time()
 
     if not os.path.exists(in_filename):

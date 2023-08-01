@@ -1,11 +1,20 @@
 Changelog
 =========
+** xxxxxxx **
+ + Support for newer versions of rasterio XX, geopandas XX, GDAL XX
+ Deprecated functions
+  + ``convert.drop_z()`` replaced by ``shapely.force_2d()``
+  + ``vector_ops.explode_multi_part_features()`` replaced by ``GeoDataFrame.explode()``
+  + ``vector_ops.calculate_area_length_in_metres()`` replaced by ``GeoDataFrame.to_crs(GeoDataFrame.estimate_utm_crs().to_epsg()).geometry.area`` or equivalent
+ Bug Fixes
+  + #XXX writing vesper grid is slow
+
 ** 0.4.1 (2023-02-07)**
- * Support for newer versions of rasterio 1.3.3, geopandas 0.11.1, GDAL 3.6.1
- * #45 Fix to k-means clustering
- * #44 Fix to clean/trim
- * #41 Fix for empty shapefile in Clean/trim
- * Added vesper statistics as tags in output prediction tif
+ + Support for newer versions of rasterio 1.3.3, geopandas 0.11.1, GDAL 3.6.1
+ + #45 Fix to k-means clustering
+ + #44 Fix to clean/trim
+ + #41 Fix for empty shapefile in Clean/trim
+ + Added vesper statistics as tags in output prediction tif
 
 ** 0.4.0 (2020-08-07)**
  * #40 Port to Python3
@@ -19,12 +28,11 @@ Changelog
 
 **0.3.0 (2019-06-30)**
  New Tools
-  * #24 Persistor.  
-  * #22 *t*-test analysis of strip trials.  
+  * #24 Persistor.
+  * #22 *t*-test analysis of strip trials.
  Enhancements
   * #30 Low spatial density kriging using VESPER.  
-  * #22 Updated processing.create_points_along_line to allow for line offset to use compass points instead of Offset 1 etc.
-  
+  * #22 Updated ``processing.create_points_along_line`` to allow for line offset to use compass points instead of Offset 1 etc.
  Minor Bug Fixes.
 
 **0.2.2 (2019-02-27)**
