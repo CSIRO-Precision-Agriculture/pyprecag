@@ -1,8 +1,11 @@
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
+
+import numpy as np
 import geopandas as gpd
-from pandas._testing import assert_frame_equal
+from pandas import testing as pdts
 
 from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS, warn_with_traceback
 
@@ -19,18 +22,6 @@ THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-
-def write2csv(csv_file, line):
-    import csv
-    # csv_file = os.path.join(folder,"test_PixelVals.csv")
-    new_csv = not os.path.exists(csv_file)
-
-    header = ['x', 'y', 'expected', 'dec_places', 'actual', 'source']
-    with open(csv_file, 'a', encoding='UTF8', newline='') as f:
-        writer = csv.writer(f)
-        if new_csv: writer.writerow(header)
-        writer.writerow(line)
 
 
 class Test_BlockGrid(unittest.TestCase):
@@ -181,7 +172,7 @@ class Test_CleanTrim(unittest.TestCase):
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
         res_stats.reset_index(drop=False, inplace=True)
-        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
 
     def test_cleanTrimPoints_area2(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
@@ -206,11 +197,11 @@ class Test_CleanTrim(unittest.TestCase):
         results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[951, 38])
 
         res_df = gpd.read_file(out_rm_shp)
-        self.assertEqual(989, len(res_df) )
+        self.assertEqual(989, len(res_df))
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
         res_stats.reset_index(drop=False, inplace=True)
-        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
 
 
 class Test_Processing(unittest.TestCase):
@@ -278,8 +269,6 @@ class Test_Processing(unittest.TestCase):
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_shp))
         self.assertEqual(rand_crs, rast_crs)
-
-
 
     def test_PersistorAllYears(self):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
@@ -400,7 +389,7 @@ class TestKMeansCluster(unittest.TestCase):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
         raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
-        raster_files = {ea : os.path.basename(ea).split('_')[2] for ea in raster_files}
+        raster_files = {ea: os.path.basename(ea).split('_')[2] for ea in raster_files}
 
         out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
 
@@ -759,25 +748,30 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places]
-            check_coords = [[300725.0, 6181571.0, -9999, 0],
-                            [300647.0, 6181561.0, 0.22253361, 2]]
+            check_df = pd.DataFrame([[62, 77, 300725.0, 6181571.0, -9999],
+                                     [67, 38, 300647.0, 6181561.0, 0.2031]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts,
-                                           'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                         os.path.basename(src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(), check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(), check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_dontApplyNonVineMask(self):
 
@@ -800,25 +794,33 @@ class TestCalculateImageIndices(unittest.TestCase):
 
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725.0, 6181571.0, -9999, 0],
-                            [300647.0, 6181561.0, 0.02232674, 4]]
+            check_df = pd.DataFrame([[62, 77, 300725.0, 6181571.0, -9999.0],
+                                     [67, 38, 300647.0, 6181561.0, 0.0225]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noShapefile(self):
         # Use Full Image......
@@ -841,26 +843,34 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725, 6181571, -0.05087604, 4],
-                            [300647.0, 6181561.0, 0.02232674, 4],
-                            [300881.342, 6181439.444, -9999, 0]]
+            check_df = pd.DataFrame([[114, 278, 300725.0, 6181571.0, -0.0506],
+                                     [119, 239, 300647.0, 6181561.0, 0.0225],
+                                     [180, 356, 300881.342, 6181439.444, -9999.0]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noGroupby(self):
 
@@ -942,26 +952,33 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300663, 6181573, 0, 0],
-                            [300675, 6181651, 893.1667, 4]]
+            check_df = pd.DataFrame([[61, 46, 300663.0, 6181573.0, 0.0],
+                                     [22, 52, 300675.0, 6181651.0, 899.3889]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                if KEEP_TEST_OUTPUTS:
-                    csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                    write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noShapefile(self):
         # Use Full Image......
@@ -980,27 +997,34 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # test for values at coords
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725, 6181571, 0, 4],
-                            [300647.0, 6181561.0, 917.34998, 4],
-                            [300881.342, 6181439.444, 0, 0]]
+            check_df = pd.DataFrame([[114, 278, 300725.0, 6181571.0, 0.0],
+                                     [119, 239, 300647.0, 6181561.0, 916.85],
+                                     [180, 356, 300881.342, 6181439.444, 0.0]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noGroupby(self):
 
