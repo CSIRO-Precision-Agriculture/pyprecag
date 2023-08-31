@@ -163,16 +163,21 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertIn('EN_EPSG', out_gdf.columns)
         self.assertEqual(542, len(out_gdf))
 
-        results = dict(filter=['01 null/missing data', '02 Duplicate XY', '03 clip', '04 <= zero', '05 3 std iter 1',
-                               '06 3 std iter 2', '07 3 std iter 3', '08 pointXY (2.5m)'],
-                       count=[1000, 931, 12211, 62, 3, 4, 1, 2])
+        tmp = pd.DataFrame.from_records(data = [{'filter': '01 null/missing data', 'count': 1000},
+                                         {'filter': '02 Duplicate XY', 'count': 931},
+                                         {'filter': '03 clip', 'count': 12211},
+                                         {'filter': '04 <= zero', 'count': 62},
+                                         {'filter': '05 3 std iter 1', 'count': 3},
+                                         {'filter': '06 3 std iter 2', 'count': 4},
+                                         {'filter': '07 3 std iter 3', 'count': 1},
+                                         {'filter': '09 pointXY (2.5m)', 'count': 2}], index='filter')
 
         res_df = gpd.read_file(out_rm_shp)
+
         self.assertEqual(14214, len(res_df))
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
-        res_stats.reset_index(drop=False, inplace=True)
-        pdts.assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(tmp, res_stats)
 
     def test_cleanTrimPoints_area2(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
@@ -194,14 +199,15 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertEqual(554, len(out_gdf))
         self.assertIn('EN_EPSG', out_gdf.columns)
 
-        results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[951, 38])
-
         res_df = gpd.read_file(out_rm_shp)
         self.assertEqual(989, len(res_df))
 
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 clip', 'count': 951},
+                                              {'filter': '03 pointXY (2.5m)', 'count': 38}],
+                                        index='filter')
+
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
-        res_stats.reset_index(drop=False, inplace=True)
-        pdts.assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(tmp, res_stats)
 
 
 class Test_Processing(unittest.TestCase):

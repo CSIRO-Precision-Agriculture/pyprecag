@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
-
+import geopandas as gpd
 from pyprecag import convert, crs
 from pyprecag.bandops import CalculateIndices, BandMapping
 from pyprecag.describe import CsvDescribe, predictCoordinateColumnNames
@@ -158,6 +158,22 @@ class TestEnd2End(unittest.TestCase):
         self.assertTrue(os.path.exists(fileTrimmed))
         self.assertTrue(os.path.exists(file_shp))
         self.assertTrue(os.path.exists(file_removed))
+
+        tmp = gpd.read_file(file_removed)
+        self.assertEqual(tmp.crs, gdf_points.crs)
+
+        out_stats = tmp.groupby(by='filter').agg(count=pd.NamedAgg(column='filter', aggfunc='count'))
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 null/missing data', 'count': 1000},
+                                              {'filter': '02 Duplicate XY', 'count': 931},
+                                              {'filter': '03 clip', 'count': 12211},
+                                              {'filter': '04 <= zero', 'count': 62},
+                                              {'filter': '05 3 std iter 1', 'count': 3},
+                                              {'filter': '06 3 std iter 2', 'count': 4},
+                                              {'filter': '07 3 std iter 3', 'count': 1},
+                                              {'filter': '09 pointXY (2.5m)', 'count': 2}], index='filter')
+
+        pd.testing.assert_frame_equal(tmp, out_stats)
+
         self.assertEqual(crs.from_epsg(EPSG), gdf_out.crs)
         self.assertEqual(542, len(gdf_out))
         self.assertIn('nrm_' + data_col, gdf_out.columns)
