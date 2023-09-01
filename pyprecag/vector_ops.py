@@ -267,7 +267,8 @@ def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
     Returns:
         list[area,length]: The Total Area and Length
     """
-    warnings.warn('calculate_area_length_in_metres() is deprecated and will be removed in a future release.\nPlease use  `gdf.to_crs(gdf.estimate_utm_crs().to_epsg()).geometry.area` or similar',
+    warnings.warn('calculate_area_length_in_metres() is deprecated in favor of '
+                  '`gdf.to_crs(gdf.estimate_utm_crs().to_epsg()).geometry.area` or similar',
                   DeprecationWarning, stacklevel=2)
 
     start_time = time.time()

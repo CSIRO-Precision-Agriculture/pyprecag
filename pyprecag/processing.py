@@ -6,9 +6,9 @@ from collections import defaultdict
 import warnings
 import logging
 import os
+from pathlib import Path
+
 import six
-
-
 from six.moves import zip as izip
 
 import random
@@ -18,12 +18,10 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pandas as pd
-
-import rasterio
-
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
+import rasterio
 from rasterio import crs as riocrs
 from rasterio import features
 from rasterio.io import MemoryFile
@@ -298,7 +296,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     # buffer and dissolve overlap of lines
     step_time = time.time()
     gdf_final = GeoDataFrame(geometry=[gdf_final.buffer(buffer_dist_m).unary_union])
-    gdf_final.crs = ptsgdf_crs
+    # gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
                                              dur=str(timedelta(seconds=time.time() - step_time))))
@@ -334,10 +332,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
-        inspect.currentframe().f_code.co_name, '',
-        dur=str(timedelta(seconds=time.time() - start_time))
-    ))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
+                                               dur=str(timedelta(seconds=time.time() - start_time))))
 
     thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
@@ -449,10 +445,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points = points_geodataframe.copy()
 
     # To speed things up, drop all un-required columns
-    dropcols = [ea for ea in gdf_points.columns.tolist()
-                if ea not in ['geometry', id_col, norm_column, process_column]]
-
-    gdf_points.drop(dropcols, axis=1, inplace=True)
+    gdf_points.drop(columns=gdf_points.columns.difference(['geometry', id_col, norm_column, process_column]),
+                    axis=1, inplace=True)
 
     step_time = time.time()
 
@@ -602,7 +596,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Find and Drop coord columns if already exist.
     coord_columns = [fld for fld in points_geodataframe.columns if fld.upper() in alt_coord_columns]
-    #coord_columns = coord_columns + ['geometry']
+    # coord_columns = coord_columns + ['geometry']
 
     if len(coord_columns) > 0:
         points_geodataframe.drop(coord_columns, axis=1, inplace=True)
@@ -2088,22 +2082,19 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     if out_lines_shapefile is not None or config.get_debug_mode():
         if out_lines_shapefile is None:
-            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'),
-                                  overwrite=True)
+            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
         else:
             save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
 
     if out_points_shapefile is not None or config.get_debug_mode():
         if out_points_shapefile is None:
-            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'),
-                                  overwrite=True)
+            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
         else:
             save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30} {:>15} {dur}'.format(
-            'Create Points Along Line Completed', '',
-            dur=str(timedelta(seconds=time.time() - start_time))))
+        LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
     return gdf_points, points_crs, gdf_lines
 
@@ -2215,7 +2206,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                     min_img_window = from_bounds(*min_bbox, transform=src.transform)
 
                     # find the intersection of the windows.
-                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+                    min_window = intersection(min_img_window, data_window).round_lengths()
 
                 # convert the window co coordinates
                 min_bbox = src.window_bounds(min_window)
@@ -2344,7 +2335,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     from collections import OrderedDict
     import matplotlib.patheffects as pe
 
-    for iline, (line_id, gdf_strip) in enumerate(gdf_points.groupby(['TrialID']), start=1):
+    for iline, (line_id, gdf_strip) in enumerate(gdf_points.groupby(by='TrialID'), start=1):
         status = '{} of {}'.format(iline, line_count)
         loop_time = time.time()
         df_subtable = df_table[df_table['TrialID'] == line_id].copy()
@@ -2571,7 +2562,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                     ea_ax.legend(by_label.values(), by_label.keys(), loc='center left',
                                  bbox_to_anchor=(1, 0.5), edgecolor='w')
 
-            plt.savefig(file_path_noext + '_graph.png', index=False)
+            plt.savefig(file_path_noext + '_graph.png')
             plt.close()
             if config.get_debug_mode():
                 LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(
