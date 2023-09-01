@@ -322,12 +322,9 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
             save_geopandas_tofile(gdf_final, temp_file_list[-1], overwrite=True)
 
     step_time = time.time()
-    # https://github.com/geopandas/geopandas/issues/174#issuecomment-63126908
-    explode = gdf_final.explode().reset_index().rename(
-        columns={0: 'geometry'}).set_geometry('geometry')['geometry']
 
-    gdf_final = GeoDataFrame(geometry=explode)
-    gdf_final.crs = ptsgdf_crs
+    gdf_final = GeoDataFrame(geometry=gdf_final.geometry.explode(index_parts=False))
+    # gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     gdf_final['Area'] = gdf_final.area
     gdf_final['Perimeter'] = gdf_final.length
@@ -1977,7 +1974,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         gdf_lines = lines_geodataframe[['geometry']].copy()
 
     # convert multi part to single part geometry
-    gdf_lines = gdf_lines.explode()
+    gdf_lines = gdf_lines.explode(index_parts=False)
     if isinstance(gdf_lines, GeoSeries):
         #  geopandas 0.3.0 explode creates a geoseries so convert back to geodataframe
         gdf_lines = GeoDataFrame(geometry=gdf_lines, crs=lines_geodataframe.crs)

@@ -216,7 +216,8 @@ def explode_multi_part_features(in_shapefilename, out_shapefilename):
     Returns:None
 
     """
-    warnings.warn('explode_multi_part_features() is deprecated and will be removed in a future release. Please use GeoDataFrame.explode() instead.',
+    warnings.warn('explode_multi_part_features() is deprecated in favor of `GeoDataFrame.explode()`  '
+                  'see https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoDataFrame.explode.html',
                   DeprecationWarning, stacklevel=2)
 
     start_time = time.time()
