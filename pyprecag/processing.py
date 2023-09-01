@@ -1762,7 +1762,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
-                        alias = next(val for key, val in raster_files.items() if src_img.descriptions[i] in key)
+                        alias = next(val for key, val in raster_files.items() if src_img.descriptions[i] == Path(key).stem)
 
                         if not alias:
                             alias = src_img.descriptions[i]
@@ -1773,13 +1773,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                         # add a blank column inorder for populating later
                         new_row[alias + ', vesper'] = np.nan
 
-            # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
-            try:
-                results_df = new_row.append(results_df, ignore_index=True, sort=False)
-            except TypeError:
-                results_df = new_row.append(results_df, ignore_index=True)
+            results_df = pd.concat([results_df, new_row])
 
-        # reorder zones based on mean value of all inputs
+        # reorder zone numbering based on mean value of all inputs
         mean_cols = [col for col in results_df.columns if ', mean' in col]
 
         results_df['zone_mean'] = results_df[mean_cols].mean(axis=1)
@@ -1831,13 +1827,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                         new_row.loc[new_row['zone'] == tag_col, '{}, vesper'.format(alias)] = src_img.tags(iband)[tag]
 
-        try:
-            results_df = results_df.append(new_row, ignore_index=True, sort=False)
-
-        except TypeError:
-            results_df = results_df.append(new_row, ignore_index=True)
-            # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
-            results_df = results_df.reindex(columns=columns)
+        results_df = pd.concat([results_df, new_row])
 
         results_df.dropna(axis='columns', how='all', inplace=True)
 
@@ -2017,9 +2007,8 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     # calculate a start offset to centre points along the line
     gdf_lines['startoffset'] = (gdf_lines['geometry'].length % distance_between_points) / 2
 
-    # create a new dataframe for parallel lines
-    gdf_lrline = GeoDataFrame(columns=['FID', 'TrialID', 'Strip_Name', 'geometry'],
-                              geometry='geometry', crs=gdf_lines.crs)
+    # create a dictionary for parallel lines
+    dict_lrline = defaultdict(list)
 
     # create L/R lines for each centre line
     for index, c_line_row in gdf_lines.iterrows():
@@ -2041,11 +2030,12 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             if side == 'right':
                 parallel_line = LineString(parallel_line.coords[::-1])
 
-            gdf_lrline = gdf_lrline.append({'TrialID'   : c_line_row['TrialID'],
-                                            'Strip_Name': value, 'geometry': parallel_line},
-                                           ignore_index=True)
+            dict_lrline['TrialID'].append(c_line_row['TrialID'])
+            dict_lrline['Strip_Name'].append(value)
+            dict_lrline['geometry'] .append(parallel_line)
 
-    gdf_lrline['FID'] = gdf_lrline.index
+    gdf_lrline = GeoDataFrame(dict_lrline, crs=gdf_lines.crs)
+    gdf_lrline.index.name = 'FID'
 
     if config.get_debug_mode():
         LOGGER.info('{:<30}   {:<15} {dur}'.format(
@@ -2053,10 +2043,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
 
     step_time = time.time()
 
-    # Create an empty dataframe to store points in
-    gdf_points = GeoDataFrame(columns=['FID', 'TrialID', 'Strip_Name', 'PointID', 'geometry'],
-                              geometry='geometry',
-                              crs=gdf_lrline.crs)
+    dict_points = defaultdict(list)
 
     # Loop through each centre line
     for index_c, line_c in gdf_lines.iterrows():
@@ -2067,13 +2054,11 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
             # Add point along the centre line.
             pt = line_c['geometry'].interpolate(distance)
 
-            # add it to the dataframe
-            gdf_points = gdf_points.append({'geometry'  : pt,
-                                            'TrialID'   : line_c['TrialID'],
-                                            'PointID'   : ptid,
-                                            'Strip_Name': line_c['Strip_Name'],
-                                            'DistOnLine': distance},
-                                           ignore_index=True)
+            dict_points['geometry'].append(pt)
+            dict_points['TrialID'].append(line_c['TrialID'])
+            dict_points['PointID'].append(ptid)
+            dict_points['Strip_Name'].append(line_c['Strip_Name'])
+            dict_points['DistOnLine'].append(distance)
 
             # To add points to Offset lines, first find corresponding lines.
             line_subset = gdf_lrline[gdf_lrline['TrialID'] == line_c['TrialID']]
@@ -2082,21 +2067,21 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
                 # find the distance along the L/R line of the corresponding centre line point
                 dist_along_line = line_lr['geometry'].project(pt)
 
-                # Add a new point feature. Interpolate locates the xy based on the distance
-                # along the line.
-                gdf_points = gdf_points.append(
-                    {'geometry'  : line_lr['geometry'].interpolate(dist_along_line),
-                     'TrialID'   : line_c['TrialID'],
-                     'PointID'   : ptid,
-                     'Strip_Name': line_lr['Strip_Name'],
-                     'DistOnLine': distance},
-                    ignore_index=True)
+                dict_points['geometry'].append(line_lr['geometry'].interpolate(dist_along_line))
+                dict_points['TrialID'].append(line_c['TrialID'])
+                dict_points['PointID'].append(ptid)
+                dict_points['Strip_Name'].append(line_lr['Strip_Name'])
+                dict_points['DistOnLine'].append(distance)
 
             distance += distance_between_points
             ptid += 1
 
+    gdf_points = GeoDataFrame(data=dict_points,
+                              geometry='geometry',
+                              crs=gdf_lrline.crs)
+
     # add a feature identifier
-    gdf_points['FID'] = gdf_points.index
+    gdf_points.index.name = 'FID'
 
     # combine to original centre line while only keeping common columns and calculate length
     gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner',
