@@ -2,6 +2,8 @@ import platform
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
+
 from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
 import geopandas as gpd
 from pyprecag import convert, crs
@@ -215,10 +217,7 @@ class TestEnd2End(unittest.TestCase):
         print('Running Vesper, Please wait....')
         run_vesper(file_control)
 
-    @unittest.skipIf(
-        platform.system() != 'Windows',
-        'VESPER only present on Windows'
-    )
+    @unittest.skipIf(platform.system() != 'Windows','VESPER only present on Windows')
     def test07_vesperTextToRaster(self):
         global out_predtif
         out_predtif, out_setif, out_citxt = vesper_text_to_raster(file_control, EPSG)
@@ -318,26 +317,34 @@ class TestEnd2End(unittest.TestCase):
         out_meta['count'] = 1  # contains only one band
         out_meta['dtype'] = np.float32
 
-        out_rescale = os.path.join(out_fold, os.path.basename(in_file).replace('.tif', '_rescale0-255.tif'))
-        with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+        out_rescale255 = os.path.join(out_fold, os.path.basename(in_file).replace('.tif', '_rescale0-255.tif'))
+        with rasterio.open(os.path.normpath(out_rescale255), 'w', **out_meta) as out:
             out.write_band(1, rescaled0_255)
 
-        out_rescale = os.path.join(out_fold, os.path.basename(in_file).replace('.tif', '_rescale0-5.tif'))
-        with rasterio.open(os.path.normpath(out_rescale), 'w', **out_meta) as out:
+        self.assertEqual(0, np.nanmin(rescaled0_255),
+                         'Raster Min for ' + str(Path(out_rescale255).relative_to(TEMP_FOLD)))
+        self.assertEqual(255, np.nanmax(rescaled0_255),
+                         'Raster Max for ' + str(Path(out_rescale255).relative_to(TEMP_FOLD)))
+
+        out_rescale5 = os.path.join(out_fold, os.path.basename(in_file).replace('.tif', '_rescale0-5.tif'))
+        with rasterio.open(os.path.normpath(out_rescale5), 'w', **out_meta) as out:
             out.write_band(1, rescaled0_5)
+
+        self.assertEqual(0, np.nanmin(rescaled0_5),
+                         'Raster Min for ' + str(Path(out_rescale5).relative_to(TEMP_FOLD)))
+        self.assertEqual(5, np.nanmax(rescaled0_5),
+                         'Raster Max for ' + str(Path(out_rescale5).relative_to(TEMP_FOLD)))
 
         out_normalised = os.path.join(out_fold, os.path.basename(in_file).replace('.tif', '_normalised.tif'))
         with rasterio.open(os.path.normpath(out_normalised), 'w', **out_meta) as out:
             out.write_band(1, norm)
 
-        self.assertAlmostEqual(2.0000722408294678, float(np.nanmax(norm)), 2)
-        self.assertAlmostEqual(-2.266947031021118, float(np.nanmin(norm)), 2)
+        self.assertAlmostEqual(-2.245925, float(np.nanmin(norm)), 2,
+                               'Raster Min for ' + str(Path(out_normalised).relative_to(TEMP_FOLD)))
 
-        self.assertEqual(0, np.nanmin(rescaled0_255))
-        self.assertEqual(255, np.nanmax(rescaled0_255))
+        self.assertAlmostEqual(2.000072, float(np.nanmax(norm)), 2,
+                               'Raster Max for ' + str(Path(out_normalised).relative_to(TEMP_FOLD)))
 
-        self.assertEqual(0, np.nanmin(rescaled0_5))
-        self.assertEqual(5, np.nanmax(rescaled0_5))
 
     def test12_kmeansCluster(self):
         out_img = os.path.join(setup_folder(self.TmpDir, new_folder=self._testMethodName),

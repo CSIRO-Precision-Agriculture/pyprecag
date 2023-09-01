@@ -248,8 +248,8 @@ class Test_Processing(unittest.TestCase):
 
         out_polyfile = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
-        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
-            in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
+        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, None,
+                                                                coord_columns_epsg=4326, out_epsg=28354)
 
         create_polygon_from_point_trail(gdf_points, gdf_pts_crs, out_polyfile,
                                         thin_dist_m=2.5,
@@ -485,7 +485,7 @@ class TestStripTrials(unittest.TestCase):
                                       (741300, 6169800, 7), (741250, 6169950, 7),
                                       (741150, 6169950, 7), (741100, 6170000, 7)]),
                           LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
-                , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
+                , 'TrialID': [1, 2, 3, 4]}, crs=28354)
 
         gdf_lines_crs = crs()
         gdf_lines_crs.getFromEPSG(28354)
@@ -526,7 +526,7 @@ class TestStripTrials(unittest.TestCase):
                                        (741145.3270294399, 6170037.578613207),
                                        (741309.2332873486, 6169946.312628689),
                                        (741318.5461429111, 6169847.596359722)))])
-        in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']})
+        in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']}, crs=28353)
 
         # without saving to file on a single multi vertex line
         out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf,

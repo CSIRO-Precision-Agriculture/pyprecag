@@ -16,18 +16,16 @@ class test_GeneralDescribe(TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_predictCoordinateFieldnames(self):
-        self.assertEqual(
-            predictCoordinateColumnNames(['longitude', 'latitude', 'area', 'weight', 'tonnes/ha', 'Air Temp(degC)']),
-            ['longitude', 'latitude'])
-        self.assertEqual(predictCoordinateColumnNames(['northing', 'name', 'easting', ' test type']),
-                          ['easting', 'northing'])
-        self.assertEqual(predictCoordinateColumnNames(['name', 'lon_dms', 'lat_dms', ' test type']),
-                          ['lon_dms', 'lat_dms'])
-        self.assertEqual(predictCoordinateColumnNames(['row', 'column', 'name', ' test type']), [None, None])
-
-        self.assertEqual(
-            predictCoordinateColumnNames(['northing', 'easting', 'name', ' test type', 'longitude', 'latitude']),
-            ['longitude', 'latitude'])
+        self.assertEqual(['longitude', 'latitude'],
+                         predictCoordinateColumnNames(['longitude', 'latitude', 'area', 'weight', 'tonnes/ha', 'Air Temp(degC)']))
+        self.assertEqual(['easting', 'northing'],
+                         predictCoordinateColumnNames(['northing', 'name', 'easting', ' test type']))
+        self.assertEqual(['lon_dms', 'lat_dms'],
+                         predictCoordinateColumnNames(['name', 'lon_dms', 'lat_dms', ' test type']))
+        self.assertEqual([None, None],
+                         predictCoordinateColumnNames(['row', 'column', 'name', ' test type']) )
+        self.assertEqual(['longitude', 'latitude'],
+                         predictCoordinateColumnNames(['northing', 'easting', 'name', ' test type', 'longitude', 'latitude']))
 
     def test_from_ISO_8859_1_csv(self):
         file = os.path.realpath(os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv"))
