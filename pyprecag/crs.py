@@ -1,44 +1,41 @@
-import json
 import logging
-
 import os
-
 import six
-import socket
 import warnings
-from geopandas import GeoDataFrame, GeoSeries
 
 from pkg_resources import parse_version
-from six.moves.urllib_parse import urlencode
-from six.moves.urllib_request import urlopen
 
 from osgeo import osr, gdal
+import pyproj
+
+from pyproj import CRS
+import rasterio as rio
+import geopandas as gpd
 
 from ._compat import SHAPELY_GE_20
-if SHAPELY_GE_20:
-    from shapely import Point
-else:
-    from shapely.geometry import Point
 
-import pyproj
+if SHAPELY_GE_20:
+    from shapely import Point, box
+else:
+    from shapely.geometry import Point, box
+
 from . import config
-from .errors import SpatialReferenceError
 
 LOGGER = logging.getLogger(__name__)
-LOGGER.addHandler(logging.NullHandler())  # Handle logging, no logging has been configured
-# LOGGER.setLevel("DEBUG")
-# DEBUG = config.get_debug_mode()  # LOGGER.isEnabledFor(logging.DEBUG)
-
+LOGGER.addHandler(logging.NullHandler())
 
 class crs:
     def __init__(self):
+        warnings.warn("pyprecag.crs has been deprecated in favor of `pyproj`, `geopandas.crs` or `rasterio.crs` "
+                      "and will be removed in a future release", DeprecationWarning, 2)
+
         self.srs = None  # Spatial Reference Object
         self.crs_wkt = None
         self.proj4 = None
         self.epsg_number = None
         self.epsg = None
         self.epsg_predicted = False  # Did the epsg_number get set via the online lookup.
-        self.pyproj_version=pyproj.__version__
+        self.pyproj_version = pyproj.__version__
 
     def set_epsg(self, code):
         """Given an integer code, set the epsg_number and the EPSG-like mapping.
@@ -97,11 +94,10 @@ class crs:
                     pyproj_crs = pyproj.CRS(source.GetName())
                     code = pyproj_crs.to_epsg()
             if code is None:
-                code = self.getEPSGFromSRS(source,  bUpdateToCorrectDefn=bUpdateByEPSG)
+                code = self.getEPSGFromSRS(source, bUpdateToCorrectDefn=bUpdateByEPSG)
 
             if code:
                 self.set_epsg(int(code))
-
 
     def getFromEPSG(self, epsg):
         """Create OGR Spatial Reference Object for an epsg_number number
@@ -193,7 +189,7 @@ class crs:
             del cursor
             connection.close()
 
-            cs_df = cs_df[cs_df['alt_name'].str.contains(srsName.replace('GDA',''), case=False)]
+            cs_df = cs_df[cs_df['alt_name'].str.contains(srsName.replace('GDA', ''), case=False)]
 
             if len(cs_df) == 1:
                 epsg = int(cs_df['code'])
@@ -220,6 +216,10 @@ def from_epsg(epsg_number):
                 or
                string          Derived from epsg using fiona.
     """
+    warnings.warn('pyprecag.crs.from_epsg() in favor of `pyproj, geopandas or rasterio solutions` '
+                  'see https://pyproj4.github.io/pyproj/stable/crs_compatibility.html',
+                  DeprecationWarning, stacklevel=2)
+
     if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
         crs = pyproj.CRS.from_epsg(epsg_number)
     else:
@@ -238,23 +238,15 @@ def getCRSfromRasterFile(raster_file):
         pyprecag.crs.crs: An object representing the raster file's coordinate system.
 
     """
+    warnings.warn('pyprecag.crs.getCRSfromRasterFile() is deprecated in favor of `rasterio`'
+                  ' - see https://rasterio.readthedocs.io/en/stable/api/rasterio.crs.html',
+                  DeprecationWarning, stacklevel=2)
 
     gdalRaster = gdal.Open(os.path.normpath(raster_file))
     rast_crs = crs()
     rast_crs.getFromWKT(gdalRaster.GetProjectionRef())
     del gdalRaster
     return rast_crs
-
-
-def getCoordTransformation(inSR, outSR):
-    """Get the coordinate transformation between two input spatial references
-    Args:
-        inSR (osgeo.osr.SpatialReference): Input Spatial Reference System
-        outSR (osgeo.osr.SpatialReference): Output Spatial Reference System
-    Returns:
-        osgeo.osr.CoordinateTransformation:  The Coordinate Transformation object
-    """
-    return osr.CoordinateTransformation(inSR, outSR)
 
 
 def getUTMfromWGS84(longitude, latitude):
@@ -295,6 +287,130 @@ def getUTMfromWGS84(longitude, latitude):
     return zone, osr_srs, wgs84_crs, out_epsg
 
 
+def match_crs_to_epsg(input_crs):
+    """
+    when an epsg for a coordinate system can't be determined loop through different
+    WKT versions and try and find a match.
+    Args:
+        input_crs (pyproj/rasterio/geopandas CRS): the input coordinate system to search on.
+                                                   this could be from pyproj, rasterio or pandas.
+
+    Returns:
+        pyproj.crs.crs.CRS:
+    """
+
+    if not isinstance(input_crs, (pyproj.crs.CRS, int, rio.crs.CRS)):
+        raise TypeError(f'input_crs must a pyproj CRS object or epsg number. Got - {type(input_crs)}')
+
+    if isinstance(input_crs, rio.crs.CRS):
+        input_crs = CRS.from_user_input(input_crs)
+
+    for wkt_version in pyproj.enums.WktVersion:
+        wkt = input_crs.to_wkt(wkt_version)
+        input_crs = CRS.from_user_input(wkt)
+        if input_crs.to_epsg():
+            return CRS.from_epsg(input_crs.to_epsg())
+
+    warnings.warn('Could not match possibly due to a custom or poorly defined coordinate system')
+    return None
+
+
+def get_projected_epsg_for_bounds(bounds, bounds_crs):
+    """"
+        Determine a projected coordinate system from a bounding box (xmin, ymin, xmax,ymax). This allows for local
+        projected coordinate system to be preferred over the standard UTM zones. The local coordinate system are
+        listed in the pyprecag/config.json configuration file.
+
+    Args:
+        bounds(list or tuple): [xmin, ymin, xmax,ymax]
+        bounds_crs (pyproj/raster CRS object or epsg):  a pyproj/raster coordinate system or epsg for the bounding box.
+
+    Returns:
+        int: projected coordinate system as an EPSG number.
+
+    """
+    if not bounds_crs or bounds_crs == 0:
+        return
+
+    if not isinstance(bounds_crs, (pyproj.crs.CRS, int, rio.crs.CRS)):
+        raise TypeError('Needs a pyproj/rasterio/geopandas CRS object or epsg number')
+        return
+
+    crs_type = type(bounds_crs)
+
+    if isinstance(bounds_crs, rio.crs.CRS):
+        bounds_crs = CRS.from_user_input(bounds_crs)
+    elif isinstance(bounds_crs, int):
+        bounds_crs = CRS.from_epsg(bounds_crs)
+
+    # check for a properly formed crs
+    if not bounds_crs.to_epsg():
+        bounds_crs = match_crs_to_epsg(bounds_crs)
+
+    if bounds_crs.is_projected:
+        return bounds_crs.to_epsg()
+
+    epsg = get_projected_epsg_for_point(box(*bounds).representative_point(), bounds_crs)
+
+    return epsg
+
+
+def get_projected_epsg_for_point(point, point_crs):
+    """
+        Determine a projected coordinate system for a shapely point. This allows for local projected coordinate system
+        to be preferred over the standard UTM zones. The local coordinate system are listed
+        in the pyprecag/config.json configuration file.
+    Args:
+        point (shapely.geometry.point.Point):
+        point_crs (pyproj.crs.crs.CRS):
+
+    Returns:
+        int:  EPSG for the projected coordinate system
+    """
+    if not point_crs or point_crs == 0:
+        return
+
+    if not isinstance(point_crs, (pyproj.crs.CRS, int, rio.crs.CRS)):
+        raise TypeError('Needs a pyproj/rasterio/geopandas CRS object or epsg number')
+        return
+
+    crs_type = type(point_crs)
+
+    if isinstance(point_crs, rio.crs.CRS):
+        point_crs = CRS.from_user_input(point_crs)
+    elif isinstance(point_crs, int):
+        point_crs = CRS.from_epsg(point_crs)
+
+    # check for a properly formed crs
+    if not point_crs.to_epsg():
+        point_crs = match_crs_to_epsg(point_crs)
+
+    if point_crs.is_projected:
+        return point_crs.to_epsg()
+
+    # create bounds for local coordinate systems ie not global UTM
+    rec = []
+    for epsg in config.get_config_key('local_projected_epsg'):
+        l_crs = CRS.from_epsg(epsg)
+        rec.append({'Name': l_crs.name, 'Datum': l_crs.datum.name, 'EPSG': epsg,
+                    'geometry': box(*l_crs.area_of_use.bounds)})
+
+    crs_gdf = gpd.GeoDataFrame(rec, geometry='geometry', crs=4326)
+
+    # create point from xy and reproject to 4326
+    pt_gdf = gpd.GeoDataFrame(geometry=[point], crs=point_crs).to_crs(crs_gdf.crs)
+
+    # find out if our target is within one local crs extents and if not use global utm zones
+    result = gpd.sjoin(left_df=crs_gdf, right_df=pt_gdf.to_crs(crs_gdf.crs), how='inner', predicate='intersects')
+
+    if len(result) == 1:
+        epsg = result.at[result.index[0], 'EPSG']
+    else:
+        epsg = pt_gdf.estimate_utm_crs().to_epsg()
+
+    return epsg
+
+
 def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
     """ Calculate the Zonal projected coordinate system from a set of xy coordinates.
 
@@ -324,16 +440,16 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
     # Coordinates need to be in wgs84 so project them
     if xy_epsg != 4326:
         if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
-            inProj = from_epsg(xy_epsg)                  #Proj(init='epsg:{}'.format(xy_epsg))
-            outProj = from_epsg(4326)                    #Proj(init='epsg:4326')
+            inProj = from_epsg(xy_epsg)  # Proj(init='epsg:{}'.format(xy_epsg))
+            outProj = from_epsg(4326)  # Proj(init='epsg:4326')
 
             from pyproj import Transformer
-            transformer = Transformer.from_crs(inProj, outProj,always_xy=True)
+            transformer = Transformer.from_crs(inProj, outProj, always_xy=True)
             longitude, latitude = transformer.transform(x_coord, y_coord)
         else:
             # Based On :https://stackoverflow.com/a/10239676
             from pyproj import Proj, transform
-            inProj =  Proj(init='epsg:{}'.format(xy_epsg))
+            inProj = Proj(init='epsg:{}'.format(xy_epsg))
             outProj = Proj(init='epsg:4326')
             longitude, latitude = transform(inProj, outProj, x_coord, y_coord)
 
@@ -349,7 +465,7 @@ def getProjectedCRSForXY(x_coord, y_coord, xy_epsg=4326):
         out_epsg = int('283{}'.format(utm_zone))
     elif (166.33 <= longitude <= 178.6) and (-47.4 <= latitude <= -34.0):
         # set to NZGD2000 / New Zealand Transverse Mercator 2000
-        out_epsg=2193
+        out_epsg = 2193
 
     utmzone_crs = crs()
     utmzone_crs.getFromEPSG(out_epsg)
@@ -382,12 +498,12 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
         if not isinstance(argCheck[1], float):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
-    if not isinstance(distance_metres, six.integer_types + (float, )):
+    if not isinstance(distance_metres, six.integer_types + (float,)):
         raise TypeError('distance_metres must be a floating number.')
 
     # get the required Spatial reference systems
     utm_crs = getProjectedCRSForXY(longitude, latitude)
-    wgs84SRS =  utm_crs.srs.CloneGeogCS()
+    wgs84SRS = utm_crs.srs.CloneGeogCS()
     # zone, utmSRS, wgs84SRS = getUTMfromWGS84(longitude, latitude)
 
     # create transform component
@@ -397,11 +513,11 @@ def distance_metres_to_dd(longitude, latitude, distance_metres):
     utm2wgs84_transform = osr.CoordinateTransformation(utm_crs.srs, wgs84SRS)  # (<from>, <to>)
 
     # Project to UTM
-    easting, northing, alt = wgs842utm_transform.TransformPoint(longitude, latitude, 0)
+    easting, northing, alt = wgs842utm_transform.TransformPoint(longitude, latitude)
 
     # if easting/northing return infity, then swap lat and long over.
     if easting == float("inf"):
-        easting, northing, alt = wgs842utm_transform.TransformPoint(latitude,longitude, 0)
+        easting, northing, alt = wgs842utm_transform.TransformPoint(latitude, longitude, 0)
 
         # Project back to WGS84 after adding distance to eastings. returns easting, northing, altitude
         newLat, newLong, alt = utm2wgs84_transform.TransformPoint(easting + distance_metres, northing, 0)

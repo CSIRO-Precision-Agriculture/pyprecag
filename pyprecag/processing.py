@@ -1961,21 +1961,8 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     start_time = time.time()
     step_time = time.time()
 
-    if out_epsg > 0:
-        # Make sure we get the correct details for the output coordinate system
-        points_crs = pyprecag_crs.crs()
-        points_crs.getFromEPSG(out_epsg)
-
-    # overwrite the gdf proj4 string with the epsg mapping equivalent to maintain the correct wkt.
-    lines_geodataframe.crs = lines_crs.epsg
-
-    if out_epsg > 0:
-        # Make sure we get the correct details for the output coordinate system
-        points_crs = pyprecag_crs.crs()
-        points_crs.getFromEPSG(out_epsg)
-
     # input needs to be a projected coordinate system to work with metric distances
-    if lines_crs.srs.IsGeographic():
+    if lines_geodataframe.crs.is_geographic:
         if out_epsg <= 0:
             xmin, ymin, _, _ = lines_geodataframe.total_bounds
             points_crs = pyprecag_crs.getProjectedCRSForXY(xmin, ymin, lines_crs.epsg_number)
