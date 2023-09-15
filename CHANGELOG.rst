@@ -1,13 +1,17 @@
 Changelog
 =========
-** xxxxxxx **
- + Support for newer versions of rasterio XX, geopandas XX, GDAL XX
+** 0.4.2 (2023-10-01)**
+ + Now supports rasterio 1.3.8, geopandas 0.13.2, GDAL 3.7.1
+ + Improved method for creating strip trial vectors
+ + Faster thin by distance method.
+ + implemented pyproj6/geopandas/rasterio crs functionality and deprecated old functions.
  Deprecated functions
   + ``convert.drop_z()`` replaced by ``shapely.force_2d()``
   + ``vector_ops.explode_multi_part_features()`` replaced by ``GeoDataFrame.explode()``
   + ``vector_ops.calculate_area_length_in_metres()`` replaced by ``GeoDataFrame.to_crs(GeoDataFrame.estimate_utm_crs().to_epsg()).geometry.area`` or equivalent
  Bug Fixes
-  + #XXX writing vesper grid is slow
+  + #49 writing vesper grid is slow
+  + #50 fixes for Dataframe.append() deprecation in pandas/geopandas.
 
 ** 0.4.1 (2023-02-07)**
  + Support for newer versions of rasterio 1.3.3, geopandas 0.11.1, GDAL 3.6.1
