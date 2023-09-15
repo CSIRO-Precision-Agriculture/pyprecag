@@ -23,6 +23,8 @@ THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
+config.set_debug_mode(False)
+
 
 class Test_BlockGrid(unittest.TestCase):
     failedTests = []
@@ -163,14 +165,14 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertIn('EN_EPSG', out_gdf.columns)
         self.assertEqual(542, len(out_gdf))
 
-        tmp = pd.DataFrame.from_records(data = [{'filter': '01 null/missing data', 'count': 1000},
-                                         {'filter': '02 Duplicate XY', 'count': 931},
-                                         {'filter': '03 clip', 'count': 12211},
-                                         {'filter': '04 <= zero', 'count': 62},
-                                         {'filter': '05 3 std iter 1', 'count': 3},
-                                         {'filter': '06 3 std iter 2', 'count': 4},
-                                         {'filter': '07 3 std iter 3', 'count': 1},
-                                         {'filter': '09 pointXY (2.5m)', 'count': 2}], index='filter')
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 null/missing data', 'count': 1000},
+                                              {'filter': '02 Duplicate XY', 'count': 931},
+                                              {'filter': '03 clip', 'count': 12211},
+                                              {'filter': '04 <= zero', 'count': 62},
+                                              {'filter': '05 3 std iter 1', 'count': 3},
+                                              {'filter': '06 3 std iter 2', 'count': 4},
+                                              {'filter': '07 3 std iter 3', 'count': 1},
+                                              {'filter': '09 pointXY (2.5m)', 'count': 2}], index='filter')
 
         res_df = gpd.read_file(out_rm_shp)
 
@@ -195,7 +197,7 @@ class Test_CleanTrim(unittest.TestCase):
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
         self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(28354, out_gdf.crs.to_epsg() )  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertEqual(28354, out_gdf.crs.to_epsg())
         self.assertEqual(554, len(out_gdf))
         self.assertIn('EN_EPSG', out_gdf.columns)
 
@@ -477,15 +479,18 @@ class TestStripTrials(unittest.TestCase):
 
         out_points_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Points.shp')
         out_lines_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Lines.shp')
+        data = [(10, LineString([(740800, 6169700, 5), (741269, 6169700, 5)])),
+                (20, LineString([(741000, 6169800, 6), (741003, 6170012, 6), (741003.5, 6170012.5, 6)])),
+                (30, LineString([(741308, 6169916, 7), (741250, 6169950, 8), (741155, 6169974, 8), (741100, 6170000, 8)])),
+                (30, LineString([(741413, 6169853, 7), (741372, 6169874, 7), (741345, 6169899, 7), (741308, 6169916, 7)])),
+                (50, LineString([(740800, 6169912, 8), (740900, 6170094, 8)]))]
 
-        in_lines_gdf = GeoDataFrame(
-            {'geometry': [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
-                          LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
-                          LineString([(741400, 6169800, 7), (741355, 6169780, 7),
-                                      (741300, 6169800, 7), (741250, 6169950, 7),
-                                      (741150, 6169950, 7), (741100, 6170000, 7)]),
-                          LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
-                , 'TrialID': [1, 2, 3, 4]}, crs=28354)
+        in_lines_gdf = gpd.GeoDataFrame(pd.DataFrame.from_records(data, columns=['TrialID', 'geometry']),
+                                        geometry='geometry', crs=28354)
+
+        if config.get_debug_mode():
+            in_lines_gdf['length'] = in_lines_gdf.length
+            save_geopandas_tofile(in_lines_gdf, out_lines_file.replace('_Lines', '_Input_Lines'), overwrite=True)
 
         gdf_lines_crs = crs()
         gdf_lines_crs.getFromEPSG(28354)
@@ -497,7 +502,13 @@ class TestStripTrials(unittest.TestCase):
 
         # Test Points Output-----------------------------------------------------------
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
-        self.assertEqual(573, len(out_points_gdf))
+
+        stats = out_points_gdf.groupby(by='TrialID', dropna=False).agg(count=pd.NamedAgg(column='TrialID', aggfunc='count'))
+        pd.testing.assert_frame_equal(pd.DataFrame.from_records([{'TrialID': 0, 'count': 198},
+                                                                 {'TrialID': 1, 'count': 87},
+                                                                 {'TrialID': 2, 'count': 90},
+                                                                 {'TrialID': 3, 'count': 147}], index='TrialID'), stats)
+
         self.assertEqual(28354, out_crs.epsg_number)
         self.assertTrue(os.path.exists(out_points_file))
         self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
@@ -533,7 +544,7 @@ class TestStripTrials(unittest.TestCase):
                                                                           lines_crs, 31, 25)
 
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
-        self.assertEqual(69, len(out_points_gdf), "Row count doesn't match")
+        self.assertEqual(66, len(out_points_gdf), "Row count doesn't match")
 
         self.assertEqual(lines_crs.epsg_number, out_crs.epsg_number)
         self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
@@ -544,7 +555,7 @@ class TestStripTrials(unittest.TestCase):
 
         self.assertEqual(3, len(out_lines_gdf))
         self.assertEqual(['N Strip', 'S Strip', 'Strip'],
-                         (list(out_lines_gdf['Strip_Name'].unique())))
+                         sorted(list(out_lines_gdf['Strip_Name'].unique())))
 
     def test_TTestAnalysis(self):
         columns = ['FID', 'TrialID', 'Strip_Name', 'PointID', 'DistOnLine', 'geometry']

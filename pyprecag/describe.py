@@ -270,6 +270,10 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
         # rename columns to alias names. columns must be listed in the same order
         inputGeoDataFrame.columns = [val['shapefile'] for key, val in fldProp.items()]
 
+        # drop excess geometry columns
+
+        drop_cols = list(inputGeoDataFrame.select_dtypes('geometry').columns.difference([inputGeoDataFrame.geometry.name]))
+
         '''Saving to file sometimes throws an error similar to
         CPLE_AppDefined in Value xxxx of field Timestamp of feature xxxx not successfully written. Possibly due to too
         larger number with respect to field width. This is a known GDAL Error. The following two lines will hide this
@@ -279,10 +283,11 @@ def save_geopandas_tofile(inputGeoDataFrame, output_filename, overwrite=True, fi
 
         gdal.UseExceptions()
         gdal.PushErrorHandler('CPLQuietErrorHandler')
+
         if file_encoding == 'ascii':
-            inputGeoDataFrame.to_file(output_filename, driver=driver)
+            inputGeoDataFrame.drop(columns=drop_cols).to_file(output_filename, driver=driver)
         else:
-            inputGeoDataFrame.to_file(output_filename, driver=driver, encoding=file_encoding)
+            inputGeoDataFrame.drop(columns=drop_cols).to_file(output_filename, driver=driver, encoding=file_encoding)
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:<15} {dur}'.format('Saved to file',output_filename,

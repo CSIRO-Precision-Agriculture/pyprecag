@@ -36,19 +36,19 @@ from scipy import stats
 from ._compat import SHAPELY_GE_20
 
 if SHAPELY_GE_20:
-    from shapely import Point, LineString, force_2d
+    from shapely import Point, LineString, force_2d, MultiLineString
     from shapely.geometry import mapping
 else:
     from shapely.geometry import Point, LineString, mapping
     from .convert import drop_z as force_2d
 
-from shapely.ops import linemerge
+from shapely.ops import linemerge, substring
 
 from . import TEMPDIR, config, crs as pyprecag_crs, number_types
 from .crs import from_epsg
 from .table_ops import calculate_strip_stats
 from .convert import (convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster,
-                      deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
+                      deg_to_8_compass_pts, line_bearing, point_to_point_bearing, text_rotation)
 
 from .raster_ops import (focal_statistics, save_in_memory_raster_to_file, reproject_image,
                          calculate_image_indices, stack_and_clip_rasters)
@@ -1955,32 +1955,15 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         lines_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30}   {:<15} {dur}'.format(
-                'Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
-                dur=str(timedelta(seconds=time.time() - step_time))))
+            LOGGER.info('{:<30}   {:<15} {dur}'.format('Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
+                                                       dur=str(timedelta(seconds=time.time() - step_time))))
+
     step_time = time.time()
 
-    # merge touching lines
-    if len(lines_geodataframe) > 1:
-        gdf_lines = GeoDataFrame(geometry=[linemerge(lines_geodataframe.unary_union)],
-                                 crs=lines_geodataframe.crs)
-    else:
-        gdf_lines = lines_geodataframe[['geometry']].copy()
-
-    # convert multi part to single part geometry
-    gdf_lines = gdf_lines.explode(index_parts=False)
-    if isinstance(gdf_lines, GeoSeries):
-        #  geopandas 0.3.0 explode creates a geoseries so convert back to geodataframe
-        gdf_lines = GeoDataFrame(geometry=gdf_lines, crs=lines_geodataframe.crs)
-
-    # explode creates a multi index so flatten to single level
-    gdf_lines = gdf_lines.reset_index().drop(['level_0', 'level_1'], axis=1)
-
-    # assign a name to the index column
-    gdf_lines.index.name = 'FID'
-
-    if gdf_lines['geometry'][0].has_z:
-        gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: force_2d(x))
+    # merge touching lines into single parts
+    gdf_lines = GeoDataFrame(geometry=[lines_geodataframe.geometry.agg(lambda x: linemerge(x.tolist()))],
+                             crs=lines_geodataframe.crs)
+    gdf_lines = gdf_lines.explode(index_parts=False).reset_index(drop=False, names='FID')
 
     # Add TrialID  Side, Length and startoffset
     if 'TrialID' not in gdf_lines.columns:
@@ -1989,114 +1972,91 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         gdf_lines['TrialID'] = gdf_lines.index
 
     # Add Side, Length and startoffset attributes
-    gdf_lines['Strip_Name'] = 'Strip'
+    gdf_lines['name_s'] = 'Strip'
+    gdf_lines['bearing'] = gdf_lines.geometry.apply(line_bearing)
 
-    # find dangle length when the line isn't evenly divided by the point distance
     # Calculate the length of each line
     gdf_lines['length'] = gdf_lines['geometry'].length
+    
+    ## Add Offsets
+    gdf_lines['line_r'] = gdf_lines.apply(lambda l: l.geometry.offset_curve(-offset_distance, quad_segs=16, join_style='mitre'), axis=1)
+    gdf_lines['line_l'] = gdf_lines.apply(lambda l: l.geometry.offset_curve(offset_distance, quad_segs=16, join_style='mitre'), axis=1)
+    gdf_lines['name_r'] = gdf_lines['line_r'].apply(lambda x: deg_to_8_compass_pts(line_bearing(x) + 90) + ' Strip')
+    gdf_lines['name_l'] = gdf_lines['line_l'].apply(lambda x: deg_to_8_compass_pts(line_bearing(x) - 90) + ' Strip')
 
-    # calculate a start offset to centre points along the line
-    gdf_lines['startoffset'] = (gdf_lines['geometry'].length % distance_between_points) / 2
+    striplines_df = pd.wide_to_long(gdf_lines.drop(columns=['length','bearing','FID']).rename(columns={'geometry': 'line_s'}),
+                                    stubnames=['line', 'name'], sep='_',
+                                    i=['TrialID'], j='Strip', suffix=r'\w+')
+    striplines_df = striplines_df.reset_index().rename(columns={'name': 'Strip_Name', 'line': 'geometry'})
 
-    # create a dictionary for parallel lines
-    dict_lrline = defaultdict(list)
+    striplines_gdf = GeoDataFrame(striplines_df.drop(columns='Strip'), crs=gdf_lines.crs)
+    del striplines_df
+    def split_line_by_distance(line, split_distance, center_on_line=True):
+        start_offset = 0
+        if center_on_line:
+            start_offset = (line.length % split_distance) / 2
 
-    # create L/R lines for each centre line
-    for index, c_line_row in gdf_lines.iterrows():
-        c_line_geom = c_line_row['geometry'].simplify(0.5, preserve_topology=True)
-        line_bearing = point_to_point_bearing(c_line_geom.coords[-1],
-                                              c_line_geom.coords[0])
+        start_pts = np.arange(0+start_offset, line.length, split_distance)
+        end_pts = np.roll(start_pts, -1)
 
-        for ea_line in [('left', '{} Strip'.format(deg_to_8_compass_pts(line_bearing - 90))),
-                        ('right', '{} Strip'.format(deg_to_8_compass_pts(line_bearing + 90)))]:
+        seg_lines = [substring(force_2d(line), start_dist=s, end_dist=e, normalized=False)
+                     for s, e in zip(start_pts[:-1], end_pts[:-1])]
 
-            side, value = ea_line
+        return MultiLineString(seg_lines)
 
-            # update the geometry and TrialID.
-            parallel_line = c_line_geom.parallel_offset(offset_distance, side, resolution=16,
-                                                        join_style=1, mitre_limit=5.0)
-            parallel_line = parallel_line.simplify(0.5, preserve_topology=True)
+    def make_paired_segments(line, paired_line):
+        start = paired_line.project(Point(line.coords[0]))
+        end = paired_line.project(Point(line.coords[-1]))
+        return substring(paired_line, start_dist=start, end_dist=end, normalized=False)
 
-            # One of the lines needs to be flipped
-            if side == 'right':
-                parallel_line = LineString(parallel_line.coords[::-1])
+    gdf_lines['seg_s'] = gdf_lines.geometry.apply(split_line_by_distance,
+                                                  split_distance=distance_between_points,
+                                                  center_on_line=True)
 
-            dict_lrline['TrialID'].append(c_line_row['TrialID'])
-            dict_lrline['Strip_Name'].append(value)
-            dict_lrline['geometry'] .append(parallel_line)
+    exp_df = gdf_lines.rename_geometry('line_s').set_geometry('seg_s').explode(index_parts=False)
+    exp_df.reset_index(drop=True, inplace=True)
 
-    gdf_lrline = GeoDataFrame(dict_lrline, crs=gdf_lines.crs)
-    gdf_lrline.index.name = 'FID'
+    exp_df.insert(1, 'PointID', exp_df.groupby('TrialID').cumcount())
+    exp_df['length'] = exp_df.set_geometry('seg_s').length
+    exp_df.insert(3, 'DistOnLine', exp_df.groupby(['TrialID'])['length'].cumsum())
+
+    exp_df['seg_r'] = exp_df.apply(lambda l: make_paired_segments(l['seg_s'], l['line_r']), axis=1)
+    exp_df['seg_l'] = exp_df.apply(lambda l: make_paired_segments(l['seg_s'], l['line_l']), axis=1)
+
+    seg_cols = exp_df.filter(like='seg_').columns.to_list()
+    name_cols = exp_df.filter(like='name_').columns.to_list()
+
+    segs_gdf = pd.wide_to_long(exp_df[['TrialID', 'PointID', 'DistOnLine']+ seg_cols + name_cols],
+                                   stubnames=['seg', 'name'], sep='_',
+                                   i=['TrialID', 'PointID', 'DistOnLine'], j='Strip', suffix=r'\w+')
+    segs_gdf = segs_gdf.reset_index().rename(columns={'name': 'Strip_Name', 'seg': 'geom_seglines'})
+
+    segs_gdf['geometry'] = segs_gdf.set_geometry('geom_seglines').centroid
+    segs_gdf = GeoDataFrame(segs_gdf,crs=gdf_lines.crs)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30}   {:<15} {dur}'.format(
-            'Parallel lines created', '', dur=str(timedelta(seconds=time.time() - step_time))))
+        segs_gdf['length'] = segs_gdf['geom_seglines'].length
+        save_geopandas_tofile(segs_gdf.set_geometry('geom_seglines', drop=True), temp_filename.replace('.shp', '_seglines.shp'), overwrite=True)
 
-    step_time = time.time()
-
-    dict_points = defaultdict(list)
-
-    # Loop through each centre line
-    for index_c, line_c in gdf_lines.iterrows():
-        distance = line_c['startoffset']
-        ptid = 1
-
-        while distance < line_c['length']:
-            # Add point along the centre line.
-            pt = line_c['geometry'].interpolate(distance)
-
-            dict_points['geometry'].append(pt)
-            dict_points['TrialID'].append(line_c['TrialID'])
-            dict_points['PointID'].append(ptid)
-            dict_points['Strip_Name'].append(line_c['Strip_Name'])
-            dict_points['DistOnLine'].append(distance)
-
-            # To add points to Offset lines, first find corresponding lines.
-            line_subset = gdf_lrline[gdf_lrline['TrialID'] == line_c['TrialID']]
-
-            for index_lr, line_lr in line_subset.iterrows():
-                # find the distance along the L/R line of the corresponding centre line point
-                dist_along_line = line_lr['geometry'].project(pt)
-
-                dict_points['geometry'].append(line_lr['geometry'].interpolate(dist_along_line))
-                dict_points['TrialID'].append(line_c['TrialID'])
-                dict_points['PointID'].append(ptid)
-                dict_points['Strip_Name'].append(line_lr['Strip_Name'])
-                dict_points['DistOnLine'].append(distance)
-
-            distance += distance_between_points
-            ptid += 1
-
-    gdf_points = GeoDataFrame(data=dict_points,
-                              geometry='geometry',
-                              crs=gdf_lrline.crs)
-
-    # add a feature identifier
-    gdf_points.index.name = 'FID'
-
-    # combine to original centre line while only keeping common columns and calculate length
-    gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner',
-                          axis=0).sort_values(['TrialID', 'Strip_Name'])
-
-    gdf_lines['length'] = gdf_lines['geometry'].length
+    segs_gdf.drop(columns=['Strip','geom_seglines'],inplace=True)
 
     if out_lines_shapefile is not None or config.get_debug_mode():
         if out_lines_shapefile is None:
-            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
+            save_geopandas_tofile(striplines_gdf, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
         else:
-            save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
+            save_geopandas_tofile(striplines_gdf, out_lines_shapefile, overwrite=True)
 
     if out_points_shapefile is not None or config.get_debug_mode():
         if out_points_shapefile is None:
-            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
+            save_geopandas_tofile(segs_gdf, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
         else:
-            save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
+            save_geopandas_tofile(segs_gdf, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
         LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
                                                  dur=str(timedelta(seconds=time.time() - start_time))))
 
-    return gdf_points, points_crs, gdf_lines
+    return segs_gdf, points_crs, striplines_gdf
 
 
 def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
