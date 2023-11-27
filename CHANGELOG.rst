@@ -1,6 +1,6 @@
 Changelog
 =========
-** 0.4.2 (2023-10-01)
+** 0.4.2 (2023-10-01) **
  + Now supports rasterio 1.3.8, geopandas 0.13.2, GDAL 3.7.1
  + Improved method for creating strip trial vectors
  + Faster thin by distance method.
