@@ -1,12 +1,16 @@
 import os
-import collections
+try:
+    from collections.abc import MutableMapping
+except ImportError:
+    from collections import MutableMapping      # retired in python 3.10
+
 import numpy as np
 from numpy import ma
 import rasterio
 import six
 
 
-class BandMapping(collections.MutableMapping, dict):
+class BandMapping(MutableMapping, dict):
     """A dictionary used to manage band types and band numbers.
 
     If it has not been set it will have the default value of 0
