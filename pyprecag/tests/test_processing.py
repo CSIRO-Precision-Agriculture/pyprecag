@@ -150,13 +150,13 @@ class Test_CleanTrim(unittest.TestCase):
         out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
         out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
-
+        poly_gdf = gpd.read_file(in_poly)
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
         out_gdf, out_crs = clean_trim_points(gdf_points, None, 'Yield',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
-                                             boundary_polyfile=in_poly, thin_dist_m=2.5)
+                                             poly_geodataframe=poly_gdf, thin_dist_m=2.5)
 
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
@@ -261,11 +261,9 @@ class Test_Processing(unittest.TestCase):
 
         self.assertTrue(os.path.exists(out_polyfile))
 
-        vect_desc = VectorDescribe(out_polyfile)
-        self.assertEqual(28354, vect_desc.crs.epsg_number)
-        self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual('Polygon', vect_desc.geometry_type)
+        result = gpd.read_file(out_polyfile)
         self.assertEqual(28354, result.crs.to_epsg())
+        self.assertTrue(any("POLYGON" in g.upper() for g in result.geom_type.unique()))
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif

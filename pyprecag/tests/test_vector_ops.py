@@ -48,7 +48,7 @@ class test_vectorOps(unittest.TestCase):
         out_epsg = 28354
 
         out_file = os.path.join(self.TmpDir, os.path.basename(file).replace('.csv', '_{}.shp'.format(out_epsg)))
-        gdf, gdfCRS = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
+        gdf, _ = convert_csv_to_points(file, out_file, coord_columns_epsg=4326, out_epsg=out_epsg)
         self.assertEqual(out_epsg, gdf.crs.to_epsg())
 
         result = thin_point_by_distance(gdf, None, 2.5)
