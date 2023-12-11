@@ -99,19 +99,17 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
         thinDistCSunits = pyprecag_crs.distance_metres_to_dd(point_geodataframe.total_bounds[0],
                                                              point_geodataframe.total_bounds[1], thin_distance_metres)
 
-        LOGGER.warning('\Input data uses a geographics coordinate system.\n'
-                       'Reprojecting parameter thin distance of {}m to {} for {}'.format(thin_distance_metres,
-                                                                                         thinDistCSunits,
-                                                                                         point_geodataframe.crs))
+        LOGGER.warning(f'Input data uses a geographics coordinate system. \nReprojecting parameter thin distance of '
+                       f'{thin_distance_metres}m to {thinDistCSunits} for {point_geodataframe.crs}')
 
     else:
-        LOGGER.debug('\nFiltering by distance {}m ({} for {}) ------'.format(thin_distance_metres,
-                                                                             thinDistCSunits, point_geodataframe.crs))
+        LOGGER.debug(f'\nFiltering by distance {thin_distance_metres}m ({thinDistCSunits} for '
+                     f'{point_geodataframe.crs}) ------')
 
     # Update/Add x,y coordinates to match coordinate system
     for argCheck in ['pointX', 'pointY']:
         if argCheck in point_geodataframe.columns:
-            warnings.warn('{} already exists. Values will be updated'.format(argCheck))
+            warnings.warn(f'{argCheck} already exists. Values will be updated')
 
     point_geodataframe['thinID'] = point_geodataframe.index
 
