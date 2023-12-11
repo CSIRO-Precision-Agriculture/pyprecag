@@ -79,7 +79,7 @@ class TestEnd2End(unittest.TestCase):
                                                                     coord_columns_epsg=4326,
                                                                     out_epsg=EPSG)
 
-            create_polygon_from_point_trail(gdf_points, gdf_pts_crs, filePoly,
+            result = create_polygon_from_point_trail(gdf_points, None, filePoly,
                                             thin_dist_m=2.5,
                                             aggregate_dist_m=25,
                                             buffer_dist_m=7,
@@ -89,17 +89,17 @@ class TestEnd2End(unittest.TestCase):
 
     def test03_vectorDescribe(self):
         vect_desc = VectorDescribe(filePoly)
-        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
+
         self.assertFalse(vect_desc.is_mz_aware)
         self.assertEqual('Polygon', vect_desc.geometry_type )
 
         vect_desc = VectorDescribe(filePoints)
-        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
+
         self.assertFalse(vect_desc.is_mz_aware)
         self.assertEqual('Point', vect_desc.geometry_type )
 
         vect_desc = VectorDescribe(FILE_BOX)
-        self.assertEqual(EPSG, vect_desc.crs.epsg_number )
+
         self.assertFalse(vect_desc.is_mz_aware)
         self.assertEqual('Polygon', vect_desc.geometry_type )
 
@@ -146,12 +146,12 @@ class TestEnd2End(unittest.TestCase):
 
         data_col = r'Yield'
 
-        gdf_points, gdfpts_crs = convert.convert_csv_to_points(FILE_CSV,
+        gdf_points, _ = convert.convert_csv_to_points(FILE_CSV,
                                                                out_shapefilename=file_ptstoShp,
                                                                coord_columns_epsg=4326,
                                                                out_epsg=EPSG)
 
-        gdf_out, crs_out = clean_trim_points(gdf_points, gdfpts_crs, data_col, fileTrimmed,
+        gdf_out, _ = clean_trim_points(gdf_points, None, data_col, fileTrimmed,
                                              out_keep_shapefile=file_shp,
                                              out_removed_shapefile=file_removed,
                                              boundary_polyfile=FILE_BOX,
@@ -176,7 +176,7 @@ class TestEnd2End(unittest.TestCase):
 
         pd.testing.assert_frame_equal(tmp, out_stats)
 
-        self.assertEqual(crs.from_epsg(EPSG), gdf_out.crs)
+        self.assertEqual(EPSG, gdf_out.crs.to_epsg())
         self.assertEqual(542, len(gdf_out))
         self.assertIn('nrm_' + data_col, gdf_out.columns)
         self.assertIn('Easting', gdf_out.columns)

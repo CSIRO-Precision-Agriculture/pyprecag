@@ -66,10 +66,10 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     if 'POINT' not in ','.join(list(point_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise GeometryError('Invalid geometry. input shapefile should be point or multipoint')
 
-    if not isinstance(point_crs, pyprecag_crs.crs):
+    if point_crs and not isinstance(point_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
-    if not point_crs.srs.IsProjected():
+    if (point_crs and not point_crs.srs.IsProjected()) or point_geodataframe.crs.is_geographic:
         raise TypeError("Input data is not in a projected coordinate system")
 
     if out_filename is not None:
@@ -94,8 +94,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
         return point_geodataframe
 
     thinDistCSunits = thin_distance_metres
-    if not point_crs.srs.IsProjected():
-
+    if point_geodataframe.crs.is_geographic:
         # use lower left corner of bnd box to convert metres to dd94 distance.
         thinDistCSunits = pyprecag_crs.distance_metres_to_dd(point_geodataframe.total_bounds[0],
                                                              point_geodataframe.total_bounds[1], thin_distance_metres)

@@ -229,7 +229,7 @@ def vesper_text_to_raster(control_textfile, krig_epsg=0, nodata_value=-9999):
                  "\t95% Confidence Interval : {:.5f}".format(median_val, 2 * 1.96 * median_val))
 
     x_field, y_field = predictCoordinateColumnNames(df_krige.columns.tolist())
-    gdf_krig, gdf_crs = add_point_geometry_to_dataframe(df_krige, [x_field, y_field], krig_epsg)
+    gdf_krig, _ = add_point_geometry_to_dataframe(df_krige, [x_field, y_field], krig_epsg)
 
     cellsize_x = float(df_krige[x_field].sort_values().drop_duplicates().diff(1).mode())
     cellsize_y = float(df_krige[y_field].sort_values().drop_duplicates().diff(1).mode())

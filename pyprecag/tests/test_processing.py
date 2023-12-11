@@ -153,14 +153,14 @@ class Test_CleanTrim(unittest.TestCase):
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
-        out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, 'Yield',
+        out_gdf, out_crs = clean_trim_points(gdf_points, None, 'Yield',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
                                              boundary_polyfile=in_poly, thin_dist_m=2.5)
 
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(gdf_pts_crs, out_crs)
+
         self.assertEqual(28354, out_gdf.crs.to_epsg())  # {'init': 'EPSG:28354', 'no_defs': True})
         self.assertIn('EN_EPSG', out_gdf.columns)
         self.assertEqual(542, len(out_gdf))
@@ -196,7 +196,7 @@ class Test_CleanTrim(unittest.TestCase):
 
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(gdf_pts_crs, out_crs)
+
         self.assertEqual(28354, out_gdf.crs.to_epsg())
         self.assertEqual(554, len(out_gdf))
         self.assertIn('EN_EPSG', out_gdf.columns)
@@ -253,7 +253,7 @@ class Test_Processing(unittest.TestCase):
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, None,
                                                                 coord_columns_epsg=4326, out_epsg=28354)
 
-        create_polygon_from_point_trail(gdf_points, gdf_pts_crs, out_polyfile,
+        create_polygon_from_point_trail(gdf_points, None, out_polyfile,
                                         thin_dist_m=2.5,
                                         aggregate_dist_m=25,
                                         buffer_dist_m=10,
@@ -265,6 +265,7 @@ class Test_Processing(unittest.TestCase):
         self.assertEqual(28354, vect_desc.crs.epsg_number)
         self.assertFalse(vect_desc.is_mz_aware)
         self.assertEqual('Polygon', vect_desc.geometry_type)
+        self.assertEqual(28354, result.crs.to_epsg())
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif
@@ -670,22 +671,21 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            out_gdf, out_crs = \
-                extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
-                                                    function_list=[np.nanmean, raster_ops.nancv],
-                                                    size_list=[1, 3, 7], output_csvfile=out_csv)
+            out_gdf, _ =  extract_pixel_statistics_for_points(self.gdf_points, None, [raster_file],
+                                                              function_list=[np.nanmean, raster_ops.nancv],
+                                                              size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
         self.assertEqual(len(out_gdf), len(self.gdf_points), "Row count doesn't match")
 
         self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
-        self.assertEqual(rast_crs.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match raster")
-        self.assertEqual(self.crs_points.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match GDF")
+        self.assertEqual(rast_crs.epsg_number, out_gdf.crs.to_epsg(), "Coordinate system doesn't match raster")
 
     def test_SingleBand_ptsWGS84(self):
 
         # reproject points to wgs84
-        self.crs_points.getFromEPSG(4326)
+        ptcrs = crs()
+        ptcrs.getFromEPSG(4326)
         self.gdf_points.to_crs(epsg=4326, inplace=True)
 
         raster_file = self.singletif
@@ -693,14 +693,14 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         out_csv = os.path.join(self.test_outdir, os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
-        out_gdf, out_crs = extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
+        out_gdf, _ = extract_pixel_statistics_for_points(self.gdf_points, ptcrs, [raster_file],
                                                                function_list=[np.nanmean, raster_ops.nancv],
                                                                size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
         self.assertEqual(len(self.gdf_points), len(out_gdf), "Row count doesn't match")
         self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
-        self.assertEqual(self.crs_points, out_crs, "Coordinate system doesn't match GDF")
+        self.assertEqual(ptcrs.epsg_number, out_gdf.crs.to_epsg(), "Coordinate system doesn't match GDF")
         self.assertEqual(2, out_gdf['mean7x7_dummy_singleband_94mga54'].isnull().sum(),
                          'There should be 2 nodata values')
 

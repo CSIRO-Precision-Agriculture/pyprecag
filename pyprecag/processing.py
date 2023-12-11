@@ -204,6 +204,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         shrink_dist_m (int): The shrink distance in metres. Typically about 7 less than the buffer
                     distance.
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', FutureWarning, stacklevel=2)
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
@@ -217,7 +219,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
             list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : A points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if  points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if out_filename is None or out_filename == '':
@@ -226,7 +228,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     if not os.path.exists(os.path.dirname(out_filename)):
         raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_filename)))
 
-    points_geodataframe.crs = points_crs.epsg
+    # if points_crs:
+    #     points_geodataframe.crs = points_crs.epsg
 
     start_time = time.time()
     points_geodataframe = points_geodataframe.copy()
@@ -236,9 +239,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     # don't need any attribution so drop it all except fid and geometry
     dropcols = [ea for ea in points_geodataframe.columns.tolist() if ea not in ['geometry', 'FID']]
     points_geodataframe.drop(dropcols, axis=1, inplace=True)
-    ptsgdf_crs = points_crs.epsg
 
-    gdf_thin = thin_point_by_distance(points_geodataframe, points_crs, thin_dist_m)
+    gdf_thin = thin_point_by_distance(points_geodataframe, None, thin_dist_m)
     gdf_thin = gdf_thin[gdf_thin['filter'].isnull()].copy()
 
     del points_geodataframe
@@ -281,9 +283,9 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         df_line = gdf_thin.groupby(['lineID'])['geometry'].apply(
             lambda x: LineString([(p.x, p.y) for p in x]))
 
-    gdf_final = GeoDataFrame(df_line, geometry='geometry')
+    gdf_final = GeoDataFrame(df_line, geometry='geometry',crs=gdf_thin.crs)
     del gdf_thin, ptsperline, df_line
-    gdf_final.crs = ptsgdf_crs
+
     LOGGER.info('{:<30} {:<15} {dur}'.format('Convert to lines', '',
                                              dur=str(timedelta(seconds=time.time() - step_time))))
 
@@ -295,7 +297,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     # buffer and dissolve overlap of lines
     step_time = time.time()
-    gdf_final = GeoDataFrame(geometry=[gdf_final.buffer(buffer_dist_m).unary_union])
+    gdf_final = GeoDataFrame(geometry=[gdf_final.buffer(buffer_dist_m).unary_union],crs=gdf_final.crs)
     # gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
@@ -309,8 +311,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     if shrink_dist_m != 0:
         step_time = time.time()
-        gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)))
-        gdf_final.crs = ptsgdf_crs
+        gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)),crs=gdf_final.crs)
+
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
                                                  dur=str(timedelta(seconds=time.time() - step_time))))
 
@@ -321,8 +323,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     step_time = time.time()
 
-    gdf_final = GeoDataFrame(geometry=gdf_final.geometry.explode(index_parts=False))
-    # gdf_final.crs = ptsgdf_crs
+    gdf_final = GeoDataFrame(geometry=gdf_final.geometry.explode(index_parts=False),crs=gdf_final.crs)
+
     gdf_final['FID'] = gdf_final.index
     gdf_final['Area'] = gdf_final.area
     gdf_final['Perimeter'] = gdf_final.length
@@ -388,6 +390,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
 
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', FutureWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
@@ -396,7 +400,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if output_csvfile is None:
@@ -420,7 +424,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if not isinstance(argCheck[1], bool):
             raise TypeError('{} should be a boolean.'.format(argCheck[0]))
 
-    points_geodataframe.crs = points_crs.epsg
+    if points_crs:
+        points_geodataframe.crs = points_crs.epsg
 
     norm_column = 'nrm_' + process_column
     LOGGER.info('Normalized Column is {}'.format(norm_column))
@@ -483,17 +488,13 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     add_filter_message('Duplicate XY')
 
-    if boundary_polyfile is not None:
-        gdf_poly = ply_desc.open_geo_dataframe()
-
-        if ply_desc.crs.epsg != points_crs.epsg_number:
+    if poly_geodataframe is not None:
+        if poly_geodataframe.crs.to_epsg() != gdf_points.crs.to_epsg():
             # Preference is to the projected coordinate system then only project the smaller
             # dataset (usually poly) By now points should be in the out projected coordinate system
-            if ply_desc.crs.epsg != points_crs.epsg_number:
-                gdf_poly.to_crs(epsg=points_crs.epsg_number, inplace=True)
+            poly_geodataframe.to_crs(gdf_points.crs, inplace=True)
 
-            LOGGER.info('{: <30} {: >10}   {:<15}'.format(
-                'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number)))
+            LOGGER.info(f'{"Reproject clip polygon": <30} {"to": >10}   {gdf_points.crs.to_epsg():<15}')
             # dur=str(timedelta(seconds=time.time() - step_time))))
 
         step_time = time.time()
@@ -544,7 +545,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             if not iterative:
                 break
 
-    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()], points_crs, thin_dist_m)
+    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()], None, thin_dist_m)
     # update the filter incremental number
     gdf_thin['filter_inc'] = gdf_thin['filter_inc'] + len(gdf_points['filter'].dropna().unique())
 
@@ -665,6 +666,13 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=str(timedelta(seconds=time.time() - start_time))) )
 
+    warnings.warn('return value points_crs is deprecated. Please use  `pyproj, geopandas solutions`',
+                  FutureWarning, stacklevel=2)
+
+    if points_crs :
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(gdf_final.crs.to_epsg())
+
     return gdf_final[gdf_final['filter'].isnull()], points_crs
 
 
@@ -774,6 +782,8 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         geopandas.geodataframe.GeoDataFrame: dataframe of the points and calculated statistics
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', FutureWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
@@ -782,7 +792,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
             list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if output_csvfile is None or output_csvfile == '':
@@ -849,9 +859,10 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
 
     # drop null geometry
     points_geodataframe.dropna(subset=['geometry'], axis=0, inplace=True)
-
+    original_crs = points_geodataframe.crs
     # overwrite the gdf proj4 string with the epsg mapping equivalent
-    points_geodataframe.crs = points_crs.epsg
+    # if points_crs:
+    #      points_geodataframe.crs = points_crs
 
     cur_pixel = False
     if 1 in size_list:
@@ -869,7 +880,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         # RasterIO works from the proj4 string NOT the wkt string so aussie zones details gets lost.
         rast_crs = pyprecag_crs.getCRSfromRasterFile(ea_raster)
 
-        if rast_crs.epsg != points_geodataframe.crs:
+        if rast_crs.epsg != points_geodataframe.crs.to_epsg():
             # we have to reproject the vector points to match the raster
             print('WARNING: Projecting points from {} to {}'.format(points_geodataframe.crs,
                                                                     rast_crs.epsg))
@@ -928,8 +939,8 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         del df_raster_vals
 
     # Reproject points back to original coordinate system if required.
-    if points_crs.epsg != points_geodataframe.crs:
-        points_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
+    if original_crs != points_geodataframe.crs:
+        points_geodataframe.to_crs(original_crs, inplace=True)
 
     # Make sure the output CSV contains coordinates
     if None in predictCoordinateColumnNames(points_geodataframe.columns.tolist()):
@@ -943,7 +954,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
             points_geodataframe['Northing'] = points_geodataframe.geometry.apply(lambda p: p.y)
 
     # and for good measure add the associated epsg number
-    points_geodataframe['EPSG'] = int(points_geodataframe.crs.to_authority()[1])
+    points_geodataframe['EPSG'] = points_geodataframe.crs.to_epsg()
 
     if output_csvfile is not None:
         step_time = time.time()
@@ -959,6 +970,11 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         inspect.currentframe().f_code.co_name, '', '',
         dur=str(timedelta(seconds=time.time() - start_time))
     ))
+
+
+    if points_crs :
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(points_geodataframe.crs.to_epsg())
 
     return points_geodataframe, points_crs
 

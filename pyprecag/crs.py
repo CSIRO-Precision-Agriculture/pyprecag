@@ -27,7 +27,7 @@ LOGGER.addHandler(logging.NullHandler())
 class crs:
     def __init__(self):
         warnings.warn("pyprecag.crs has been deprecated in favor of `pyproj`, `geopandas.crs` or `rasterio.crs` "
-                      "and will be removed in a future release", DeprecationWarning, 2)
+                      "and will be removed in a future release", PendingDeprecationWarning, 2)
 
         self.srs = None  # Spatial Reference Object
         self.crs_wkt = None
@@ -218,7 +218,7 @@ def from_epsg(epsg_number):
     """
     warnings.warn('pyprecag.crs.from_epsg() in favor of `pyproj, geopandas or rasterio solutions` '
                   'see https://pyproj4.github.io/pyproj/stable/crs_compatibility.html',
-                  DeprecationWarning, stacklevel=2)
+                  PendingDeprecationWarning, stacklevel=2)
 
     if parse_version(pyproj.__version__) >= parse_version('2.4.0'):
         crs = pyproj.CRS.from_epsg(epsg_number)
@@ -240,7 +240,7 @@ def getCRSfromRasterFile(raster_file):
     """
     warnings.warn('pyprecag.crs.getCRSfromRasterFile() is deprecated in favor of `rasterio`'
                   ' - see https://rasterio.readthedocs.io/en/stable/api/rasterio.crs.html',
-                  DeprecationWarning, stacklevel=2)
+                  PendingDeprecationWarning, stacklevel=2)
 
     gdalRaster = gdal.Open(os.path.normpath(raster_file))
     rast_crs = crs()

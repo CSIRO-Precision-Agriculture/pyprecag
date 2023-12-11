@@ -296,6 +296,10 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
     Modified from: https://gis.stackexchange.com/a/182234
 
     """
+
+    warnings.warn('pyprecag_crs return values is deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', FutureWarning, stacklevel=2)
+
     start_time = time.time()
 
     if not isinstance(in_dataframe, (geopandas.GeoDataFrame, pd.DataFrame)):
@@ -328,19 +332,19 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
         gdf_csv = geopandas.GeoDataFrame(in_dataframe,
                                          geometry=geopandas.points_from_xy(in_dataframe[x_column],
                                                                            in_dataframe[y_column]),
-                                         crs=from_epsg(coord_columns_epsg))
+                                         crs=coord_columns_epsg)
     else:
         # Convert the pandas DataFrame into a GeoDataFrame.
         gdf_csv = geopandas.GeoDataFrame(in_dataframe,
                                          geometry=[Point(x, y) for x, y in zip(in_dataframe[x_column],
                                                                                in_dataframe[y_column])],
-                                         crs=from_epsg(coord_columns_epsg))
+                                         crs=coord_columns_epsg)
 
     # drop the original geometry columns to avoid confusion
     gdf_csv.drop([x_column, y_column], axis=1, inplace=True)
 
-    gdf_crs = pyprecag_crs.crs()
-    gdf_crs.getFromEPSG(coord_columns_epsg)
+    #gdf_crs = pyprecag_crs.crs()
+    #gdf_crs.getFromEPSG(coord_columns_epsg)
 
     if out_epsg == -1:
         xmin, ymin, _, _ = gdf_csv.total_bounds
@@ -348,9 +352,8 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
 
     if out_epsg > 0:
         gdf_csv = gdf_csv.to_crs(epsg=out_epsg)
-        gdf_crs.getFromEPSG(out_epsg)
 
-    return gdf_csv, gdf_crs
+    return gdf_csv, gdf_csv.crs.to_epsg()
 
 
 def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=None,
@@ -376,6 +379,8 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
     Modified from:  https://gis.stackexchange.com/a/182234
 
     """
+    warnings.warn('pyprecag_crs return values is deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', FutureWarning, stacklevel=2)
     start_time = time.time()
 
     if not os.path.exists(in_csvfilename):
@@ -404,7 +409,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
         dur=str(timedelta(seconds=time.time() - start_time))
     ))
 
-    return gdf_csv, gdf_crs
+    return gdf_csv, None
 
 
 def convert_polygon_feature_to_raster(feature, pixel_size, value=1, nodata_val=-9999,
