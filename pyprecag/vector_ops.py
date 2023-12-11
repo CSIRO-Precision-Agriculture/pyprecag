@@ -63,7 +63,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     if not isinstance(point_geodataframe, gpd.GeoDataFrame):
         raise TypeError("Input Points should be a geopandas data frame")
 
-    if 'POINT' not in ','.join(list(point_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in point_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid geometry. input shapefile should be point or multipoint')
 
     if point_crs and not isinstance(point_crs, pyprecag_crs.crs):

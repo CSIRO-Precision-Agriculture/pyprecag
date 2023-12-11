@@ -215,8 +215,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeoDataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : A points geopandas dataframe is required')
 
     if  points_crs and not isinstance(points_crs, pyprecag_crs.crs):
@@ -348,10 +347,10 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         return 'For an improved result, increase the buffer width and shrink distance and ' \
                'try again.'
     else:
-        return
+        return gdf_final
 
 
-def clean_trim_points(points_geodataframe, points_crs, process_column, output_csvfile,
+def clean_trim_points(points_geodataframe, points_crs, process_column, output_csvfile, poly_geodataframe=None,
                       boundary_polyfile=None, out_keep_shapefile=None, out_removed_shapefile=None,
                       remove_zeros=True, stdevs=3, iterative=True, thin_dist_m=1.0):
     """ Clean and/or Trim a points dataframe.
@@ -394,10 +393,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                   'will be removed in a future version', FutureWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
-        raise TypeError('Invalid input data : inputGeodataFrame')
+        raise TypeError('Invalid input data : points_geodataframe')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
     if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
@@ -429,18 +427,24 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     norm_column = 'nrm_' + process_column
     LOGGER.info('Normalized Column is {}'.format(norm_column))
+
     if norm_column in points_geodataframe.columns:
         LOGGER.warning('Column {} already exists and will be overwritten'.format(norm_column))
 
     if boundary_polyfile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      FutureWarning, stacklevel=2)
+
         if not os.path.exists(boundary_polyfile):
             raise IOError("Invalid path: {}".format(boundary_polyfile))
+        poly_geodataframe = GeoDataFrame.from_file(boundary_polyfile)
 
-        ply_desc = VectorDescribe(boundary_polyfile)
+    if poly_geodataframe is not None and not isinstance(poly_geodataframe, GeoDataFrame):
+        raise TypeError('Invalid input data : poly_geodataframe')
 
-        if 'POLY' not in ply_desc.geometry_type.upper():
-            raise GeometryError('Invalid geometry. Input shapefile should be polygon'
-                                ' or multipolygon')
+    if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
+        raise GeometryError('Invalid geometry. Input poly_geodataframe or boundary_polyfile should be polygon'
+                            ' or multipolygon')
 
     start_time = time.time()
 
@@ -500,7 +504,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         step_time = time.time()
 
         # Clip to boundary then apply to filter column
-        gdf_points.loc[(gdf_points['filter'].isnull()) & (~gdf_points.geometry.within(gdf_poly.unary_union)),
+        gdf_points.loc[(gdf_points['filter'].isnull()) & (~gdf_points.geometry.within(poly_geodataframe.unary_union)),
                             ['filter', 'filter_inc']] = ['clip', len(gdf_points['filter'].unique())]
         add_filter_message('clip')
 
@@ -508,7 +512,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             raise GeometryError('Clipping removed all features. Check coordinate systems and/or '
                                 'clip polygon layer and try again')
 
-        del gdf_poly
+        del poly_geodataframe
 
         step_time = time.time()
 
@@ -519,8 +523,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         add_filter_message('<= zero')
 
         if gdf_points['filter'].isnull().sum() == 0:
-            raise GeometryError("Zero filter removed all points "
-                                "in column {}".format(process_column))
+            raise GeometryError(f"Zero filter removed all points in column {process_column}")
 
     if stdevs > 0:
         i = 0
@@ -530,7 +533,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             i += 1
 
             subset = gdf_points.loc[gdf_points['filter'].isnull()].copy()
-            filter_str = '{} std iter {}'.format(stdevs, int(i))
+            filter_str = f'{stdevs} std iter {int(i)}'
 
             yld_mean = subset[process_column].mean()
             yld_std = subset[process_column].std()
@@ -788,8 +791,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
     if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
@@ -1923,7 +1925,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     if not isinstance(lines_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'LINE' not in ','.join(list(lines_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("LINE" in g.upper() for g in lines_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid input data : A lines geopandas dataframe is required')
 
     for argCheck in [('offset_distance', offset_distance),
@@ -2120,8 +2122,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid input data : a points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
