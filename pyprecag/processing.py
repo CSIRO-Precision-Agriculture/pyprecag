@@ -626,9 +626,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
 
-    LOGGER.info('{:<30} {: >10,}   {:<15} {dur}'.format(
-        'Save to CSV', len(gdf_final[gdf_final['filter'].isnull()]),
-        os.path.basename(output_csvfile), dur=str(timedelta(seconds=time.time() - step_time))))
+    LOGGER.info(f'{"Save to CSV":<30} {len(gdf_final[gdf_final["filter"].isnull()]): >10,} '
+                f'  {os.path.basename(output_csvfile):<15}'
+                f' {str(timedelta(seconds=time.time() - step_time))}')
 
     step_time = time.time()
 
@@ -645,7 +645,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     if out_removed_shapefile is not None and out_removed_shapefile != '':
         if gdf_final[gdf_final['filter'].notnull()].empty:
-            LOGGER.info('{} '.format('No features removed. Shapefile containing removed points not created.'))
+            LOGGER.info('No features removed. Shapefile containing removed points not created.')
         else:
             save_geopandas_tofile(gdf_final[gdf_final['filter'].notnull()]
                                   .drop([norm_column], axis=1),
@@ -662,9 +662,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                                                        'count'     : "{:,.0f}".format,
                                                                        '%'         : "{:.3f}%".format})))
 
-    LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column), yld_mean))
-    LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column), yld_std))
-    LOGGER.info('{}.....{: .5f} '.format('{} CV'.format(process_column), 100 * yld_std / yld_mean))
+    LOGGER.info(f'{process_column} mean....{yld_mean:.5f} ')
+    LOGGER.info(f'{process_column} std....{yld_std: .5f} ')
+    LOGGER.info(f'{process_column} CV....{ 100 * yld_std / yld_mean: .5f} ')
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=str(timedelta(seconds=time.time() - start_time))) )
