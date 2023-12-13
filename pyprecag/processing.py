@@ -987,7 +987,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
 
 
 def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[], image_epsg=0,
-                                 image_nodata=0, polygon_shapefile=None, groupby=None):
+                                 image_nodata=0, poly_geodataframe=None, polygon_shapefile=None, groupby=None):
     """Derive multiple resampled image bands matching the specified pixel size and block grid extent
      for each shapefile polygon.
 
@@ -1032,18 +1032,32 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
     Returns:
         List[str]: a list of created files.
     """
+    if polygon_shapefile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      FutureWarning, stacklevel=2)
 
     if isinstance(polygon_shapefile, str) and polygon_shapefile.strip() == '':
         polygon_shapefile = None
+
+    if polygon_shapefile :
+        if not os.path.exists(polygon_shapefile):
+            raise IOError(f'polygon_shapefile does not exist - {polygon_shapefile}')
+        elif not poly_geodataframe:
+            poly_geodataframe = gpd.read_file( polygon_shapefile)
+
     if isinstance(groupby, str) and groupby.strip() == '':
         groupby = None
 
-    for ea_arg in [('image_file', image_file), ('out_folder', out_folder),
-                   ('polygon_shapefile', polygon_shapefile)]:
-        if ea_arg[0] != 'polygon_shapefile':
-            if ea_arg[1] is None or ea_arg[1].strip() == '':
-                raise ValueError('{} is required '.format(ea_arg[0]))
+    if poly_geodataframe and not isinstance(poly_geodataframe, GeoDataFrame):
+        raise TypeError('Invalid input data : poly_geodataframe')
 
+    if poly_geodataframe:
+        if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
+            raise TypeError('Invalid input data : a polygon geopandas dataframe is required')
+        if groupby and groupby not in poly_geodataframe.columns:
+            raise ValueError(f'groupby column {groupby} does not exist in poly_geodataframe')
+
+    for ea_arg in [('image_file', image_file), ('out_folder', out_folder),]:
         if ea_arg[1] is not None and not os.path.exists(ea_arg[1]):
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
@@ -1065,17 +1079,6 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
         if len(band_check) > 0:
             raise ValueError('{} are invalid bands.'.format(', '.join(band_check)))
 
-    if polygon_shapefile is not None:
-        vect_desc = VectorDescribe(polygon_shapefile)
-
-        if 'POLYGON' not in vect_desc.geometry_type.upper():
-            raise GeometryError('Invalid geometry. Input shapefile should be poly or multipolygon')
-
-        if groupby is not None and groupby not in vect_desc.get_column_names():
-            raise ValueError('Input groupby column does not exist in the shapefile')
-
-        del vect_desc
-
     pixel_size_str = numeric_pixelsize_to_string(pixel_size)
     filename, ext = os.path.splitext(os.path.basename(image_file))
     temp_file_list = []
@@ -1087,15 +1090,15 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
                 raise ValueError('Input coordinate system required - image_file does not contain'
                                  'a coordinate system, and in_epsg is 0')
         else:
-            image_epsg = pyprecag_crs.getCRSfromRasterFile(image_file).epsg_number
+            image_epsg = src.crs.to_epsg()
 
     # ----------------------------------------------------------------------------------------------
     # run checks on input polygon, and if required reproject it to the raster coordinate system
-    gdf_poly = None
+    poly_geodataframe = None
     if groupby is None or groupby.strip() == '':
         groupby = None
 
-    if polygon_shapefile is None:
+    if poly_geodataframe is None:
         # create a polygon from the image. hopefully by now the nodata val is correct.
         with rasterio.open(image_file) as src:
             # source: https://gis.stackexchange.com/a/187883
@@ -1107,56 +1110,41 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
             rast_shapes = rasterio.features.shapes(band, transform=src.transform, mask=mask)
             geoms_geojson = [{'properties': {'val': val}, 'geometry': geom} for i, (geom, val) in
                              enumerate(rast_shapes)]
-            gdf_poly = GeoDataFrame.from_features(list(geoms_geojson), crs=from_epsg(image_epsg))
+            poly_geodataframe = GeoDataFrame.from_features(list(geoms_geojson), crs=src.crs.to_epsg())
 
             if config.get_debug_mode():
                 temp_file_list += [os.path.join(TEMPDIR, '{}_{}BlockBoundary_{}.shp'
                                                 .format(filename, len(temp_file_list) + 1,
                                                         image_epsg))]
 
-                save_geopandas_tofile(gdf_poly, temp_file_list[-1], overwrite=True)
+                save_geopandas_tofile(poly_geodataframe, temp_file_list[-1], overwrite=True)
 
         del band, rast_shapes, geoms_geojson, mask
 
-    else:
-        desc_poly = VectorDescribe(polygon_shapefile)
+    if groupby is not None:
+        # change null/nones to blank string
+        poly_geodataframe[groupby].fillna('', inplace=True)
 
-        if 'POLY' not in desc_poly.geometry_type.upper():
-            raise ValueError('Invalid input data : a polygon shapefile is required')
+    # reproject shapefile to raster
+    if poly_geodataframe.crs.to_epsg() != image_epsg.crs.to_epsg():
+        # we have to reproject the vector points to match the raster
+        print('WARNING: Projecting polygons from {} to {}'.format(poly_geodataframe.crs.to_epsg(),  image_epsg.crs.to_epsg()))
+        poly_geodataframe.to_crs(epsg=image_epsg.crs.to_epsg(), inplace=True)
 
-        gdf_poly = desc_poly.open_geo_dataframe()
-
-        if groupby is not None and groupby not in gdf_poly.columns:
-            raise ValueError('Groupby column {} does not exist'.format(groupby))
-
+    # If a column name is specified, dissolve by this and create multi-polygons
+    # otherwise dissolve without a column name at treat all features as one
+    if len(poly_geodataframe) > 1:
         if groupby is not None:
-            # change null/nones to blank string
-            gdf_poly[groupby].fillna('', inplace=True)
-
-        # reproject shapefile to raster
-        poly_epsg = desc_poly.crs.epsg_number
-        if poly_epsg != image_epsg:
-            # we have to reproject the vector points to match the raster
-            print('WARNING: Projecting points from {} to {}'.format(desc_poly.crs.epsg, image_epsg))
-            gdf_poly.to_crs(epsg=image_epsg, inplace=True)
-            poly_epsg = image_epsg
-
-        del desc_poly
-
-        # If a column name is specified, dissolve by this and create multi-polygons
-        # otherwise dissolve without a column name at treat all features as one
-        if len(gdf_poly) > 1:
-            if groupby is not None:
-                gdf_poly = gdf_poly.dissolve(groupby, as_index=False).copy()
-            else:
-                gdf_poly = GeoDataFrame(geometry=[gdf_poly.unary_union])
+            poly_geodataframe = poly_geodataframe.dissolve(groupby, as_index=False).copy()
+        else:
+            poly_geodataframe = GeoDataFrame(geometry=[poly_geodataframe.unary_union])
 
     # Loop through polygns features ----------------------------------------------------------------
     output_files = []
-    for index, feat in gdf_poly.iterrows():
+    for index, feat in poly_geodataframe.iterrows():
         loop_time = time.time()
         step_time = time.time()
-        status = '{} of {}'.format(index + 1, len(gdf_poly))
+        status = '{} of {}'.format(index + 1, len(poly_geodataframe))
 
         if groupby is not None:
             feat_name = re.sub('[^0-9a-zA-Z]+', '-', str(feat[groupby])).strip('-')
@@ -1415,7 +1403,7 @@ def multi_block_bands_processing(image_file, pixel_size, out_folder, band_nums=[
 
 
 def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices=[], image_epsg=0,
-                           image_nodata=None, polygon_shapefile=None, groupby=None, out_epsg=0):
+                           image_nodata=None, poly_geodataframe = None, polygon_shapefile=None, groupby=None, out_epsg=0):
     """ Calculate indices for a multi band image then resample to a specified pixel size
       and block grid extent for each shapefile polygon.
 
@@ -1463,16 +1451,34 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
     Returns:
         List[str]: the list of created images.
     """
+    if polygon_shapefile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      FutureWarning, stacklevel=2)
+
+    warnings.warn('image_epsg will be removed in future release. Please use rasterio solutions instead',
+                      FutureWarning, stacklevel=2)
 
     if isinstance(polygon_shapefile, str) and polygon_shapefile.strip() == '':
         polygon_shapefile = None
 
-    for ea_arg in [('image_file', image_file), ('out_folder', out_folder),
-                   ('polygon_shapefile', polygon_shapefile)]:
-        if ea_arg[0] != 'polygon_shapefile':
-            if ea_arg[1] is None or ea_arg[1].strip() == '':
-                raise ValueError('{} is required '.format(ea_arg[0]))
+    if polygon_shapefile :
+        if not os.path.exists(polygon_shapefile):
+            raise IOError(f'polygon_shapefile does not exist - {polygon_shapefile}')
+        elif not poly_geodataframe:
+            poly_geodataframe = gpd.read_file( polygon_shapefile)
+    if isinstance(groupby, str) and groupby.strip() == '':
+        groupby = None
 
+    if poly_geodataframe and not isinstance(poly_geodataframe, GeoDataFrame):
+        raise TypeError('Invalid input data : poly_geodataframe')
+
+    if poly_geodataframe:
+        if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
+            raise TypeError('Invalid input data : a polygon geopandas dataframe is required')
+        if groupby and groupby not in poly_geodataframe.columns:
+            raise ValueError(f'groupby column {groupby} does not exist in poly_geodataframe')
+
+    for ea_arg in [('image_file', image_file), ('out_folder', out_folder),]:
         if ea_arg[1] is not None and not os.path.exists(ea_arg[1]):
             raise IOError('{} does not exist-Got {}'.format(ea_arg[0], os.path.dirname(ea_arg[1])))
 
@@ -1515,13 +1521,13 @@ def calc_indices_for_block(image_file, pixel_size, band_map, out_folder, indices
             rast_shapes = rasterio.features.shapes(band, transform=src.transform, mask=mask)
             geoms_geojson = [{'properties': {'val': val}, 'geometry': geom} for i, (geom, val) in
                              enumerate(rast_shapes)]
-            gdf_poly = GeoDataFrame.from_features(list(geoms_geojson), crs=from_epsg(image_epsg))
-            save_geopandas_tofile(gdf_poly, polygon_shapefile, overwrite=True)
+            gdf_poly = GeoDataFrame.from_features(list(geoms_geojson), crs=src.crs.to_epsg())
+            #save_geopandas_tofile(gdf_poly, polygon_shapefile, overwrite=True)
 
         del band, rast_shapes, geoms_geojson, mask
 
     out_files = multi_block_bands_processing(indices_image, pixel_size, out_folder,
-                                             polygon_shapefile=polygon_shapefile, groupby=groupby)
+                                             poly_geodataframe=gdf_poly, groupby=groupby)
 
     if not config.get_debug_mode():
         if TEMPDIR in indices_image:
