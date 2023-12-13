@@ -18,6 +18,7 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
@@ -391,6 +392,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     """
     warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
                   'will be removed in a future version', FutureWarning, stacklevel=2)
+
+    if boundary_polyfile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      FutureWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : points_geodataframe')
