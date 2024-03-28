@@ -539,6 +539,7 @@ def stack_and_clip_rasters(raster_files, use_common=True, output_tif=None):
                 # find the intersection of all the windows
                 if i == 1:
                     min_window = data_window
+                    min_bbox = src.window_bounds(min_window)
                 else:
                     # create a new window using the last coordinates based on this image in case
                     # extents/pixel origins are different
