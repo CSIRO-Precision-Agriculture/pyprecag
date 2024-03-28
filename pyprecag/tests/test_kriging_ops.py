@@ -134,7 +134,7 @@ class TestKrigingOps(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
