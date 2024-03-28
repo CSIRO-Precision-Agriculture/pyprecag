@@ -1,6 +1,6 @@
 SHELL=/bin/sh
 PACKAGE_NAME=pyprecag
-TEST="*test*.py"
+TEST=*
 
 .PHONY: help
 help:
@@ -34,7 +34,7 @@ twine_check: sdist bdist_wheel
 
 .PHONY: test
 test:
-	python -m unittest discover -s $(PACKAGE_NAME)/tests -p $(TEST) -v
+	python -m unittest discover -s $(PACKAGE_NAME)/tests -p "test_$(TEST).py" -v
 
 .PHONY: clean
 clean:
