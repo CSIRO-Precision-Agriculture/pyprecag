@@ -1,10 +1,10 @@
 name: Python Package using Conda
 
-on: [push]
+on: [push,workflow_dispatch]
 
 jobs:
   build-linux:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
 
