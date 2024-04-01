@@ -22,7 +22,7 @@ jobs:
       run: |
         #conda env update --file environment.yml --name base
         pip install six
-        pip install ./pyprecag
+        pip install .
     - name: Lint with flake8
       run: |
         conda install flake8
