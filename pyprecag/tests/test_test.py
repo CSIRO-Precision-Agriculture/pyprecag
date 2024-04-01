@@ -1,5 +1,15 @@
 # An empty test to test the unittest framework as a part of the GitHib Action CI/CD
 import unittest
+import os
+import shutil
+import tempfile
+import time
+
+from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
+from pyprecag.bandops import CalculateIndices, BandMapping
+
+PY_FILE = os.path.basename(__file__)
+THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data', 'rasters')
 
 class TestStringMethods(unittest.TestCase):
 
@@ -18,4 +28,6 @@ class TestStringMethods(unittest.TestCase):
             s.split(2)
 
 if __name__ == '__main__':
+    print("PY_FILE=",PY_FILE)
+    print("THIS_DIR=",THIS_DIR)
     unittest.main()
