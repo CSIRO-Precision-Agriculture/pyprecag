@@ -5,8 +5,8 @@ import shutil
 import tempfile
 import time
 
-from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
-from pyprecag.bandops import CalculateIndices, BandMapping
+#from pyprecag.tests import setup_folder, KEEP_TEST_OUTPUTS
+#from pyprecag.bandops import CalculateIndices, BandMapping
 
 PY_FILE = os.path.basename(__file__)
 THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data', 'rasters')
