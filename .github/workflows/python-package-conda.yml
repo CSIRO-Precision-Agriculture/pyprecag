@@ -35,5 +35,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test using pythons in built unittest
       run:
-       # mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py ;
-        python -m unittest discover -s pyprecag/tests -p "test_v*.py" -v
+        mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py ;
+        mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py ;
+        mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py ;
+        python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
