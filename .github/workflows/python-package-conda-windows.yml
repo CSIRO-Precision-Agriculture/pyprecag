@@ -2,7 +2,7 @@ name: Github Actions in Windows
 
 on: push
 
-jobs
+jobs:
   build-windows:
     runs-on: windows-latest
 
