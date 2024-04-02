@@ -24,7 +24,7 @@ jobs:
         conda install gdal
         conda install fiona
         conda install geopandas
-        conda install .
+        pip install .
     - name: Lint with flake8
       run: |
         conda install flake8
