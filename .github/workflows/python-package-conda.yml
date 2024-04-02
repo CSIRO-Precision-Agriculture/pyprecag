@@ -25,6 +25,7 @@ jobs:
         conda install fiona
         conda install geopandas
         conda install proj
+        conda install pygeos
         pip install six
         pip install .
     - name: Lint with flake8
