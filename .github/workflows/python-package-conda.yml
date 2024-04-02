@@ -21,13 +21,10 @@ jobs:
     - name: Install dependencies
       run: |
         #conda env update --file environment.yml --name base
-        conda install geos=3.11.0
         conda install gdal
         conda install fiona
         conda install geopandas
-        conda install proj
-        pip install six
-        pip install .
+        conda install .
     - name: Lint with flake8
       run: |
         conda install flake8
@@ -38,4 +35,4 @@ jobs:
     - name: Test using pythons in built unittest
       run:
        # mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py ;
-        python -m unittest discover -s pyprecag/tests -p "test_end*.py" -v
+        python -m unittest discover -s pyprecag/tests -p "test_v*.py" -v
