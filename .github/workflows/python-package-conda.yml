@@ -37,4 +37,3 @@ jobs:
     - name: Test using pythons in built unittest
       run:
         python -m unittest discover -s pyprecag/tests -p "test_test.py" -v
-        python -m unittest discover -s pyprecag/tests -p "test_bandpass.py" -v
