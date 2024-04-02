@@ -1,6 +1,6 @@
 name: Github Actions in Windows
 
-on: [push,workflow_dispatch]
+on: push
 
 jobs
   build-windows:
