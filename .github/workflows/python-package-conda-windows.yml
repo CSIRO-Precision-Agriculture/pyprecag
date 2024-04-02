@@ -26,6 +26,8 @@ jobs:
         C:\Miniconda\condabin\conda.bat activate base
         C:\Miniconda\condabin\conda.bat install flake8
         C:\Miniconda\condabin\conda.bat install gdal
+        C:\Miniconda\condabin\conda.bat install fiona
+        C:\Miniconda\condabin\conda.bat install geopandas
         #conda install fiona
         #conda install geopandas
         #pip install .
