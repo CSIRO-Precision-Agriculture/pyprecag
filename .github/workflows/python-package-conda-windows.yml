@@ -1,4 +1,7 @@
 name: Github Actions in Windows
+
+on: [push,workflow_dispatch]
+
 jobs
   build-windows:
     runs-on: windows-latest
