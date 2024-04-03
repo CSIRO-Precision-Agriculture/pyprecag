@@ -43,11 +43,16 @@ jobs:
     - name: Build html help documents
       run: |
         git clone https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
-        cd pyprecag_docs; git checkout mnb_pages; cd ..
-        cd pyprecag_docs; git config --global user.email mike.birchall@csiro.au; cd ..
-        cd pyprecag_docs; git config --global user.name  mike-birchall-csiro   ; cd ..
+        cd pyprecag_docs
+        git checkout mnb_pages
+        #cd pyprecag_docs; git config --global user.email mike.birchall@csiro.au; cd ..
+        #cd pyprecag_docs; git config --global user.name  mike-birchall-csiro   ; cd ..
+        git config user.name "${{ github.actor }}"
+        git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        cd ..
         #sphinx-build html pyprecag_docs
         sphinx-build -M html ./docs ./pyprecag_docs 
+        touch pyprecag_docs/.nojekyll 
         cd pyprecag_docs; git add --all ; cd ..
         cd pyprecag_docs; git commit --all -m "Update test"; git push; cd ..
 
