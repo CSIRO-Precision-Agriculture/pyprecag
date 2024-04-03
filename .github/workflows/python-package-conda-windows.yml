@@ -41,4 +41,4 @@ jobs:
         C:\Miniconda\condabin\conda.bat activate base
         #C:\Miniconda\condabin\conda.bat install pytest
         #pytest
-        python -m unittest discover -s pyprecag/tests -p "test_b*.py" -v
+        python -m unittest discover -s pyprecag/tests -p "test_v*.py" -v
