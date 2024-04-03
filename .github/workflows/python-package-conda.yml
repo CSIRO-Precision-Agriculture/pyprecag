@@ -48,6 +48,7 @@ jobs:
         cd pyprecag_docs; git config --global user.name  mike-birchall-csiro   ; cd ..
         #sphinx-build html pyprecag_docs
         sphinx-build -M html ./docs ./pyprecag_docs 
+        cd pyprecag_docs; git add --all ; cd ..
         cd pyprecag_docs; git commit --all -m "Update test"; git push; cd ..
 
     
