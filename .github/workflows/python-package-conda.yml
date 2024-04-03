@@ -25,6 +25,7 @@ jobs:
         conda install fiona
         conda install geopandas
         conda install sphinx
+        conda install sphinx_rtd_theme
         pip install .
     - name: Lint with flake8
       run: |
