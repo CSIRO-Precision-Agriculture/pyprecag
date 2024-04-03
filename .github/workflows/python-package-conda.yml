@@ -56,6 +56,8 @@ jobs:
         sphinx-build -M html ./docs ./pyprecag_docs 
         touch pyprecag_docs/.nojekyll 
     - name: Push html help documents to GitHub Repository
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cd pyprecag_docs
         git add --all
