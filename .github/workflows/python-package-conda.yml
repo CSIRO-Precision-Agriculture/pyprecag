@@ -67,7 +67,7 @@ jobs:
         git commit --all -m "Update test"
         echo "HERE"
         #git push origin mnb_pages
-        git push --set-upstream https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
+        git push --set-upstream https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs
         echo "TO HERE"
         cd ..
     
