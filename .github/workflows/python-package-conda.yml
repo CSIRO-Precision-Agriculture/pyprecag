@@ -42,6 +42,9 @@ jobs:
         python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
     - name: Build html help documents
       run: |
-        make html
+        git checkout https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
+        git switch mnb_pages
+        sphinx-build html pyprecag_docs
+        cd pyprecag_docs; git commit --all -m "Update test"; git push
 
     
