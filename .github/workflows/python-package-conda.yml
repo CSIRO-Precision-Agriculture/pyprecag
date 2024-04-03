@@ -43,7 +43,7 @@ jobs:
     - name: Build html help documents
       run: |
         git clone https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
-        git switch mnb_pages
+        git checkout mnb_pages
         sphinx-build html pyprecag_docs
         cd pyprecag_docs; git commit --all -m "Update test"; git push
 
