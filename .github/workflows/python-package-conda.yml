@@ -58,7 +58,9 @@ jobs:
         cd pyprecag_docs
         git add --all
         git commit --all -m "Update test"
-        git push
+        echo "HERE"
+        #git push
+        echo "TO HERE"
         cd ..
 
     
