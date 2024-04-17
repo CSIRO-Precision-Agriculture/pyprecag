@@ -15,7 +15,7 @@ jobs:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
         source_file: 'test2.md'
-        destination_repo: 'dmnemec/release-test'
+        destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
         destination_folder: 'test-dir'
         user_email: 'example@email.com'
         user_name: 'dmnemec'
