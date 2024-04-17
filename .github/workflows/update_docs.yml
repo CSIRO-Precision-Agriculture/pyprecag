@@ -1,6 +1,6 @@
-name: Push File
+name: Push File to pyprecag_docs
 
-on: push
+on: [push,workflow_dispatch]
 
 jobs:
   copy-file:
