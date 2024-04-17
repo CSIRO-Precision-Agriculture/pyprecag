@@ -10,14 +10,14 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Pushes test file
-      uses: dmnemec/copy_file_to_another_repo_action@mnb_pages
+      uses: dmnemec/copy_file_to_another_repo_action@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
         source_file: 'test2.md'
         destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
-        detination_branch: 'mnb_pages'
+        destination_branch: 'mnb_pages'
         destination_folder: 'test-dir'
-        user_email: 'example@email.com'
-        user_name: 'dmnemec'
+        user_email: 'mike.birchall@csiro.au'
+        user_name: 'mnb'
         commit_message: 'A custom message for the commit'
