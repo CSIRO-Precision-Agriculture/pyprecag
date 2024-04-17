@@ -1,27 +1,22 @@
 name: Push File
 
-on: [push,workflow_dispatch]
+on: push
 
 jobs:
-  build-linux:
+  copy-file:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 5
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Create Dummy File
-     run: |
-         echo "Dummy2" > test42.md
+
     - name: Pushes test file
       uses: dmnemec/copy_file_to_another_repo_action@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
-        source_file: 'test42.md'
-        destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
+        source_file: 'test2.md'
+        destination_repo: 'dmnemec/release-test'
         destination_folder: 'test-dir'
-        destination_branch: 'mnb_pages'
-        user_email: 'action@github.com'
-        user_name: 'GitHub Action'
-        commit_message: 'Simply adding a test file'
+        user_email: 'example@email.com'
+        user_name: 'dmnemec'
+        commit_message: 'A custom message for the commit'
