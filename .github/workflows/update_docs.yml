@@ -3,7 +3,7 @@ name: Push File to pyprecag_docs
 on: [push,workflow_dispatch]
 
 jobs:
-  copy-file:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
