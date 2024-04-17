@@ -14,7 +14,7 @@ jobs:
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
       with:
-        source_file: 'README.md'
+        source_file: 'README.rst'
         destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
         destination_branch: 'mnb_pages'
         destination_folder: 'test-dir'
