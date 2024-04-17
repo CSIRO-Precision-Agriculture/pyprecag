@@ -10,7 +10,7 @@ jobs:
       uses: actions/checkout@v2
     - name: Create Dummy File
      run: |
-         echo "Dummy" > test42.md
+         echo "Dummy2" > test42.md
     - name: Pushes test file
       uses: dmnemec/copy_file_to_another_repo_action@main
       env:
