@@ -16,6 +16,7 @@ jobs:
       with:
         source_file: 'test2.md'
         destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
+        detination_branch: 'mnb_pages'
         destination_folder: 'test-dir'
         user_email: 'example@email.com'
         user_name: 'dmnemec'
