@@ -331,7 +331,7 @@ def get_column_properties(dataframe):
         # check for unicode characters
         if not all(ord(char) < 128 for char in col):
             try: # python 2.7
-                if isinstance( col, unicode):
+                if isinstance( col, str):
                     aliasFld = unidecode(col)
             except: # python 3.7
                 aliasFld = unidecode(six.ensure_str(col))
