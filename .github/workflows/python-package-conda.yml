@@ -1,0 +1,73 @@
+name: Python Package using Conda
+
+on: [push,workflow_dispatch]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        #conda env update --file environment.yml --name base
+        conda install gdal
+        conda install fiona
+        conda install geopandas
+        conda install sphinx
+        conda install sphinx_rtd_theme
+        pip install .
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test using python's in built unittest
+      run:
+        mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py ;
+        mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py ;
+        mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py ;
+        python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
+    - name: Build html help documents
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        #git clone https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
+        git clone https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
+        cd pyprecag_docs
+        git checkout mnb_pages
+        #cd pyprecag_docs; git config --global user.email mike.birchall@csiro.au; cd ..
+        #cd pyprecag_docs; git config --global user.name  mike-birchall-csiro   ; cd ..
+        #git config user.name "${{ github.actor }}"
+        #git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        git config user.name "mike-birchall-csiro"
+        git config user.email "mike.birchall@csiro.au"
+        cd ..
+        #sphinx-build html pyprecag_docs
+        sphinx-build -M html ./docs ./pyprecag_docs 
+        touch pyprecag_docs/.nojekyll 
+    - name: Push html help documents to GitHub Repository
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd pyprecag_docs
+        git add --all
+        git commit --all -m "Update test"
+        echo "HERE"
+        #git push origin mnb_pages
+        #git push --set-upstream https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs
+        echo "TO HERE"
+        cd ..
+    
