@@ -53,7 +53,7 @@ class Test_BlockGrid(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -138,7 +138,7 @@ class Test_CleanTrim(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -239,7 +239,7 @@ class Test_Processing(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -351,8 +351,8 @@ class TestKMeansCluster(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -463,8 +463,8 @@ class TestStripTrials(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -654,8 +654,8 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -729,8 +729,8 @@ class TestCalculateImageIndices(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -937,7 +937,7 @@ class TestResampleToBlock(unittest.TestCase):
 
         unittest.TestCase.run(self, result)  # call superclass run method
 
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
