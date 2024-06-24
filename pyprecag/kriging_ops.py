@@ -54,7 +54,7 @@ VESPER_OPTIONS = {"jigraph": OrderedDict([("Don't Show", 0), ("Show", 1)]),
                   }
 
 
-class VesperControl(collections.MutableMapping, dict):
+class VesperControl(collections.abc.MutableMapping, dict):
     """A dictionary used to manage vesper control keys and values.
 
     The list of keys is confined to those in __defaults, values are checked against the default
