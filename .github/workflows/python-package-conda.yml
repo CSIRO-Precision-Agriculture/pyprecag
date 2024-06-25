@@ -40,34 +40,19 @@ jobs:
         mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py ;
         mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py ;
         python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
-    - name: Build html help documents
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build pdf help documents
       run: |
-        #git clone https://github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
-        git clone https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs.git
-        cd pyprecag_docs
-        git checkout mnb_pages
-        #cd pyprecag_docs; git config --global user.email mike.birchall@csiro.au; cd ..
-        #cd pyprecag_docs; git config --global user.name  mike-birchall-csiro   ; cd ..
-        #git config user.name "${{ github.actor }}"
-        #git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-        git config user.name "mike-birchall-csiro"
-        git config user.email "mike.birchall@csiro.au"
-        cd ..
-        #sphinx-build html pyprecag_docs
-        sphinx-build -M html ./docs ./pyprecag_docs 
-        touch pyprecag_docs/.nojekyll 
-    - name: Push html help documents to GitHub Repository
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        cd pyprecag_docs
-        git add --all
-        git commit --all -m "Update test"
-        echo "HERE"
-        #git push origin mnb_pages
-        #git push --set-upstream https://user:$GITHUB_TOKEN@github.com/CSIRO-Precision-Agriculture/pyprecag_docs
-        echo "TO HERE"
-        cd ..
+        sphinx-build -M latex ./docs ./pyprecag_docs 
+        ls ./pyprecag_docs      
+        #sphinx-build -M html pyprecag_docs
+        #sphinx-build -M html ./docs ./pyprecag_docs 
+        #touch pyprecag_docs/.nojekyll 
+        
+            
+    - name: Upload Help Document as an Artifact
+        uses: actions/upload-artifact@v4
+        with:
+            name: pyprecag_help.pdf
+            path: ./pyprecag_docs/html/pyprecag.pdf
+        
     
