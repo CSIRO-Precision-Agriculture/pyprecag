@@ -48,10 +48,10 @@ jobs:
         sphinx-build -M latex ./docs ./pyprecag_docs 
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
-    - name: Install latmak and related packages to create pdf documents
+    - name: Install latexmak and related packages to create pdf documents
       run: |        
         echo "======================================"
-        echo "  Install latxmk and related pkgs"
+        echo "  Install latexmk and related pkgs"
         echo "======================================"
         sudo apt-get update
         sudo apt-get -y install latexmk
