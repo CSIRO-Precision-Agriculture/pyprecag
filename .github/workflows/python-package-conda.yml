@@ -53,6 +53,7 @@ jobs:
         echo "======================================"
         sudo apt-get update
         sudo apt-get -y install latexmk
+        sudo apt-get -y install texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
         cd ./pyprecag_docs/latex/; latexmk -pdf -dvi- -ps- -f pyprecag.tex
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
