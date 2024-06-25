@@ -43,7 +43,9 @@ jobs:
     - name: Build pdf help documents
       run: |
         sphinx-build -M latex ./docs ./pyprecag_docs 
-        ls ./pyprecag_docs      
+        ls ./pyprecag_docs/latex
+        cd ./pyprecag_docs/latex
+        make 
         #sphinx-build -M html pyprecag_docs
         #sphinx-build -M html ./docs ./pyprecag_docs 
         #touch pyprecag_docs/.nojekyll 
@@ -53,6 +55,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: pyprecag_help.pdf
-        path: ./pyprecag_docs/html/pyprecag.pdf
+        path: ./pyprecag_docs/latex/pyprecag.pdf
         
     
