@@ -65,6 +65,14 @@ jobs:
         echo "Latex Directory:"
         echo "Here:"
         ls
+- name: Build html documents
+      run: |
+        echo "======================================"
+        echo "Use sphinx-build to create html files"
+        echo "======================================"
+        sphinx-build -M html ./docs ./pyprecag_docs 
+        echo "Html Directory:"
+        ls ./pyprecag_docs/html
         
             
     - name: Upload Help pdf document as an Artifact
@@ -73,4 +81,9 @@ jobs:
         name: pyprecag_help.pdf
         path: ./pyprecag_docs/latex/pyprecag.pdf
         
+    - name: Upload Help html documents folder as an Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyprecag_help_html
+        path: ./pyprecag_docs/html
     
