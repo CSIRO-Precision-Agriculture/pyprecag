@@ -51,6 +51,7 @@ jobs:
         echo "======================================"
         echo "  Use latxmk to build PDF from Latex"
         echo "======================================"
+        sudo apt-get -y install latexmk
         latexmk -pdf -dvi- -ps- ./pyprecag_docs/latex/pyprecag.tex
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
