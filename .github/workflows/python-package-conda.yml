@@ -50,9 +50,9 @@ jobs:
         
             
     - name: Upload Help Document as an Artifact
-        uses: actions/upload-artifact@v4
-        with:
-            name: pyprecag_help.pdf
-            path: ./pyprecag_docs/html/pyprecag.pdf
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyprecag_help.pdf
+        path: ./pyprecag_docs/html/pyprecag.pdf
         
     
