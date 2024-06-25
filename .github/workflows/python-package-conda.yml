@@ -65,7 +65,7 @@ jobs:
         echo "Latex Directory:"
         echo "Here:"
         ls
-- name: Build html documents
+    - name: Build html documents
       run: |
         echo "======================================"
         echo "Use sphinx-build to create html files"
