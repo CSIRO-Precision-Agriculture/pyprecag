@@ -42,10 +42,10 @@ jobs:
         python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
     - name: Build pdf help documents
       run: |
-        sphinx-build -M latex ./docs ./pyprecag_docs 
+        sphinx-build -M latexpdf ./docs ./pyprecag_docs 
         ls ./pyprecag_docs/latex
-        cd ./pyprecag_docs/latex
-        make 
+        #cd ./pyprecag_docs/latex
+        #make 
         #sphinx-build -M html pyprecag_docs
         #sphinx-build -M html ./docs ./pyprecag_docs 
         #touch pyprecag_docs/.nojekyll 
