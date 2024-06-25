@@ -55,8 +55,11 @@ jobs:
         sudo apt-get -y install latexmk
         sudo apt-get -y install texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
         cd ./pyprecag_docs/latex/; latexmk -pdf -dvi- -ps- -f pyprecag.tex
+        ls ./pyprecag_docs
+        echo "======================================"
+        echo "  Finished build of PDF from Latex"
+        echo "======================================"
         echo "Latex Directory:"
-        ls ./pyprecag_docs/latex
         echo "Here:"
         ls
         
