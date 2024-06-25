@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: PyPrecag build and test on Ubuntu platform
 
 on: [push,workflow_dispatch]
 
