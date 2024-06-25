@@ -42,10 +42,15 @@ jobs:
         python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
     - name: Build pdf help documents
       run: |
+        echo "======================================"
+        echo "Use sphinx-build to create latex files"
+        echo "======================================"
         sphinx-build -M latex ./docs ./pyprecag_docs 
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
-        "Build PDF from Latex"
+        echo "======================================"
+        echo "  Use latxmk to build PDF from Latex"
+        echo "======================================"
         latexmk -pdf -dvi- -ps- ./pyprecag_docs/latex/pyprecag.tex
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
