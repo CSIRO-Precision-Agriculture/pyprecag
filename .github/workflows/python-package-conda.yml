@@ -40,7 +40,7 @@ jobs:
         mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py ;
         mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py ;
         python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
-    - name: Build pdf help documents
+    - name: Build latex help documents
       run: |
         echo "======================================"
         echo "Use sphinx-build to create latex files"
@@ -48,17 +48,17 @@ jobs:
         sphinx-build -M latex ./docs ./pyprecag_docs 
         echo "Latex Directory:"
         ls ./pyprecag_docs/latex
+    - name: Install latmak and related packages to create pdf documents
+      run: |        
         echo "======================================"
         echo "  Install latxmk and related pkgs"
         echo "======================================"
         sudo apt-get update
         sudo apt-get -y install latexmk
         sudo apt-get -y install texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
-        echo "======================================"
-        echo "  Use latxmk to build PDF from Latex"
-        echo "======================================"
+    - name: Use latmak to create pdf document from latex`
+      run: |        
         cd ./pyprecag_docs/latex/; latexmk -pdf -dvi- -ps- -f pyprecag.tex
-        #ls ./pyprecag_docs
         echo "======================================"
         echo "  Finished build of PDF from Latex"
         echo "======================================"
@@ -66,14 +66,8 @@ jobs:
         echo "Here:"
         ls
         
-        #cd ./pyprecag_docs/latex
-        #make 
-        #sphinx-build -M html pyprecag_docs
-        #sphinx-build -M html ./docs ./pyprecag_docs 
-        #touch pyprecag_docs/.nojekyll 
-        
             
-    - name: Upload Help Document as an Artifact
+    - name: Upload Help pdf document as an Artifact
       uses: actions/upload-artifact@v4
       with:
         name: pyprecag_help.pdf
