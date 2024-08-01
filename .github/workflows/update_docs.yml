@@ -1,0 +1,23 @@
+name: Push File
+
+on: push
+
+jobs:
+  copy-file:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Pushes test file
+      uses: dmnemec/copy_file_to_another_repo_action@main
+      env:
+        API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
+      with:
+        source_file: 'README.rst'
+        destination_repo: 'CSIRO-Precision-Agriculture/pyprecag_docs'
+        destination_branch: 'mnb_pages'
+        destination_folder: 'test-dir'
+        user_email: 'mike.birchall@csiro.au'
+        user_name: 'mike-birchall-csiro'
+        commit_message: 'A custom message for the commit'
