@@ -20,7 +20,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='pyprecag',
-    version='0.4.2-dev1',
+    version='0.4.2.dev3',
     description='A suite of tools for Precision Agriculture',
     long_description=long_description,
     long_description_content_type='text/x-rst',
