@@ -3,7 +3,7 @@ import os
 import six
 import warnings
 
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 from osgeo import osr, gdal
 import pyproj

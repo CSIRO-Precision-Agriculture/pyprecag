@@ -2,8 +2,9 @@ from unittest import TestCase
 import time
 import os
 
-from pkg_resources import parse_version, get_distribution
 
+from importlib.metadata import version
+from packaging.version import parse as parse_version
 from pyprecag.describe import predictCoordinateColumnNames, CsvDescribe, VectorDescribe
 THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)),'data')
 
@@ -105,7 +106,8 @@ class test_VectorDescribe_ESRI(TestCase):
 
         from collections import OrderedDict
         self.maxDiff =None
-        if parse_version(get_distribution('geopandas').version) > parse_version('0.6.0'):
+
+        if parse_version(version('geopandas')) > parse_version('0.6.0'):
             self.assertDictEqual(vDesc.column_properties, OrderedDict(
                 [(u'Id', {'shapefile': u'Id', 'alias': 'Id', 'type': 'int', 'dtype': 'int64'}),
                  (u'float_3dLe',
