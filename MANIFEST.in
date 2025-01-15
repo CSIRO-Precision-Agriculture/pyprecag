@@ -2,7 +2,8 @@
 # graft pyprecag/tests/data
 
 # Directories to exclude
-prune docs tests
+prune */docs
+prune */tests
 
 # Files to include
 
