@@ -5,25 +5,29 @@ from codecs import open  # To use a consistent encoding
 from os import path
 import sys
 
-here = path.abspath(path.dirname(__file__))
 
-# Get the long description from the relevant file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-    # Twine and PyPI don't seem to like include directives, so do as GitHub does
-    # and strip them out of the long_description. They are still used to build the
-    # more comprehensive Sphinx documentation.
-    filtered_lines = []
-    for line in f:
-        if line.find('.. include') != 0:
-            filtered_lines.append(line)
-    long_description = ''.join(filtered_lines)
+from pathlib import Path
+here = Path(__file__).parent
+long_description = here.joinpath("README.md").read_text()
+
+# # Get the long description from the relevant file
+# with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+#     # Twine and PyPI don't seem to like include directives, so do as GitHub does
+#     # and strip them out of the long_description. They are still used to build the
+#     # more comprehensive Sphinx documentation.
+#     filtered_lines = []
+#     for line in f:
+#         if line.find('.. include') != 0:
+#             filtered_lines.append(line)
+#     long_description = ''.join(filtered_lines)
 
 setup(
     name='pyprecag',
-    version='0.4.3rc0',
+    version='0.4.3.rc3',
     description='A suite of tools for Precision Agriculture',
+    #long_description_content_type='text/x-rst',
+    long_description_content_type='text/markdown',
     long_description=long_description,
-    long_description_content_type='text/x-rst',
 
     # The project's main homepage.
     url='https://github.com/CSIRO-Precision-Agriculture/pyprecag',
@@ -33,7 +37,7 @@ setup(
     author_email='pat@csiro.au',
 
     # Choose your license
-    license='CSIRO Open Source Software License Agreement',
+    license='BSD 3-Clause',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -77,6 +81,51 @@ setup(
 
     platforms='any',
     
+    test_suite='tests.test_pyprecag',
+
+    # List run-time dependencies here.  These will be installed by pip when your
+    # project is installed. For an analysis of "install_requires" vs pip's
+    # requirements files see:
+    # https://packaging.python.org/en/latest/technical.html#install-requires-vs-requirements-files
+    install_requires=[
+        'future',
+        'scipy',
+        'fiona',
+        'gdal',          # Required Microsoft Visual C++ Compiler for Python 2.7
+        'rasterio',      # Required Numpy
+        'geopandas',
+        'pyproj',
+        'six>1.12.0',
+        # These were included to prevent import errors:
+        'unidecode',
+        'chardet',
+        'matplotlib',
+        ],
+
+    # List additional groups of dependencies here (e.g. development
+    # dependencies).
+    # You can install these using the following syntax, for example:
+    # $ pip install -e .[dev,test]
+    extras_require={
+        'dev': [
+            'pypandoc',
+            'bump-my-version',
+            'check-manifest',
+            'ipython',
+            'ipdb',
+            'pylint',
+            'sphinx',
+            'sphinx_rtd_theme',
+            'wheel',
+            'twine',
+            'readme_renderer',
+        ],
+        'test': [
+            'pylint',
+            'tox',
+        ],
+    },
+
     # If there are data files included in your packages that need to be
     # installed, specify them here using relative paths:
     package_data={

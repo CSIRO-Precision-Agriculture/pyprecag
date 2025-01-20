@@ -13,7 +13,7 @@ include CHANGELOG.rst
 include CONTRIBUTING.rst
 include CITATION.rst
 include LICENSE
-include README.rst
+include README.md
 include pyprecag/config.json
 include pyprecag/proj.db
 

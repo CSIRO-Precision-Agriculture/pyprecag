@@ -38,6 +38,8 @@ test:
 clean:
 	echo Cleaning ...
 	rm -rf build/
+	rm -rf dist/
+	rm -rf pyprecag.egg-info/
 	-find ./$(PACKAGE_NAME)/ -name "__pycache__" -exec rm -rf {} \;
 	-find ./$(PACKAGE_NAME)/ -name "*.pyc" -exec rm -rf {} \;
 	echo ... done
@@ -48,7 +50,7 @@ install-deps:
 
 .PHONY: develop
 develop: install-deps
-	python setup.py develop
+	python -m pip install --editable
 
 .PHONY: uninstall
 uninstall:
@@ -72,13 +74,19 @@ sitepkg-develop: develop
 lint:
 	pylint ./$(PACKAGE_NAME)/
 
+# convert rst to md to get rendered version when rst uses includes:: directive
+.PHONY: convert_readme
+convert_readme:
+	-rm -rf README.md
+	pandoc --from=rst --to=markdown --output=README.md README.rst
+
 .PHONY: sdist
-sdist:
-	python setup.py sdist
+sdist:convert_readme
+	python -m build --sdist
 
 .PHONY: bdist_wheel
-bdist_wheel:
-	python setup.py bdist_wheel
+bdist_wheel:convert_readme
+	python -m build --wheel
 
 .PHONY: html
 html:
@@ -96,14 +104,13 @@ pdf: latex
 alldocs: html latex pdf
 
 .PHONY: upload
-upload: clean
+upload: clean convert_readme
 	rm -rf dist/
-	python setup.py sdist bdist_wheel
+	python -m build
 	twine upload dist/*
 
 .PHONY: upload-test
-upload-test: clean
+upload-test: clean convert_readme
 		rm -rf dist/
-		python setup.py sdist
-		python setup.py bdist_wheel
-		twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+		python -m build
+		twine upload --repository testpypi dist/*
