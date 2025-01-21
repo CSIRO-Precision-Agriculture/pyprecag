@@ -23,7 +23,7 @@ long_description = here.joinpath("README.md").read_text()
 
 setup(
     name='pyprecag',
-    version='0.4.3-final1',
+    version='0.4.3-rc0',
     description='A suite of tools for Precision Agriculture',
     #long_description_content_type='text/x-rst',
     long_description_content_type='text/markdown',
@@ -84,7 +84,7 @@ setup(
 
     platforms='any',
     
-    test_suite='tests.test_pyprecag',
+    #test_suite='tests.test_pyprecag',
 
     # List run-time dependencies here.  These will be installed by pip when your
     # project is installed. For an analysis of "install_requires" vs pip's

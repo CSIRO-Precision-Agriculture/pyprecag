@@ -6,7 +6,7 @@ A suite of tools for Precision Agriculture data analysis
 -   Documentation:
     <https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs>
 -   [Installation](https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation)
--   Version: 0.4.3
+-   Version: 0.4.3-rc0
 -   License: [GNU General Public Licence version 3
     (GPLv3)](https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE)
 
@@ -17,11 +17,11 @@ pyPrecAg python module. For more infomation visit
 
 ## Citation
 
-If you use pyprecag for any published work, please cite it using the
+If you use pyprecag for any published work, please cite using the
 reference below:
 
 *Ratcliff, Christina; Gobbett, David; Bramley, Rob (2019): pyprecag - a
-Python package for the analysis of precision agriculture data.. v1.
+Python package for the analysis of precision agriculture data. v1.
 CSIRO. Software Collection. https://doi.org/10.25919/5d23f6ba8cff0*
 
 ## Dependencies
