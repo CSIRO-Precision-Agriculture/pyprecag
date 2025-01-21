@@ -19,12 +19,13 @@ Documentation improvements
 
 pyprecag could always use more documentation, whether as part of the official pyprecag docs, in docstrings, or even on the web in blog posts, articles, and such.
 
-.. note:: This project uses Google-style docstrings.
-   Contributed code should follow the same conventions.
-   For examples, please see the `Napoleon examples
-   <http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html>`_,
-   or the `Google Python Style Guide
-   <https://github.com/google/styleguide/blob/gh-pages/pyguide.md>`_.
+.. note::
+    This project uses Google-style docstrings.
+    Contributed code should follow the same conventions.
+    For examples, please see the `Napoleon examples
+    <http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html>`_,
+    or the `Google Python Style Guide
+    <https://github.com/google/styleguide/blob/gh-pages/pyguide.md>`_.
 
 
 Feature requests and feedback

@@ -6,21 +6,27 @@ A suite of tools for Precision Agriculture data analysis
 * Homepage: https://github.com/CSIRO-Precision-Agriculture/pyprecag
 * Documentation: https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs
 * `Installation <https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation>`__
-* Version: 0.4.3.rc3
-* License: `CSIRO Open Source Software License Agreement <https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE>`__
+* Version: 0.4.3
+* License: `GNU General Public Licence version 3 (GPLv3) <https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE>`__
 
-pyprecag is currently supported for Python version 2.7 and 3.7
+
+Precision Agriculture Tools (PAT) Plugin for QGIS contains tools for processing and analysing precision agriculture data which uses the pyPrecAg python module.
+For more infomation visit https://github.com/CSIRO-Precision-Agriculture/PAT_QGIS_Plugin
+
+Citation
+--------
 
 .. include:: ./CITATION.rst
+
 
 Dependencies
 ------------
 
-* Python version 2.7, 3.7
+* Python version 3.7+
 * `GDAL <https://www.gdal.org/>`_
-* `Fiona <https://fiona.readthedocs.io/en/stable/`_
+* `Fiona <https://fiona.readthedocs.io/en/stable/>`_
 * `Rasterio <https://rasterio.readthedocs.io/en/stable/>`_
-* `Geopandas <https://geopandas.org/en/stable/`_
+* `Geopandas <https://geopandas.org/en/stable/>`_
 * `VESPER <https://precision-agriculture.sydney.edu.au/resources/software/>`_ (for Kriging)
 
 .. include:: ./docs/installation.rst

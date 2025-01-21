@@ -6,11 +6,16 @@ A suite of tools for Precision Agriculture data analysis
 -   Documentation:
     <https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs>
 -   [Installation](https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation)
--   Version: 0.4.3.rc3
--   License: [CSIRO Open Source Software License
-    Agreement](https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE)
+-   Version: 0.4.3
+-   License: [GNU General Public Licence version 3
+    (GPLv3)](https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE)
 
-pyprecag is currently supported for Python version 2.7 and 3.7
+Precision Agriculture Tools (PAT) Plugin for QGIS contains tools for
+processing and analysing precision agriculture data which uses the
+pyPrecAg python module. For more infomation visit
+<https://github.com/CSIRO-Precision-Agriculture/PAT_QGIS_Plugin>
+
+## Citation
 
 If you use pyprecag for any published work, please cite it using the
 reference below:
@@ -21,11 +26,11 @@ CSIRO. Software Collection. https://doi.org/10.25919/5d23f6ba8cff0*
 
 ## Dependencies
 
--   Python version 2.7, 3.7
+-   Python version 3.7+
 -   [GDAL](https://www.gdal.org/)
--   [Fiona](https://github.com/Toblerity/Fiona)
--   [Rasterio](https://github.com/mapbox/rasterio)
--   [Geopandas](https://github.com/geopandas/geopandas)
+-   [Fiona](https://fiona.readthedocs.io/en/stable/)
+-   [Rasterio](https://rasterio.readthedocs.io/en/stable/)
+-   [Geopandas](https://geopandas.org/en/stable/)
 -   [VESPER](https://precision-agriculture.sydney.edu.au/resources/software/)
     (for Kriging)
 
@@ -141,7 +146,7 @@ Run make with no target to see the list of targets:
 $ make
 ```
 
-[Bumpversion](https://callowayproject.github.io/bump-my-version/) is
+[Bump-my-version](https://callowayproject.github.io/bump-my-version/) is
 used to manage the package version numbers. This ensures that the
 version number is correctly incremented in all required files. Please
 see the bumpversion documentation for usage instructions, and do not
