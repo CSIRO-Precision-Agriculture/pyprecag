@@ -23,7 +23,7 @@ long_description = here.joinpath("README.md").read_text()
 
 setup(
     name='pyprecag',
-    version='0.4.3',
+    version='0.4.3-final1',
     description='A suite of tools for Precision Agriculture',
     #long_description_content_type='text/x-rst',
     long_description_content_type='text/markdown',
@@ -111,6 +111,7 @@ setup(
     # $ pip install -e .[dev,test]
     extras_require={
         'dev': [
+            'setuptools',
             'pypandoc',
             'bump-my-version',
             'check-manifest',

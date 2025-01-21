@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "0.4.3"
+current_version = "0.4.3-final1"
 parse = """(?x)
 	(?P<major>\\d+)\\.
 	(?P<minor>\\d+)\\.
