@@ -1,16 +1,17 @@
 [tool.bumpversion]
-current_version = "0.4.3.rc3"
+current_version = "0.4.3"
 parse = """(?x)
 	(?P<major>\\d+)\\.
 	(?P<minor>\\d+)\\.
 	(?P<patch>\\d+)
-	(?:.(?P<pre_l>[a-zA-Z-]+)         # pre-release label
-        (?P<pre_n>0|[1-9]\\d*)        # pre-release version number
-    )?                                # pre-release section is optional
+	(?:-                            # dash separator for pre-release section
+	    (?P<pre_l>[a-zA-Z-]+)       # pre-release label
+        (?P<pre_n>0|[1-9]\\d*)      # pre-release version number
+    )?                              # pre-release section is optional
 """
 
 serialize =[
-	"{major}.{minor}.{patch}.{pre_l}{pre_n}",
+	"{major}.{minor}.{patch}-{pre_l}{pre_n}",
 	"{major}.{minor}.{patch}",
 ]
 
@@ -53,6 +54,6 @@ search   = "{current_version}"
 
 [[tool.bumpversion.files]]
 filename = "docs/conf.py"
-search = "copyright = '2018-\\d{{4}}, CSIRO'"
-replace = "copyright = '2018-{now:%Y}, CSIRO'"
+search =   "copyright = '2018-\\d{{4}}, CSIRO'"
+replace =  "copyright = '2018-{now:%Y}, CSIRO'"
 regex = true
