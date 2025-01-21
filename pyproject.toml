@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools", "wheel", "pypandoc"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyprecag"
+dynamic = ["version"]
+description = "A suite of tools for Precision Agriculture"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+authors = [
+    { name = "Christina Ratcliff", email = "pat@csiro.au" },
+]
+requires-python = ">=3.8"
+keywords = ["Agriculture","Precision Agriculture", "GIS", "cartography", "geopandas", "rasterio",]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "chardet",
+    "fiona",
+    "future",
+    "gdal",
+    "geopandas",
+    "matplotlib",
+    "pyproj",
+    "rasterio",
+    "scipy",
+    "six>1.12.0",
+    "unidecode",
+]
+
+[project.optional-dependencies]
+dev = [
+    "bump-my-version",
+    "check-manifest",
+    "ipdb",
+    "ipython",
+    "pylint",
+    "pypandoc",
+    "readme_renderer",
+    "setuptools",
+    "sphinx",
+    "sphinx_rtd_theme",
+    "twine",
+    "wheel",
+]
+test = [
+    "pylint",
+    "tox",
+]
+
+[project.urls]
+Homepage = "https://github.com/CSIRO-Precision-Agriculture/pyprecag"
+
+[tool.setuptools.dynamic]
+version = {attr = "pyprecag.__version__"}  # any module attribute compatible with ast.literal_eval
+readme = {file = ["README.md"],content-type = "text/markdown"}

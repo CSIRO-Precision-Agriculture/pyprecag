@@ -6,7 +6,7 @@ A suite of tools for Precision Agriculture data analysis
 * Homepage: https://github.com/CSIRO-Precision-Agriculture/pyprecag
 * Documentation: https://CSIRO-Precision-Agriculture.github.io/pyprecag_docs
 * `Installation <https://csiro-precision-agriculture.github.io/pyprecag_docs/installation.html#installation>`__
-* Version: 0.4.3-rc0
+* Version: 0.4.3-rc1
 * License: `GNU General Public Licence version 3 (GPLv3) <https://github.com/CSIRO-Precision-Agriculture/pyprecag/blob/master/LICENSE>`__
 
 
