@@ -369,11 +369,7 @@ class TestEnd2End(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            if hasattr(src.crs, 'to_proj4'):
-                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
-            else:
-                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
-            self.assertIn(src.crs.to_string().lower(), ['epsg:28354', '+init=epsg:28354'])
+            self.assertEqual(src.crs.to_epsg(), 28354)
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
 
