@@ -1,5 +1,11 @@
 Changelog
 =========
+** 0.4.3 (2025-01-30) **
+  + Now supports rasterio 1.3.9, geopandas 1.0.0, GDAL 3.7.1
+  + better support for using geopanda dataframes
+  + numerous bug fixes and improvements
+  + implemented bump-my-version for versioning
+
 ** 0.4.2 (2023-10-01) **
  + Now supports rasterio 1.3.8, geopandas 0.13.2, GDAL 3.7.1
  + Improved method for creating strip trial vectors
