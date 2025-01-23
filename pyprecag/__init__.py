@@ -16,7 +16,7 @@ from . import config
 
 __author__ = 'Christina Ratcliff',
 __email__ = 'Christina.Ratcliff@csiro.au',
-__version__ = '0.4.3-rc1'
+__version__ = '0.4.3-rc2'
 
 number_types = six.integer_types + (float, )
 
