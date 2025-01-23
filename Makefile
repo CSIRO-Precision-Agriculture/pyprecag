@@ -16,6 +16,7 @@ help:
 	echo '  * uninstall: removes the development package from pip.'
 	echo '  * test: runs all unit tests.'
 	echo '  * twine_check: Run `twine check`.'
+	echo '  * convert_readme: convert the shinx readme.rst to markdown for pip
 	echo '  * lint: runs pylint.'
 	echo '  * html: builds the HTML documentation.'
 	echo '  * pdf: builds the documentation in PDF format.'
