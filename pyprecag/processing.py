@@ -2211,8 +2211,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     gdf_points, points_crs = extract_pixel_statistics_for_points(points_geodataframe, points_crs,
                                                                  raster_files, 'extract_pixels.csv',
                                                                  size_list=[1])
-
-    gdf_points.index.name = 'rowID'
+    gdf_points.index.name = 'FID'
     column_names = {}
 
     # find the columns relating to the rasters
@@ -2370,7 +2369,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                                                                 column_names['Value'][0],
                                                                 control_col, size=size)
 
-            df_statstable.drop(columns=['FID', 'TrialPtID'], axis=1).to_csv(
+            df_statstable.drop(columns=df_statstable.columns.intersection(['FID', 'TrialPtID']), axis=1).to_csv(
                 file_path_noext + '.csv', index=False)
 
             if config.get_debug_mode():
@@ -2388,7 +2387,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             # add plotting parameters to table -----------------------------------------------
             # assign an id to the column
-            df_statstable['zone_UID'] = df_statstable.groupby(zone_column).grouper.group_info[0]
+            df_statstable['zone_UID'] = df_statstable.groupby(zone_column).ngroup()
 
             # assign a marker based on the index from the list
             df_statstable["zone_marker"] = df_statstable['zone_UID'].apply(lambda x: markers[x])
@@ -2397,8 +2396,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             df_statstable = df_statstable.dropna(subset=['av_treat_dif'], axis=0).copy()
 
             # only get those points geometry with rolling window results.
-            gdf_map = pd.merge(gdf_strip, df_statstable[['RI']],
-                               on='TrialPtID').set_index('FID', drop=False)  # ,'label_angle'
+            gdf_map = pd.merge(gdf_strip, df_statstable[['RI']],on='TrialPtID')
 
             # get y axis limits
             min_ylimit = df_statstable['av_treat_dif'].min(skipna=True)
