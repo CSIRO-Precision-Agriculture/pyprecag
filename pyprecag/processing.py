@@ -206,7 +206,7 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
                     distance.
     """
     warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
-                  'will be removed in a future version', FutureWarning, stacklevel=2)
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
@@ -391,11 +391,11 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     """
     warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
-                  'will be removed in a future version', FutureWarning, stacklevel=2)
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     if boundary_polyfile is not None:
         warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
-                      FutureWarning, stacklevel=2)
+                      PendingDeprecationWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : points_geodataframe')
@@ -438,7 +438,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     if boundary_polyfile is not None:
         warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
-                      FutureWarning, stacklevel=2)
+                      PendingDeprecationWarning, stacklevel=2)
 
         if not os.path.exists(boundary_polyfile):
             raise IOError("Invalid path: {}".format(boundary_polyfile))
@@ -675,7 +675,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                                dur=str(timedelta(seconds=time.time() - start_time))) )
 
     warnings.warn('return value points_crs is deprecated. Please use  `pyproj, geopandas solutions`',
-                  FutureWarning, stacklevel=2)
+                  PendingDeprecationWarning, stacklevel=2)
 
     if points_crs :
         points_crs = pyprecag_crs.crs()
@@ -791,7 +791,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
     """
     warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
-                  'will be removed in a future version', FutureWarning, stacklevel=2)
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')

@@ -298,7 +298,7 @@ def add_point_geometry_to_dataframe(in_dataframe, coord_columns=None,
     """
 
     warnings.warn('pyprecag_crs return values is deprecated in favor of `geopandas.crs` and '
-                  'will be removed in a future version', FutureWarning, stacklevel=2)
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     start_time = time.time()
 
@@ -380,7 +380,7 @@ def convert_csv_to_points(in_csvfilename, out_shapefilename=None, coord_columns=
 
     """
     warnings.warn('pyprecag_crs return values is deprecated in favor of `geopandas.crs` and '
-                  'will be removed in a future version', FutureWarning, stacklevel=2)
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
     start_time = time.time()
 
     if not os.path.exists(in_csvfilename):
