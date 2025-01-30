@@ -391,4 +391,9 @@ def predictCoordinateColumnNames(column_names):
                 y_column = best_match
 
     LOGGER.debug('GeoCSV Columns:     x = {}, y = {}'.format(x_column, y_column))
+    
+    # check if x and y columns are different
+    if  x_column == y_column:
+        return [None,None]
+    
     return [x_column, y_column]
