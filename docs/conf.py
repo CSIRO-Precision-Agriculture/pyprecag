@@ -28,8 +28,8 @@ if os.getenv('SPELLCHECK'):
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'pyprecag'
-copyright = '2018-2020, CSIRO'
-version = release = '0.4.1'
+copyright = '2018-2025, CSIRO'
+version = release = '0.4.3-rc3'
 pygments_style = 'perldoc'
 templates_path = ['.']
 html_use_smartypants = True

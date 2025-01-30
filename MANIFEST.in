@@ -2,7 +2,8 @@
 # graft pyprecag/tests/data
 
 # Directories to exclude
-prune docs tests
+prune */docs
+prune */tests
 
 # Files to include
 
@@ -12,7 +13,7 @@ include CHANGELOG.rst
 include CONTRIBUTING.rst
 include CITATION.rst
 include LICENSE
-include README.rst
+include README.md
 include pyprecag/config.json
 include pyprecag/proj.db
 

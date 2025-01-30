@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import six
 from geopandas import GeoDataFrame
-from scipy.stats import stats
+from scipy import stats
 
 from . import config, TEMPDIR
 

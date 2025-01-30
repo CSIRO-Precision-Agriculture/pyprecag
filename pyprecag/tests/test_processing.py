@@ -1,8 +1,11 @@
 import shutil
 import tempfile
 import unittest
+from pathlib import Path
+
+import numpy as np
 import geopandas as gpd
-from pandas._testing import assert_frame_equal
+from pandas import testing as pdts
 
 from pyprecag.tests import make_dummy_tif_files, setup_folder, KEEP_TEST_OUTPUTS, warn_with_traceback
 
@@ -20,17 +23,7 @@ THIS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'data')
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-
-def write2csv(csv_file, line):
-    import csv
-    # csv_file = os.path.join(folder,"test_PixelVals.csv")
-    new_csv = not os.path.exists(csv_file)
-
-    header = ['x', 'y', 'expected', 'dec_places', 'actual', 'source']
-    with open(csv_file, 'a', encoding='UTF8', newline='') as f:
-        writer = csv.writer(f)
-        if new_csv: writer.writerow(header)
-        writer.writerow(line)
+config.set_debug_mode(False)
 
 
 class Test_BlockGrid(unittest.TestCase):
@@ -60,7 +53,7 @@ class Test_BlockGrid(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -145,7 +138,7 @@ class Test_CleanTrim(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -157,30 +150,36 @@ class Test_CleanTrim(unittest.TestCase):
         out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
         out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
         out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
-
+        poly_gdf = gpd.read_file(in_poly)
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
-        out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, 'Yield',
+        out_gdf, out_crs = clean_trim_points(gdf_points, None, 'Yield',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
-                                             boundary_polyfile=in_poly, thin_dist_m=2.5)
+                                             poly_geodataframe=poly_gdf, thin_dist_m=2.5)
 
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
-        self.assertIn('EN_EPSG', out_gdf.columns)
-        self.assertEqual(len(out_gdf), 550)
 
-        results = dict(filter=['01 nulls', '02 Duplicate XY', '03 clip', '04 <= zero', '05 3 std iter 1',
-                               '06 3 std iter 2', '07 pointXY (2.5m)'], count=[1000, 931, 12204, 62, 3, 4, 2])
+        self.assertEqual(28354, out_gdf.crs.to_epsg())  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertIn('EN_EPSG', out_gdf.columns)
+        self.assertEqual(542, len(out_gdf))
+
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 null/missing data', 'count': 1000},
+                                              {'filter': '02 Duplicate XY', 'count': 931},
+                                              {'filter': '03 clip', 'count': 12211},
+                                              {'filter': '04 <= zero', 'count': 62},
+                                              {'filter': '05 3 std iter 1', 'count': 3},
+                                              {'filter': '06 3 std iter 2', 'count': 4},
+                                              {'filter': '07 3 std iter 3', 'count': 1},
+                                              {'filter': '09 pointXY (2.5m)', 'count': 2}], index='filter')
 
         res_df = gpd.read_file(out_rm_shp)
-        self.assertEqual(len(res_df), 14206)
+
+        self.assertEqual(14214, len(res_df))
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
-        res_stats.reset_index(drop=False, inplace=True)
-        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(tmp, res_stats)
 
     def test_cleanTrimPoints_area2(self):
         in_csv = os.path.join(THIS_DIR, "area2_yield_ISO-8859-1.csv")
@@ -197,19 +196,20 @@ class Test_CleanTrim(unittest.TestCase):
 
         self.assertIsInstance(out_gdf, GeoDataFrame)
         self.assertTrue(os.path.exists(out_csv))
-        self.assertTrue(gdf_pts_crs, out_crs)
-        self.assertEqual(out_gdf.crs.to_epsg(), 28354)  # {'init': 'EPSG:28354', 'no_defs': True})
-        self.assertEqual(len(out_gdf), 552)
+
+        self.assertEqual(28354, out_gdf.crs.to_epsg())
+        self.assertEqual(554, len(out_gdf))
         self.assertIn('EN_EPSG', out_gdf.columns)
 
-        results = dict(filter=['01 clip', '02 pointXY (2.5m)'], count=[952, 39])
-
         res_df = gpd.read_file(out_rm_shp)
-        self.assertEqual(len(res_df), 991)
+        self.assertEqual(989, len(res_df))
+
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 clip', 'count': 951},
+                                              {'filter': '03 pointXY (2.5m)', 'count': 38}],
+                                        index='filter')
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
-        res_stats.reset_index(drop=False, inplace=True)
-        assert_frame_equal(pd.DataFrame.from_dict(results), res_stats)
+        pdts.assert_frame_equal(tmp, res_stats)
 
 
 class Test_Processing(unittest.TestCase):
@@ -239,7 +239,7 @@ class Test_Processing(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -250,21 +250,20 @@ class Test_Processing(unittest.TestCase):
 
         out_polyfile = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(in_csv))[0] + '_poly.shp')
 
-        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(
-            in_csv, None, coord_columns_epsg=4326, out_epsg=28354)
+        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, None,
+                                                                coord_columns_epsg=4326, out_epsg=28354)
 
-        create_polygon_from_point_trail(gdf_points, gdf_pts_crs, out_polyfile,
+        create_polygon_from_point_trail(gdf_points, None, out_polyfile,
                                         thin_dist_m=2.5,
                                         aggregate_dist_m=25,
                                         buffer_dist_m=10,
                                         shrink_dist_m=3)
 
-        self.assertTrue(os.path.exists(out_polyfile), True)
+        self.assertTrue(os.path.exists(out_polyfile))
 
-        vect_desc = VectorDescribe(out_polyfile)
-        self.assertEqual(vect_desc.crs.epsg_number, 28354)
-        self.assertFalse(vect_desc.is_mz_aware)
-        self.assertEqual(vect_desc.geometry_type, 'Polygon')
+        result = gpd.read_file(out_polyfile)
+        self.assertEqual(28354, result.crs.to_epsg())
+        self.assertTrue(any("POLYGON" in g.upper() for g in result.geom_type.unique()))
 
     def test_randomPixelSelection(self):
         raster_file = self.singletif
@@ -277,8 +276,6 @@ class Test_Processing(unittest.TestCase):
         self.assertEqual(len(rand_gdf), 50)
         self.assertTrue(os.path.exists(out_shp))
         self.assertEqual(rand_crs, rast_crs)
-
-
 
     def test_PersistorAllYears(self):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'Year*.tif')))
@@ -354,8 +351,8 @@ class TestKMeansCluster(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -387,10 +384,8 @@ class TestKMeansCluster(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            if hasattr(src.crs, 'to_proj4'):
-                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
-            else:
-                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
+            self.assertEqual(src.crs.to_epsg(), 28354)
+
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
@@ -399,7 +394,7 @@ class TestKMeansCluster(unittest.TestCase):
         raster_files = glob.glob(os.path.realpath(os.path.join(THIS_DIR, 'rasters', '*one*.tif')))
         raster_files += [os.path.realpath(os.path.join(THIS_DIR, 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))]
 
-        raster_files = {ea : os.path.basename(ea).split('_')[2] for ea in raster_files}
+        raster_files = {ea: os.path.basename(ea).split('_')[2] for ea in raster_files}
 
         out_img = os.path.join(self.test_outdir, 'kmeans-cluster_3cluster_3rasters.tif')
 
@@ -428,10 +423,9 @@ class TestKMeansCluster(unittest.TestCase):
 
         with rasterio.open(out_img) as src:
             self.assertEqual(1, src.count)
-            if hasattr(src.crs, 'to_proj4'):
-                self.assertEqual(src.crs.to_proj4().lower(), '+init=epsg:28354')
-            else:
-                self.assertEqual(src.crs.to_string().lower(), '+init=epsg:28354')
+
+            self.assertEqual(src.crs.to_epsg(), 28354)
+
             self.assertEqual(0, src.nodata)
             band1 = src.read(1, masked=True)
             six.assertCountEqual(self, np.array([0, 1, 2, 3]), np.unique(band1.data))
@@ -466,8 +460,8 @@ class TestStripTrials(unittest.TestCase):
     def run(self, result=None):
 
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -481,15 +475,18 @@ class TestStripTrials(unittest.TestCase):
 
         out_points_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Points.shp')
         out_lines_file = os.path.join(self.test_outdir, 'testCreateStripTreatment_Lines.shp')
+        data = [(10, LineString([(740800, 6169700, 5), (741269, 6169700, 5)])),
+                (20, LineString([(741000, 6169800, 6), (741003, 6170012, 6), (741003.5, 6170012.5, 6)])),
+                (30, LineString([(741308, 6169916, 7), (741250, 6169950, 8), (741155, 6169974, 8), (741100, 6170000, 8)])),
+                (30, LineString([(741413, 6169853, 7), (741372, 6169874, 7), (741345, 6169899, 7), (741308, 6169916, 7)])),
+                (50, LineString([(740800, 6169912, 8), (740900, 6170094, 8)]))]
 
-        in_lines_gdf = GeoDataFrame(
-            {'geometry': [LineString([(740800, 6169700, 5), (741269, 6169700, 5)]),
-                          LineString([(741000, 6169800, 6), (741003, 6170012, 6)]),
-                          LineString([(741400, 6169800, 7), (741355, 6169780, 7),
-                                      (741300, 6169800, 7), (741250, 6169950, 7),
-                                      (741150, 6169950, 7), (741100, 6170000, 7)]),
-                          LineString([(740800, 6169912, 8), (740900, 6170094, 8)])]
-                , 'TrialID': [1, 2, 3, 4]}, crs=pyprecag_crs.from_epsg(28354))
+        in_lines_gdf = gpd.GeoDataFrame(pd.DataFrame.from_records(data, columns=['TrialID', 'geometry']),
+                                        geometry='geometry', crs=28354)
+
+        if config.get_debug_mode():
+            in_lines_gdf['length'] = in_lines_gdf.length
+            save_geopandas_tofile(in_lines_gdf, out_lines_file.replace('_Lines', '_Input_Lines'), overwrite=True)
 
         gdf_lines_crs = crs()
         gdf_lines_crs.getFromEPSG(28354)
@@ -501,7 +498,13 @@ class TestStripTrials(unittest.TestCase):
 
         # Test Points Output-----------------------------------------------------------
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
-        self.assertEqual(573, len(out_points_gdf))
+
+        stats = out_points_gdf.groupby(by='TrialID', dropna=False).agg(count=pd.NamedAgg(column='TrialID', aggfunc='count'))
+        pd.testing.assert_frame_equal(pd.DataFrame.from_records([{'TrialID': 0, 'count': 198},
+                                                                 {'TrialID': 1, 'count': 87},
+                                                                 {'TrialID': 2, 'count': 90},
+                                                                 {'TrialID': 3, 'count': 147}], index='TrialID'), stats)
+
         self.assertEqual(28354, out_crs.epsg_number)
         self.assertTrue(os.path.exists(out_points_file))
         self.assertEqual({'Point'}, set(out_points_gdf.geom_type))
@@ -530,14 +533,14 @@ class TestStripTrials(unittest.TestCase):
                                        (741145.3270294399, 6170037.578613207),
                                        (741309.2332873486, 6169946.312628689),
                                        (741318.5461429111, 6169847.596359722)))])
-        in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']})
+        in_lines_gdf = GeoDataFrame({'geometry': lines, 'block': ['test']}, crs=28353)
 
         # without saving to file on a single multi vertex line
         out_points_gdf, out_crs, out_lines_gdf = create_points_along_line(in_lines_gdf,
                                                                           lines_crs, 31, 25)
 
         self.assertIsInstance(out_points_gdf, GeoDataFrame)
-        self.assertEqual(69, len(out_points_gdf), "Row count doesn't match")
+        self.assertEqual(66, len(out_points_gdf), "Row count doesn't match")
 
         self.assertEqual(lines_crs.epsg_number, out_crs.epsg_number)
         self.assertEqual(out_points_gdf.crs, out_lines_gdf.crs)
@@ -548,7 +551,7 @@ class TestStripTrials(unittest.TestCase):
 
         self.assertEqual(3, len(out_lines_gdf))
         self.assertEqual(['N Strip', 'S Strip', 'Strip'],
-                         (list(out_lines_gdf['Strip_Name'].unique())))
+                         sorted(list(out_lines_gdf['Strip_Name'].unique())))
 
     def test_TTestAnalysis(self):
         columns = ['FID', 'TrialID', 'Strip_Name', 'PointID', 'DistOnLine', 'geometry']
@@ -648,8 +651,8 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -663,22 +666,21 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
         with rasterio.open(os.path.normpath(raster_file)) as raster:
-            out_gdf, out_crs = \
-                extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
-                                                    function_list=[np.nanmean, raster_ops.nancv],
-                                                    size_list=[1, 3, 7], output_csvfile=out_csv)
+            out_gdf, _ =  extract_pixel_statistics_for_points(self.gdf_points, None, [raster_file],
+                                                              function_list=[np.nanmean, raster_ops.nancv],
+                                                              size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
         self.assertEqual(len(out_gdf), len(self.gdf_points), "Row count doesn't match")
 
         self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
-        self.assertEqual(rast_crs.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match raster")
-        self.assertEqual(self.crs_points.crs_wkt, out_crs.crs_wkt, "Coordinate system doesn't match GDF")
+        self.assertEqual(rast_crs.epsg_number, out_gdf.crs.to_epsg(), "Coordinate system doesn't match raster")
 
     def test_SingleBand_ptsWGS84(self):
 
         # reproject points to wgs84
-        self.crs_points.getFromEPSG(4326)
+        ptcrs = crs()
+        ptcrs.getFromEPSG(4326)
         self.gdf_points.to_crs(epsg=4326, inplace=True)
 
         raster_file = self.singletif
@@ -686,14 +688,14 @@ class TestExtractRasterStatisticsForPoints(unittest.TestCase):
         out_csv = os.path.join(self.test_outdir, os.path.basename(raster_file).replace('.tif', '_b1grdextwgs84.csv'))
         rast_crs = pyprecag_crs.getCRSfromRasterFile(raster_file)
 
-        out_gdf, out_crs = extract_pixel_statistics_for_points(self.gdf_points, self.crs_points, [raster_file],
+        out_gdf, _ = extract_pixel_statistics_for_points(self.gdf_points, ptcrs, [raster_file],
                                                                function_list=[np.nanmean, raster_ops.nancv],
                                                                size_list=[1, 3, 7], output_csvfile=out_csv)
 
         self.assertTrue(os.path.exists(out_csv), "Output csv file doesn't exist")
         self.assertEqual(len(self.gdf_points), len(out_gdf), "Row count doesn't match")
         self.assertEqual(len(self.gdf_points.columns) + 8, len(out_gdf.columns), "Column count doesn't match")
-        self.assertEqual(self.crs_points, out_crs, "Coordinate system doesn't match GDF")
+        self.assertEqual(ptcrs.epsg_number, out_gdf.crs.to_epsg(), "Coordinate system doesn't match GDF")
         self.assertEqual(2, out_gdf['mean7x7_dummy_singleband_94mga54'].isnull().sum(),
                          'There should be 2 nodata values')
 
@@ -724,8 +726,8 @@ class TestCalculateImageIndices(unittest.TestCase):
 
     def run(self, result=None):
         unittest.TestCase.run(self, result)  # call superclass run method
-        if self.id() in result.failed_tests or len(result.errors) > 0:
-            # self.failedTests += [ea.split('.')[-1] for ea in result.failed_tests]
+        if self.id() in result.failures or len(result.errors) > 0:
+            # self.failedTests += [ea.split('.')[-1] for ea in result.failures]
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -758,25 +760,30 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places]
-            check_coords = [[300725.0, 6181571.0, -9999, 0],
-                            [300647.0, 6181561.0, 0.22253361, 2]]
+            check_df = pd.DataFrame([[62, 77, 300725.0, 6181571.0, -9999],
+                                     [67, 38, 300647.0, 6181561.0, 0.2031]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(), check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(), check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_dontApplyNonVineMask(self):
 
@@ -799,25 +806,33 @@ class TestCalculateImageIndices(unittest.TestCase):
 
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725.0, 6181571.0, -9999, 0],
-                            [300647.0, 6181561.0, 0.02232674, 4]]
+            check_df = pd.DataFrame([[62, 77, 300725.0, 6181571.0, -9999.0],
+                                     [67, 38, 300647.0, 6181561.0, 0.0225]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noShapefile(self):
         # Use Full Image......
@@ -840,26 +855,34 @@ class TestCalculateImageIndices(unittest.TestCase):
             self.assertEqual(-9999, src.nodata, 'Incorrect nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725, 6181571, -0.05087604, 4],
-                            [300647.0, 6181561.0, 0.02232674, 4],
-                            [300881.342, 6181439.444, -9999, 0]]
+            check_df = pd.DataFrame([[114, 278, 300725.0, 6181571.0, -0.0506],
+                                     [119, 239, 300647.0, 6181561.0, 0.0225],
+                                     [180, 356, 300881.342, 6181439.444, -9999.0]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noGroupby(self):
 
@@ -911,7 +934,7 @@ class TestResampleToBlock(unittest.TestCase):
 
         unittest.TestCase.run(self, result)  # call superclass run method
 
-        if self.id() in result.failed_tests or len(result.errors) > 0:
+        if self.id() in result.failures or len(result.errors) > 0:
             self.failedTests.append(self._testMethodName)
         else:
             if os.path.exists(self.test_outdir) and not KEEP_TEST_OUTPUTS:
@@ -941,26 +964,33 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300663, 6181573, 0, 0],
-                            [300675, 6181651, 893.1667, 4]]
+            check_df = pd.DataFrame([[61, 46, 300663.0, 6181573.0, 0.0],
+                                     [22, 52, 300675.0, 6181651.0, 899.3889]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                if KEEP_TEST_OUTPUTS:
-                    csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                    write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noShapefile(self):
         # Use Full Image......
@@ -979,27 +1009,34 @@ class TestResampleToBlock(unittest.TestCase):
             self.assertEqual(src.nodata, 0, 'Incorrect image nodata value')
             self.assertEqual('float32', src.meta['dtype'], 'Incorrect data type')
 
-            # test for values at coords
-            # [x coord, y coord, value, check to decimal places] 
-            check_coords = [[300725, 6181571, 0, 4],
-                            [300647.0, 6181561.0, 917.34998, 4],
-                            [300881.342, 6181439.444, 0, 0]]
+            check_df = pd.DataFrame([[114, 278, 300725.0, 6181571.0, 0.0],
+                                     [119, 239, 300647.0, 6181561.0, 916.85],
+                                     [180, 356, 300881.342, 6181439.444, 0.0]],
+                                    columns=['row', 'col', 'x', 'y', 'expected'])
 
-            for ea in check_coords:
-                x, y, val, decpts = ea
-                row, col = src.index(x, y)
-                actual_val = src.read(1)[row, col]
+            # get values using coordinates
+            check_df["actual_xy"] = [x[0] for x in src.sample(check_df[['x', 'y']].values)]
 
-                csv_file = os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName))
-                write2csv(csv_file, ea + [actual_val, src.name.replace(self.TmpDir, '')])
+            # derive coords from row/col
+            # check_df[['xn', 'yn']] = check_df.apply(lambda r: pd.Series(src.xy(r['row'], r['col'])), axis=1)
+            # check_df["actual_xyn"] = [x[0] for x in src.sample(check_df[['xn', 'yn']].values)]
 
-                if decpts == 0:
-                    self.assertEqual(val, actual_val,
-                                     'Incorrect pixel value for {}, {}, {}'.format(x, y, os.path.basename(src.name)))
-                else:
-                    self.assertAlmostEqual(val, actual_val, decpts, 'Incorrect pixel value for {}, {}, {}'.format(x, y,
-                                                                                                                  os.path.basename(
-                                                                                                                      src.name)))
+            # get values using row/col
+            data = src.read(1)
+            check_df["actual_rc"] = check_df.apply(lambda r: data[int(r['row']), int(r['col'])], axis=1)
+
+            check_df.to_csv(os.path.join(self.test_outdir, "{}_PixelVals.csv".format(self._testMethodName)))
+
+            with np.printoptions(precision=6, suppress=True):
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_rc'].tolist(), 4,
+                                               'Incorrect Pixel Values by Row/Col - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
+
+                np.testing.assert_almost_equal(check_df['expected'].tolist(),
+                                               check_df['actual_xy'].tolist(), 4,
+                                               'Incorrect Pixel Values by XY - {}'.format(
+                                                   str(Path(src.name).relative_to(self.TmpDir))))
 
     def test_noGroupby(self):
 

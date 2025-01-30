@@ -1,19 +1,14 @@
-import warnings
+
 from unittest import TestCase
-import os
+
 import time
 import shutil
 import tempfile
 
-import pyproj
-import rasterio
-import logging
-
-from pkg_resources import parse_version
+from shapely import LineString, Point
 
 from pyprecag.tests import make_dummy_tif_files, setup_folder
-from pyprecag.crs import crs, getProjectedCRSForXY, getCRSfromRasterFile, getUTMfromWGS84, distance_metres_to_dd
-from pyprecag.crs import from_epsg
+from pyprecag.crs import *
 
 PY_FILE = os.path.basename(__file__)
 TEMP_FOLD = os.path.join(tempfile.gettempdir(), os.path.splitext(PY_FILE)[0])
@@ -99,6 +94,50 @@ class TestCrsClass(TestCase):
                         '+proj=utm +zone=54 +south +ellps=GRS80 +units=m +no_defs' == test.proj4.strip() ,  'Proj4 does not match' )
         # self.assertEqual('+proj=utm +zone=54 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs',
         #                  test.proj4.strip(),  'Proj4 does not match')
+
+    def test_match_crs_to_epsg(self):
+        r = match_crs_to_epsg(CRS.from_user_input(EPSG_28354_WKT))
+        self.assertEqual(r.to_epsg(), 28354)
+
+        r = match_crs_to_epsg(CRS.from_user_input(ESRI_54_WKT_1))
+        self.assertEqual(r.to_epsg(), 28354)
+
+        r = match_crs_to_epsg(CRS.from_user_input(ESRI_54_WKT_2))
+        self.assertEqual(r.to_epsg(), 28354)
+
+        r = match_crs_to_epsg(CRS.from_user_input(ESRI_54_SUTM_WKT))
+        self.assertEqual(r.to_epsg(), 32754)
+
+        r = match_crs_to_epsg(CRS.from_user_input(NZ_WKT))
+        self.assertEqual(r.to_epsg(), 2193)
+
+    def test_get_projected_crs_for_point(self):
+        # using numeric
+        self.assertEqual(28354, get_projected_epsg_for_point(Point(138.82202799, -34.48922723, 3), 4326))
+
+        self.assertEqual(None, get_projected_epsg_for_bounds(Point(138.82857214, -34.48421753), 0))
+
+        self.assertEqual(28353, get_projected_epsg_for_point(Point(587398.700,6317990.359), 28353))
+
+    def test_get_projected_crs_for_bounds(self):
+        # using numeric
+        self.assertEqual(28354, get_projected_epsg_for_bounds([138.82202799, -34.48922723, 138.82857214, -34.48421753], 4326))
+
+        self.assertEqual(None, get_projected_epsg_for_bounds([138.82202799, -34.48922723, 138.82857214, -34.48421753], 0))
+
+        # using geopandas
+        gdf = gpd.GeoDataFrame(geometry=[LineString([Point(138.82202799409, -34.48421752612),
+                                  Point(138.82857214008, -34.48922722711)])], crs=4326)
+
+        self.assertEqual(28354, get_projected_epsg_for_bounds(gdf.total_bounds, gdf.crs))
+
+        f = os.path.realpath(os.path.join(THIS_DIR, 'data', 'rasters', 'area1_rgbi_jan_50cm_84sutm54.tif'))
+        with rio.open(f) as src:
+            self.assertEqual(None, get_projected_epsg_for_bounds(src.bounds, src.crs))
+
+        f = os.path.realpath(os.path.join(THIS_DIR, 'data', 'rasters', 'area2_5m_blockgrid.tif'))
+        with rio.open(f) as src:
+            self.assertEqual(28354, get_projected_epsg_for_bounds(src.bounds, src.crs))
 
     def test_getFromWKT_GDA1(self):
         test = crs()
@@ -197,5 +236,5 @@ class TestCrsClass(TestCase):
 
         rast_crs = getCRSfromRasterFile(os.path.normpath(self.singletif))
         self.assertEqual(28354, rast_crs.epsg_number, 'EPSG number does not match')
-        self.assertEqual(rast_crs.crs_wkt[:154], rasterio.crs.CRS.from_epsg(28354).wkt[:154], 'CRS WKT does not match')
-        self.assertEqual(rast_crs.crs_wkt[-26:], rasterio.crs.CRS.from_epsg(28354).wkt[-26:], 'CRS WKT does not match')
+        self.assertEqual(rast_crs.crs_wkt[:154], rio.crs.CRS.from_epsg(28354).wkt[:154], 'CRS WKT does not match')
+        self.assertEqual(rast_crs.crs_wkt[-26:], rio.crs.CRS.from_epsg(28354).wkt[-26:], 'CRS WKT does not match')

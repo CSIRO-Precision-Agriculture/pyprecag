@@ -1,0 +1,54 @@
+[tool.bumpversion]
+current_version = "0.4.3-rc3"
+parse = """(?x)
+	(?P<major>\\d+)\\.
+	(?P<minor>\\d+)\\.
+	(?P<patch>\\d+)
+	(?:-                            # dash separator for pre-release section
+	    (?P<pre_l>[a-zA-Z-]+)       # pre-release label
+        (?P<pre_n>0|[1-9]\\d*)      # pre-release version number
+    )?                              # pre-release section is optional
+"""
+
+serialize =[
+	"{major}.{minor}.{patch}-{pre_l}{pre_n}",
+	"{major}.{minor}.{patch}",
+]
+
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = false
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = false
+message = "Bump version: {current_version} → {new_version}"
+commit_args = ""
+
+[tool.bumpversion.parts.pre_l]
+values = ["dev", "rc"]
+
+[tool.bumpversion.parts.pre_n]
+first_value = "1"
+
+[[tool.bumpversion.files]]
+filename = "pyprecag/__init__.py "
+search   = "{current_version}"
+
+[[tool.bumpversion.files]]
+filename = "README.rst "
+search   = "{current_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/conf.py"
+search   = "{current_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/conf.py"
+search =   "copyright = '2018-\\d{{4}}, CSIRO'"
+replace =  "copyright = '2018-{now:%Y}, CSIRO'"
+regex = true

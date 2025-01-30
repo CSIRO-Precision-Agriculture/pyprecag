@@ -1,5 +1,5 @@
 {
-    "crsLookupURL": "http://prj2epsg.org/search.json",
+    "local_projected_epsg": [28349, 28350, 28351, 28352, 28353, 28354, 28355, 28356,2193],
     "geoCSV": {
         "file_encoding": "utf-8",
         "xCoordinate_ColumnName": [

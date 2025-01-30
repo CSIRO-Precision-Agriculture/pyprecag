@@ -16,6 +16,7 @@ help:
 	echo '  * uninstall: removes the development package from pip.'
 	echo '  * test: runs all unit tests.'
 	echo '  * twine_check: Run `twine check`.'
+	echo '  * convert_readme: convert the shinx readme.rst to markdown for pip
 	echo '  * lint: runs pylint.'
 	echo '  * html: builds the HTML documentation.'
 	echo '  * pdf: builds the documentation in PDF format.'
@@ -27,7 +28,7 @@ help:
 	echo '  * upload-test: uploads a test version to https://test.pypi.org/project/pyprecag'
 
 .PHONY: twine_check
-twine_check: sdist bdist_wheel
+twine_check: clean sdist bdist_wheel
 	twine check ./dist/*
 
 .PHONY: test
@@ -38,6 +39,8 @@ test:
 clean:
 	echo Cleaning ...
 	rm -rf build/
+	rm -rf dist/
+	rm -rf pyprecag.egg-info/
 	-find ./$(PACKAGE_NAME)/ -name "__pycache__" -exec rm -rf {} \;
 	-find ./$(PACKAGE_NAME)/ -name "*.pyc" -exec rm -rf {} \;
 	echo ... done
@@ -48,7 +51,7 @@ install-deps:
 
 .PHONY: develop
 develop: install-deps
-	python setup.py develop
+	python -m pip install --editable
 
 .PHONY: uninstall
 uninstall:
@@ -72,13 +75,19 @@ sitepkg-develop: develop
 lint:
 	pylint ./$(PACKAGE_NAME)/
 
+# convert rst to md to get rendered version when rst uses includes:: directive
+.PHONY: convert_readme
+convert_readme:
+	-rm -rf README.md
+	pandoc --from=rst --to=markdown --output=README.md README.rst
+
 .PHONY: sdist
-sdist:
-	python setup.py sdist
+sdist:convert_readme
+	python -m build --sdist
 
 .PHONY: bdist_wheel
-bdist_wheel:
-	python setup.py bdist_wheel
+bdist_wheel:convert_readme
+	python -m build --wheel
 
 .PHONY: html
 html:
@@ -96,13 +105,13 @@ pdf: latex
 alldocs: html latex pdf
 
 .PHONY: upload
-upload: clean
+upload: clean convert_readme
 	rm -rf dist/
-	python setup.py sdist bdist_wheel
+	python -m build
 	twine upload dist/*
 
 .PHONY: upload-test
-upload-test: clean
+upload-test: clean convert_readme
 		rm -rf dist/
-		python setup.py sdist bdist_wheel
-		twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+		python -m build
+		twine upload --repository testpypi dist/*

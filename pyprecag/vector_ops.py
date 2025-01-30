@@ -7,18 +7,25 @@ import os
 import time
 import warnings
 from tempfile import NamedTemporaryFile
+import six
 
 import fiona
-import geopandas
-import numpy as np
-import pyproj
-import shapely
-import six
 from fiona import collection as fionacoll
 from fiona.crs import to_string
+
+import geopandas as gpd
+import pyproj
 from osgeo import osr
+
+from ._compat import SHAPELY_GE_20
+import shapely
+from shapely import force_3d, remove_repeated_points
 from shapely.geometry import mapping, shape
-from shapely.ops import unary_union
+
+if SHAPELY_GE_20:
+    from shapely import MultiPoint, LineString
+else:
+    from shapely.geometry import MultiPoint, LineString
 
 from . import crs as pyprecag_crs
 from . import TEMPDIR, config
@@ -43,7 +50,7 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
         out_filename (str): (Optional) The path and filename to save the result to
 
     Returns:
-        geopandas.geodataframe.GeoDataFrame: The thinned geodataframe
+        geopandas.GeoDataFrame: The thinned GeoDataFrame
 
     TODO: Replace with scipy.spatial methods which doesn't rely on the file being correctly sorted.
           In depth testing required.
@@ -53,16 +60,16 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
         if not isinstance(argCheck[1], six.integer_types + (float, )):
             raise TypeError('{} must be a floating number.'.format(argCheck[0]))
 
-    if not isinstance(point_geodataframe, geopandas.GeoDataFrame):
+    if not isinstance(point_geodataframe, gpd.GeoDataFrame):
         raise TypeError("Input Points should be a geopandas data frame")
 
-    if 'POINT' not in ','.join(list(point_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in point_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid geometry. input shapefile should be point or multipoint')
 
-    if not isinstance(point_crs, pyprecag_crs.crs):
+    if point_crs and not isinstance(point_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
-    if not point_crs.srs.IsProjected():
+    if (point_crs and not point_crs.srs.IsProjected()) or point_geodataframe.crs.is_geographic:
         raise TypeError("Input data is not in a projected coordinate system")
 
     if out_filename is not None:
@@ -80,95 +87,82 @@ def thin_point_by_distance(point_geodataframe, point_crs, thin_distance_metres=1
     point_geodataframe = point_geodataframe.copy()
 
     # create a column and fill with NAN
-    point_geodataframe['filter'] = np.nan
+    # point_geodataframe['filter'] = np.nan
 
     if thin_distance_metres == 0:
         LOGGER.warning('A thin distance of Zero (0) was used. Thinning of input data not undertaken')
         return point_geodataframe
 
     thinDistCSunits = thin_distance_metres
-    if not point_crs.srs.IsProjected():
-
+    if point_geodataframe.crs.is_geographic:
         # use lower left corner of bnd box to convert metres to dd94 distance.
         thinDistCSunits = pyprecag_crs.distance_metres_to_dd(point_geodataframe.total_bounds[0],
                                                              point_geodataframe.total_bounds[1], thin_distance_metres)
 
-        LOGGER.warning('\Input data uses a geographics coordinate system.\n'
-                       'Reprojecting parameter thin distance of {}m to {} for {}'.format(thin_distance_metres,
-                                                                                         thinDistCSunits,
-                                                                                         point_geodataframe.crs))
+        LOGGER.warning(f'Input data uses a geographics coordinate system. \nReprojecting parameter thin distance of '
+                       f'{thin_distance_metres}m to {thinDistCSunits} for {point_geodataframe.crs}')
 
     else:
-        LOGGER.debug('\nFiltering by distance {}m ({} for {}) ------'.format(thin_distance_metres,
-                                                                             thinDistCSunits, point_geodataframe.crs))
-
-    # create the function to use with pandas apply
-
-    def thin_by_distance(curRow, filter_text):
-        global prevPt
-        if prevPt == '':
-            prevPt = curRow
-        else:
-            dist = curRow.distance(prevPt)
-            if dist <= thinDistCSunits:
-                return filter_text
-            else:
-                prevPt = curRow
-
-    def add_filter_message(filter_string, left_count,del_count):
-        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(left_count,del_count,filter_string))
-        
-    global prevPt
-    prevPt = ''
-    subset = point_geodataframe[point_geodataframe['filter'].isnull()].copy()
-    drop_cols = [ea for ea in subset.columns.tolist() if ea not in ['geometry', 'FID']]
-    subset.drop(drop_cols, axis=1, inplace=True)
+        LOGGER.debug(f'\nFiltering by distance {thin_distance_metres}m ({thinDistCSunits} for '
+                     f'{point_geodataframe.crs}) ------')
 
     # Update/Add x,y coordinates to match coordinate system
     for argCheck in ['pointX', 'pointY']:
         if argCheck in point_geodataframe.columns:
-            warnings.warn('{} already exists. Values will be updated'.format(argCheck))
+            warnings.warn(f'{argCheck} already exists. Values will be updated')
 
-    subset['pointX'] = subset.geometry.apply(lambda p: p.x)
-    subset['pointY'] = subset.geometry.apply(lambda p: p.y)
+    point_geodataframe['thinID'] = point_geodataframe.index
 
+    subset = point_geodataframe.copy()
+    subset.drop(columns=subset.columns.difference(['geometry', 'thinID']), axis=1, inplace=True)
+
+    # convert to a 3d point using the thinID for z
+    subset['geometry'] = force_3d(subset.geometry, subset['thinID'])
     iloop = 0
+    subset['pointX'] = subset.geometry.x
+    subset['pointY'] = subset.geometry.y
+    subset.set_index('thinID', inplace=True)
+
     for sortBy in ['pointXY', 'pointX', 'pointY']:
-        filterTime = time.time()
 
         if sortBy != 'pointXY':
             subset.sort_values(by=sortBy, ascending=True, inplace=True)
 
-        filter_string = '{} ({}m)'.format(sortBy, thinDistCSunits)
-        subset['filter'] = subset['geometry'].apply(lambda x: thin_by_distance(x, filter_string))
+        # play dot to dot to create a single very long line
+        line = LineString(subset.geometry.tolist())
 
-        stepTotal = len(subset[subset['filter'] == filter_string])
+        # thin the line by the desired distance
+        simp_line = remove_repeated_points(line, tolerance=thin_distance_metres)
 
-        if stepTotal > 0:
+        # turn vertex back into points
+        multipt = MultiPoint(list(simp_line.coords))
+
+        # extract the Z (or index) from the geometry
+        thin_idx = [int(pt.z) for pt in multipt.geoms]
+
+        filtered = subset.loc[~subset.index.isin(thin_idx)]
+
+        LOGGER.info('remaining: {:.>10,} ... removed: {:.>10,} ... {}'.format(len(thin_idx), len(filtered),
+                                                                              f'{sortBy} ({thin_distance_metres}m)'))
+        if len(thin_idx) > 0:
             iloop += 1
-            subset.loc[subset['filter'] == filter_string, 'filter_inc'] = iloop
-
             # update(join/merge) the master filter column with results from thinning.
-            point_geodataframe.loc[point_geodataframe.index.isin(subset.index), 'filter'] = subset['filter']
-            point_geodataframe.loc[point_geodataframe.index.isin(subset.index), 'filter_inc'] = subset['filter_inc']
+            point_geodataframe.loc[point_geodataframe['thinID'].isin(filtered.index),
+                        ['filter','filter_inc']] = f'{sortBy} ({thin_distance_metres}m)', iloop+1
+        else:
+            raise TypeError("There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
 
-        subset = subset[subset['filter'].isnull()].copy()
-        if len(subset) == 1:
-            raise TypeError(
-                "There are no features left after {}. Check the coordinate systems and try again".format(sortBy))
+        subset = subset.loc[subset.index.isin(thin_idx)].copy()
 
-        add_filter_message('Filter by distance - {}'.format(filter_string.replace('point', '')),len(subset), stepTotal)
-        
 
     # set sort back to original row order
     # point_geodataframe.sort_index(axis=1, ascending=True, inplace=True)
 
-    filterTime = time.time()
     if config.get_debug_mode():  # save with filter column.
         save_geopandas_tofile(point_geodataframe, out_filename, overwrite=True)
     elif out_filename is not None:
         save_geopandas_tofile(point_geodataframe.drop('filter', axis=1), out_filename, overwrite=True)
-
+    point_geodataframe.drop(columns='thinID',inplace=True)
     return point_geodataframe
 
 
@@ -219,6 +213,10 @@ def explode_multi_part_features(in_shapefilename, out_shapefilename):
     Returns:None
 
     """
+    warnings.warn('explode_multi_part_features() is deprecated in favor of `GeoDataFrame.explode()`  '
+                  'see https://geopandas.org/en/stable/docs/reference/api/geopandas.GeoDataFrame.explode.html',
+                  DeprecationWarning, stacklevel=2)
+
     start_time = time.time()
 
     if not os.path.exists(in_shapefilename):
@@ -266,6 +264,10 @@ def calculate_area_length_in_metres(in_filename, dissolve_overlap=True):
     Returns:
         list[area,length]: The Total Area and Length
     """
+    warnings.warn('calculate_area_length_in_metres() is deprecated in favor of '
+                  '`gdf.to_crs(gdf.estimate_utm_crs().to_epsg()).geometry.area` or similar',
+                  DeprecationWarning, stacklevel=2)
+
     start_time = time.time()
 
     if not os.path.exists(in_filename):

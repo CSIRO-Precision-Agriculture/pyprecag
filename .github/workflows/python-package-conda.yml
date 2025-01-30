@@ -1,0 +1,89 @@
+name: PyPrecag build and test on Ubuntu platform
+
+on: [push,workflow_dispatch]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        #conda env update --file environment.yml --name base
+        conda install gdal
+        conda install fiona
+        conda install geopandas
+        conda install sphinx
+        conda install sphinx_rtd_theme
+        pip install .
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test using python's in built unittest
+      run:
+        mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py ;
+        mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py ;
+        mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py ;
+        python -m unittest discover -s pyprecag/tests -p "test_*.py" -v
+    - name: Build latex help documents
+      run: |
+        echo "======================================"
+        echo "Use sphinx-build to create latex files"
+        echo "======================================"
+        sphinx-build -M latex ./docs ./pyprecag_docs 
+        echo "Latex Directory:"
+        ls ./pyprecag_docs/latex
+    - name: Install latexmak and related packages to create pdf documents
+      run: |        
+        echo "======================================"
+        echo "  Install latexmk and related pkgs"
+        echo "======================================"
+        sudo apt-get update
+        sudo apt-get -y install latexmk
+        sudo apt-get -y install texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
+    - name: Use latmak to create pdf document from latex`
+      run: |        
+        cd ./pyprecag_docs/latex/; latexmk -pdf -dvi- -ps- -f pyprecag.tex
+        echo "======================================"
+        echo "  Finished build of PDF from Latex"
+        echo "======================================"
+        echo "Latex Directory:"
+        echo "Here:"
+        ls
+    - name: Build html documents
+      run: |
+        echo "======================================"
+        echo "Use sphinx-build to create html files"
+        echo "======================================"
+        sphinx-build -M html ./docs ./pyprecag_docs 
+        echo "Html Directory:"
+        ls ./pyprecag_docs/html
+        
+            
+    - name: Upload Help pdf document as an Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyprecag_help.pdf
+        path: ./pyprecag_docs/latex/pyprecag.pdf
+        
+    - name: Upload Help html documents folder as an Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyprecag_help_html
+        path: ./pyprecag_docs/html
+    

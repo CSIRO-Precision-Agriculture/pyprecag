@@ -22,9 +22,9 @@ class TestConfig(unittest.TestCase):
         print("%s: %.3f secs" % (self.id(), t))
 
     def test_get_config_key(self):
-        self.assertEqual(get_config_key('crsLookupURL'), u'http://prj2epsg.org/search.json')
+        self.assertEqual(get_config_key('local_projected_epsg'), [28349, 28350, 28351, 28352, 28353, 28354, 28355, 28356,2193])
 
     def test_readconfig(self):
         config = read_config()
         self.assertTrue(isinstance(config, OrderedDict))
-        self.assertEqual(config['crsLookupURL'], u'http://prj2epsg.org/search.json')
+        self.assertEqual(config['local_projected_epsg'], [28349, 28350, 28351, 28352, 28353, 28354, 28355, 28356,2193])

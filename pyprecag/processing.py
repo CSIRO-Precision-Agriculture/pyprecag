@@ -6,9 +6,9 @@ from collections import defaultdict
 import warnings
 import logging
 import os
+from pathlib import Path
+
 import six
-
-
 from six.moves import zip as izip
 
 import random
@@ -18,12 +18,11 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pandas as pd
-
-import rasterio
-
+import geopandas as gpd
 from geopandas import GeoDataFrame, GeoSeries
 from osgeo import gdal
 
+import rasterio
 from rasterio import crs as riocrs
 from rasterio import features
 from rasterio.io import MemoryFile
@@ -35,15 +34,22 @@ from rasterio.windows import get_data_window, intersection, from_bounds
 from scipy.cluster.vq import *
 from scipy import stats
 
-from shapely.geometry import LineString, Point, mapping
-from shapely.ops import linemerge
+from ._compat import SHAPELY_GE_20
+
+if SHAPELY_GE_20:
+    from shapely import Point, LineString, force_2d, MultiLineString
+    from shapely.geometry import mapping
+else:
+    from shapely.geometry import Point, LineString, mapping
+    from .convert import drop_z as force_2d
+
+from shapely.ops import linemerge, substring
 
 from . import TEMPDIR, config, crs as pyprecag_crs, number_types
-
 from .crs import from_epsg
 from .table_ops import calculate_strip_stats
 from .convert import (convert_grid_to_vesper, numeric_pixelsize_to_string, convert_polygon_feature_to_raster,
-                      drop_z, deg_to_8_compass_pts, point_to_point_bearing, text_rotation)
+                      deg_to_8_compass_pts, line_bearing, point_to_point_bearing, text_rotation)
 
 from .raster_ops import (focal_statistics, save_in_memory_raster_to_file, reproject_image,
                          calculate_image_indices, stack_and_clip_rasters)
@@ -199,6 +205,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         shrink_dist_m (int): The shrink distance in metres. Typically about 7 less than the buffer
                     distance.
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     for argCheck in [('thin_dist_m', thin_dist_m), ('aggregate_dist_m', aggregate_dist_m),
                      ('buffer_dist_m', buffer_dist_m), ('shrink_dist_m', shrink_dist_m)]:
@@ -208,11 +216,10 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeoDataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : A points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if  points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if out_filename is None or out_filename == '':
@@ -221,7 +228,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     if not os.path.exists(os.path.dirname(out_filename)):
         raise IOError('Output directory {} does not exist'.format(os.path.dirname(out_filename)))
 
-    points_geodataframe.crs = points_crs.epsg
+    # if points_crs:
+    #     points_geodataframe.crs = points_crs.epsg
 
     start_time = time.time()
     points_geodataframe = points_geodataframe.copy()
@@ -231,9 +239,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
     # don't need any attribution so drop it all except fid and geometry
     dropcols = [ea for ea in points_geodataframe.columns.tolist() if ea not in ['geometry', 'FID']]
     points_geodataframe.drop(dropcols, axis=1, inplace=True)
-    ptsgdf_crs = points_crs.epsg
 
-    gdf_thin = thin_point_by_distance(points_geodataframe, points_crs, thin_dist_m)
+    gdf_thin = thin_point_by_distance(points_geodataframe, None, thin_dist_m)
     gdf_thin = gdf_thin[gdf_thin['filter'].isnull()].copy()
 
     del points_geodataframe
@@ -276,9 +283,9 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         df_line = gdf_thin.groupby(['lineID'])['geometry'].apply(
             lambda x: LineString([(p.x, p.y) for p in x]))
 
-    gdf_final = GeoDataFrame(df_line, geometry='geometry')
+    gdf_final = GeoDataFrame(df_line, geometry='geometry',crs=gdf_thin.crs)
     del gdf_thin, ptsperline, df_line
-    gdf_final.crs = ptsgdf_crs
+
     LOGGER.info('{:<30} {:<15} {dur}'.format('Convert to lines', '',
                                              dur=str(timedelta(seconds=time.time() - step_time))))
 
@@ -290,8 +297,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     # buffer and dissolve overlap of lines
     step_time = time.time()
-    gdf_final = GeoDataFrame(geometry=[gdf_final.buffer(buffer_dist_m).unary_union])
-    gdf_final.crs = ptsgdf_crs
+    gdf_final = GeoDataFrame(geometry=[gdf_final.buffer(buffer_dist_m).unary_union],crs=gdf_final.crs)
+    # gdf_final.crs = ptsgdf_crs
     gdf_final['FID'] = gdf_final.index
     LOGGER.info('{:<30} {:<15} {dur}'.format('Buffer by {}'.format(buffer_dist_m), '',
                                              dur=str(timedelta(seconds=time.time() - step_time))))
@@ -304,8 +311,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     if shrink_dist_m != 0:
         step_time = time.time()
-        gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)))
-        gdf_final.crs = ptsgdf_crs
+        gdf_final = GeoDataFrame(geometry=gdf_final.buffer(-abs(shrink_dist_m)),crs=gdf_final.crs)
+
         LOGGER.info('{:<30} {:<15} {dur}'.format('Shrink by {}'.format(shrink_dist_m), '',
                                                  dur=str(timedelta(seconds=time.time() - step_time))))
 
@@ -315,12 +322,9 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
             save_geopandas_tofile(gdf_final, temp_file_list[-1], overwrite=True)
 
     step_time = time.time()
-    # https://github.com/geopandas/geopandas/issues/174#issuecomment-63126908
-    explode = gdf_final.explode().reset_index().rename(
-        columns={0: 'geometry'}).set_geometry('geometry')['geometry']
 
-    gdf_final = GeoDataFrame(geometry=explode)
-    gdf_final.crs = ptsgdf_crs
+    gdf_final = GeoDataFrame(geometry=gdf_final.geometry.explode(index_parts=False),crs=gdf_final.crs)
+
     gdf_final['FID'] = gdf_final.index
     gdf_final['Area'] = gdf_final.area
     gdf_final['Perimeter'] = gdf_final.length
@@ -330,10 +334,8 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
 
     save_geopandas_tofile(gdf_final, out_filename, overwrite=True)
 
-    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(
-        inspect.currentframe().f_code.co_name, '',
-        dur=str(timedelta(seconds=time.time() - start_time))
-    ))
+    LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
+                                               dur=str(timedelta(seconds=time.time() - start_time))))
 
     thin_ratio = (4 * 3.14 * gdf_final['Area'].sum() /
                   (gdf_final['Perimeter'].sum() * gdf_final['Perimeter'].sum()))
@@ -346,10 +348,10 @@ def create_polygon_from_point_trail(points_geodataframe, points_crs, out_filenam
         return 'For an improved result, increase the buffer width and shrink distance and ' \
                'try again.'
     else:
-        return
+        return gdf_final
 
 
-def clean_trim_points(points_geodataframe, points_crs, process_column, output_csvfile,
+def clean_trim_points(points_geodataframe, points_crs, process_column, output_csvfile, poly_geodataframe=None,
                       boundary_polyfile=None, out_keep_shapefile=None, out_removed_shapefile=None,
                       remove_zeros=True, stdevs=3, iterative=True, thin_dist_m=1.0):
     """ Clean and/or Trim a points dataframe.
@@ -388,15 +390,20 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
 
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
+
+    if boundary_polyfile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      PendingDeprecationWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
-        raise TypeError('Invalid input data : inputGeodataFrame')
+        raise TypeError('Invalid input data : points_geodataframe')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if output_csvfile is None:
@@ -420,22 +427,29 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         if not isinstance(argCheck[1], bool):
             raise TypeError('{} should be a boolean.'.format(argCheck[0]))
 
-    points_geodataframe.crs = points_crs.epsg
+    if points_crs:
+        points_geodataframe.crs = points_crs.epsg
 
     norm_column = 'nrm_' + process_column
     LOGGER.info('Normalized Column is {}'.format(norm_column))
+
     if norm_column in points_geodataframe.columns:
         LOGGER.warning('Column {} already exists and will be overwritten'.format(norm_column))
 
     if boundary_polyfile is not None:
+        warnings.warn('boundary_polyfile will be removed in future release. Please use poly_geodataframe instead',
+                      PendingDeprecationWarning, stacklevel=2)
+
         if not os.path.exists(boundary_polyfile):
             raise IOError("Invalid path: {}".format(boundary_polyfile))
+        poly_geodataframe = GeoDataFrame.from_file(boundary_polyfile)
 
-        ply_desc = VectorDescribe(boundary_polyfile)
+    if poly_geodataframe is not None and not isinstance(poly_geodataframe, GeoDataFrame):
+        raise TypeError('Invalid input data : poly_geodataframe')
 
-        if 'POLY' not in ply_desc.geometry_type.upper():
-            raise GeometryError('Invalid geometry. Input shapefile should be polygon'
-                                ' or multipolygon')
+    if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
+        raise GeometryError('Invalid geometry. Input poly_geodataframe or boundary_polyfile should be polygon'
+                            ' or multipolygon')
 
     start_time = time.time()
 
@@ -445,10 +459,8 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_points = points_geodataframe.copy()
 
     # To speed things up, drop all un-required columns
-    dropcols = [ea for ea in gdf_points.columns.tolist()
-                if ea not in ['geometry', id_col, norm_column, process_column]]
-
-    gdf_points.drop(dropcols, axis=1, inplace=True)
+    gdf_points.drop(columns=gdf_points.columns.difference(['geometry', id_col, norm_column, process_column]),
+                    axis=1, inplace=True)
 
     step_time = time.time()
 
@@ -485,23 +497,19 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     add_filter_message('Duplicate XY')
 
-    if boundary_polyfile is not None:
-        gdf_poly = ply_desc.open_geo_dataframe()
-
-        if ply_desc.crs.epsg != points_crs.epsg_number:
+    if poly_geodataframe is not None:
+        if poly_geodataframe.crs.to_epsg() != gdf_points.crs.to_epsg():
             # Preference is to the projected coordinate system then only project the smaller
             # dataset (usually poly) By now points should be in the out projected coordinate system
-            if ply_desc.crs.epsg != points_crs.epsg_number:
-                gdf_poly.to_crs(epsg=points_crs.epsg_number, inplace=True)
+            poly_geodataframe.to_crs(gdf_points.crs, inplace=True)
 
-            LOGGER.info('{: <30} {: >10}   {:<15}'.format(
-                'Reproject clip polygon', '', 'To epsg_number {}'.format(points_crs.epsg_number)))
+            LOGGER.info(f'{"Reproject clip polygon": <30} {"to": >10}   {gdf_points.crs.to_epsg():<15}')
             # dur=str(timedelta(seconds=time.time() - step_time))))
 
         step_time = time.time()
 
         # Clip to boundary then apply to filter column
-        gdf_points.loc[(gdf_points['filter'].isnull()) & (~gdf_points.geometry.within(gdf_poly.unary_union)),
+        gdf_points.loc[(gdf_points['filter'].isnull()) & (~gdf_points.geometry.within(poly_geodataframe.unary_union)),
                             ['filter', 'filter_inc']] = ['clip', len(gdf_points['filter'].unique())]
         add_filter_message('clip')
 
@@ -509,7 +517,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             raise GeometryError('Clipping removed all features. Check coordinate systems and/or '
                                 'clip polygon layer and try again')
 
-        del gdf_poly
+        del poly_geodataframe
 
         step_time = time.time()
 
@@ -520,8 +528,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
         add_filter_message('<= zero')
 
         if gdf_points['filter'].isnull().sum() == 0:
-            raise GeometryError("Zero filter removed all points "
-                                "in column {}".format(process_column))
+            raise GeometryError(f"Zero filter removed all points in column {process_column}")
 
     if stdevs > 0:
         i = 0
@@ -531,7 +538,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             i += 1
 
             subset = gdf_points.loc[gdf_points['filter'].isnull()].copy()
-            filter_str = '{} std iter {}'.format(stdevs, int(i))
+            filter_str = f'{stdevs} std iter {int(i)}'
 
             yld_mean = subset[process_column].mean()
             yld_std = subset[process_column].std()
@@ -546,7 +553,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
             if not iterative:
                 break
 
-    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()], points_crs, thin_dist_m)
+    gdf_thin = thin_point_by_distance(gdf_points[gdf_points['filter'].isnull()], None, thin_dist_m)
     # update the filter incremental number
     gdf_thin['filter_inc'] = gdf_thin['filter_inc'] + len(gdf_points['filter'].dropna().unique())
 
@@ -598,7 +605,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     # Find and Drop coord columns if already exist.
     coord_columns = [fld for fld in points_geodataframe.columns if fld.upper() in alt_coord_columns]
-    #coord_columns = coord_columns + ['geometry']
+    # coord_columns = coord_columns + ['geometry']
 
     if len(coord_columns) > 0:
         points_geodataframe.drop(coord_columns, axis=1, inplace=True)
@@ -624,9 +631,9 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
     gdf_final[gdf_final['filter'].isnull()].drop(['geometry', 'filter'], axis=1) \
         .to_csv(output_csvfile, index=False, encoding=file_encoding)
 
-    LOGGER.info('{:<30} {: >10,}   {:<15} {dur}'.format(
-        'Save to CSV', len(gdf_final[gdf_final['filter'].isnull()]),
-        os.path.basename(output_csvfile), dur=str(timedelta(seconds=time.time() - step_time))))
+    LOGGER.info(f'{"Save to CSV":<30} {len(gdf_final[gdf_final["filter"].isnull()]): >10,} '
+                f'  {os.path.basename(output_csvfile):<15}'
+                f' {str(timedelta(seconds=time.time() - step_time))}')
 
     step_time = time.time()
 
@@ -643,7 +650,7 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     if out_removed_shapefile is not None and out_removed_shapefile != '':
         if gdf_final[gdf_final['filter'].notnull()].empty:
-            LOGGER.info('{} '.format('No features removed. Shapefile containing removed points not created.'))
+            LOGGER.info('No features removed. Shapefile containing removed points not created.')
         else:
             save_geopandas_tofile(gdf_final[gdf_final['filter'].notnull()]
                                   .drop([norm_column], axis=1),
@@ -660,12 +667,19 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
                                                                        'count'     : "{:,.0f}".format,
                                                                        '%'         : "{:.3f}%".format})))
 
-    LOGGER.info('{}.....{: .5f} '.format('{} mean'.format(process_column), yld_mean))
-    LOGGER.info('{}.....{: .5f} '.format('{} std'.format(process_column), yld_std))
-    LOGGER.info('{}.....{: .5f} '.format('{} CV'.format(process_column), 100 * yld_std / yld_mean))
+    LOGGER.info(f'{process_column} mean....{yld_mean:.5f} ')
+    LOGGER.info(f'{process_column} std....{yld_std: .5f} ')
+    LOGGER.info(f'{process_column} CV....{ 100 * yld_std / yld_mean: .5f} ')
 
     LOGGER.info('{:<30}\t{dur:<15}\t{}'.format(inspect.currentframe().f_code.co_name, '',
                                                dur=str(timedelta(seconds=time.time() - start_time))) )
+
+    warnings.warn('return value points_crs is deprecated. Please use  `pyproj, geopandas solutions`',
+                  PendingDeprecationWarning, stacklevel=2)
+
+    if points_crs :
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(gdf_final.crs.to_epsg())
 
     return gdf_final[gdf_final['filter'].isnull()], points_crs
 
@@ -776,15 +790,16 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         geopandas.geodataframe.GeoDataFrame: dataframe of the points and calculated statistics
         pyprecag_crs.crs: The pyprecag CRS object of the points dataframe.
     """
+    warnings.warn('points_crs as parameter and return values are deprecated in favor of `geopandas.crs` and '
+                  'will be removed in a future version', PendingDeprecationWarning, stacklevel=2)
 
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise TypeError('Invalid input data : a points geopandas dataframe is required')
 
-    if not isinstance(points_crs, pyprecag_crs.crs):
+    if points_crs and not isinstance(points_crs, pyprecag_crs.crs):
         raise TypeError('Crs must be an instance of pyprecag.crs.crs')
 
     if output_csvfile is None or output_csvfile == '':
@@ -851,9 +866,10 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
 
     # drop null geometry
     points_geodataframe.dropna(subset=['geometry'], axis=0, inplace=True)
-
+    original_crs = points_geodataframe.crs
     # overwrite the gdf proj4 string with the epsg mapping equivalent
-    points_geodataframe.crs = points_crs.epsg
+    # if points_crs:
+    #      points_geodataframe.crs = points_crs
 
     cur_pixel = False
     if 1 in size_list:
@@ -871,7 +887,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         # RasterIO works from the proj4 string NOT the wkt string so aussie zones details gets lost.
         rast_crs = pyprecag_crs.getCRSfromRasterFile(ea_raster)
 
-        if rast_crs.epsg != points_geodataframe.crs:
+        if rast_crs.epsg != points_geodataframe.crs.to_epsg():
             # we have to reproject the vector points to match the raster
             print('WARNING: Projecting points from {} to {}'.format(points_geodataframe.crs,
                                                                     rast_crs.epsg))
@@ -930,8 +946,8 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         del df_raster_vals
 
     # Reproject points back to original coordinate system if required.
-    if points_crs.epsg != points_geodataframe.crs:
-        points_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
+    if original_crs != points_geodataframe.crs:
+        points_geodataframe.to_crs(original_crs, inplace=True)
 
     # Make sure the output CSV contains coordinates
     if None in predictCoordinateColumnNames(points_geodataframe.columns.tolist()):
@@ -945,7 +961,7 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
             points_geodataframe['Northing'] = points_geodataframe.geometry.apply(lambda p: p.y)
 
     # and for good measure add the associated epsg number
-    points_geodataframe['EPSG'] = int(points_geodataframe.crs.to_authority()[1])
+    points_geodataframe['EPSG'] = points_geodataframe.crs.to_epsg()
 
     if output_csvfile is not None:
         step_time = time.time()
@@ -961,6 +977,11 @@ def extract_pixel_statistics_for_points(points_geodataframe, points_crs, rasterf
         inspect.currentframe().f_code.co_name, '', '',
         dur=str(timedelta(seconds=time.time() - start_time))
     ))
+
+
+    if points_crs :
+        points_crs = pyprecag_crs.crs()
+        points_crs.getFromEPSG(points_geodataframe.crs.to_epsg())
 
     return points_geodataframe, points_crs
 
@@ -1755,7 +1776,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                 with memfile.open() as tmp_src:
                     for i, ea_band in enumerate(tmp_src.read(masked=True)):
-                        alias = next(val for key, val in raster_files.items() if src_img.descriptions[i] in key)
+                        alias = next(val for key, val in raster_files.items() if src_img.descriptions[i] == Path(key).stem)
 
                         if not alias:
                             alias = src_img.descriptions[i]
@@ -1766,13 +1787,9 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
                         # add a blank column inorder for populating later
                         new_row[alias + ', vesper'] = np.nan
 
-            # for pandas 0.23.4 add sort=False to prevent row and column orders to change.
-            try:
-                results_df = new_row.append(results_df, ignore_index=True, sort=False)
-            except TypeError:
-                results_df = new_row.append(results_df, ignore_index=True)
+            results_df = pd.concat([results_df, new_row])
 
-        # reorder zones based on mean value of all inputs
+        # reorder zone numbering based on mean value of all inputs
         mean_cols = [col for col in results_df.columns if ', mean' in col]
 
         results_df['zone_mean'] = results_df[mean_cols].mean(axis=1)
@@ -1824,13 +1841,7 @@ def kmeans_clustering(raster_files, output_tif, n_clusters=3, max_iterations=500
 
                         new_row.loc[new_row['zone'] == tag_col, '{}, vesper'.format(alias)] = src_img.tags(iband)[tag]
 
-        try:
-            results_df = results_df.append(new_row, ignore_index=True, sort=False)
-
-        except TypeError:
-            results_df = results_df.append(new_row, ignore_index=True)
-            # Move 'Zone' to the first column - fixed in pandas 0.23.4 by adding sort=False to append
-            results_df = results_df.reindex(columns=columns)
+        results_df = pd.concat([results_df, new_row])
 
         results_df.dropna(axis='columns', how='all', inplace=True)
 
@@ -1919,7 +1930,7 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     if not isinstance(lines_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'LINE' not in ','.join(list(lines_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("LINE" in g.upper() for g in lines_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid input data : A lines geopandas dataframe is required')
 
     for argCheck in [('offset_distance', offset_distance),
@@ -1954,21 +1965,8 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
     start_time = time.time()
     step_time = time.time()
 
-    if out_epsg > 0:
-        # Make sure we get the correct details for the output coordinate system
-        points_crs = pyprecag_crs.crs()
-        points_crs.getFromEPSG(out_epsg)
-
-    # overwrite the gdf proj4 string with the epsg mapping equivalent to maintain the correct wkt.
-    lines_geodataframe.crs = lines_crs.epsg
-
-    if out_epsg > 0:
-        # Make sure we get the correct details for the output coordinate system
-        points_crs = pyprecag_crs.crs()
-        points_crs.getFromEPSG(out_epsg)
-
     # input needs to be a projected coordinate system to work with metric distances
-    if lines_crs.srs.IsGeographic():
+    if lines_geodataframe.crs.is_geographic:
         if out_epsg <= 0:
             xmin, ymin, _, _ = lines_geodataframe.total_bounds
             points_crs = pyprecag_crs.getProjectedCRSForXY(xmin, ymin, lines_crs.epsg_number)
@@ -1980,32 +1978,15 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         lines_geodataframe.to_crs(epsg=points_crs.epsg_number, inplace=True)
 
         if config.get_debug_mode():
-            LOGGER.info('{:<30}   {:<15} {dur}'.format(
-                'Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
-                dur=str(timedelta(seconds=time.time() - step_time))))
+            LOGGER.info('{:<30}   {:<15} {dur}'.format('Reproject lines To epsg {}'.format(points_crs.epsg_number), '',
+                                                       dur=str(timedelta(seconds=time.time() - step_time))))
+
     step_time = time.time()
 
-    # merge touching lines
-    if len(lines_geodataframe) > 1:
-        gdf_lines = GeoDataFrame(geometry=[linemerge(lines_geodataframe.unary_union)],
-                                 crs=lines_geodataframe.crs)
-    else:
-        gdf_lines = lines_geodataframe[['geometry']].copy()
-
-    # convert multi part to single part geometry
-    gdf_lines = gdf_lines.explode()
-    if isinstance(gdf_lines, GeoSeries):
-        #  geopandas 0.3.0 explode creates a geoseries so convert back to geodataframe
-        gdf_lines = GeoDataFrame(geometry=gdf_lines, crs=lines_geodataframe.crs)
-
-    # explode creates a multi index so flatten to single level
-    gdf_lines = gdf_lines.reset_index().drop(['level_0', 'level_1'], axis=1)
-
-    # assign a name to the index column
-    gdf_lines.index.name = 'FID'
-
-    if gdf_lines['geometry'][0].has_z:
-        gdf_lines['geometry'] = gdf_lines['geometry'].apply(lambda x: drop_z(x))
+    # merge touching lines into single parts
+    gdf_lines = GeoDataFrame(geometry=[lines_geodataframe.geometry.agg(lambda x: linemerge(x.tolist()))],
+                             crs=lines_geodataframe.crs)
+    gdf_lines = gdf_lines.explode(index_parts=False).reset_index(drop=False, names='FID')
 
     # Add TrialID  Side, Length and startoffset
     if 'TrialID' not in gdf_lines.columns:
@@ -2014,122 +1995,91 @@ def create_points_along_line(lines_geodataframe, lines_crs, distance_between_poi
         gdf_lines['TrialID'] = gdf_lines.index
 
     # Add Side, Length and startoffset attributes
-    gdf_lines['Strip_Name'] = 'Strip'
+    gdf_lines['name_s'] = 'Strip'
+    gdf_lines['bearing'] = gdf_lines.geometry.apply(line_bearing)
 
-    # find dangle length when the line isn't evenly divided by the point distance
     # Calculate the length of each line
     gdf_lines['length'] = gdf_lines['geometry'].length
+    
+    ## Add Offsets
+    gdf_lines['line_r'] = gdf_lines.apply(lambda l: l.geometry.offset_curve(-offset_distance, quad_segs=16, join_style='mitre'), axis=1)
+    gdf_lines['line_l'] = gdf_lines.apply(lambda l: l.geometry.offset_curve(offset_distance, quad_segs=16, join_style='mitre'), axis=1)
+    gdf_lines['name_r'] = gdf_lines['line_r'].apply(lambda x: deg_to_8_compass_pts(line_bearing(x) + 90) + ' Strip')
+    gdf_lines['name_l'] = gdf_lines['line_l'].apply(lambda x: deg_to_8_compass_pts(line_bearing(x) - 90) + ' Strip')
 
-    # calculate a start offset to centre points along the line
-    gdf_lines['startoffset'] = (gdf_lines['geometry'].length % distance_between_points) / 2
+    striplines_df = pd.wide_to_long(gdf_lines.drop(columns=['length','bearing','FID']).rename(columns={'geometry': 'line_s'}),
+                                    stubnames=['line', 'name'], sep='_',
+                                    i=['TrialID'], j='Strip', suffix=r'\w+')
+    striplines_df = striplines_df.reset_index().rename(columns={'name': 'Strip_Name', 'line': 'geometry'})
 
-    # create a new dataframe for parallel lines
-    gdf_lrline = GeoDataFrame(columns=['FID', 'TrialID', 'Strip_Name', 'geometry'],
-                              geometry='geometry', crs=gdf_lines.crs)
+    striplines_gdf = GeoDataFrame(striplines_df.drop(columns='Strip'), crs=gdf_lines.crs)
+    del striplines_df
+    def split_line_by_distance(line, split_distance, center_on_line=True):
+        start_offset = 0
+        if center_on_line:
+            start_offset = (line.length % split_distance) / 2
 
-    # create L/R lines for each centre line
-    for index, c_line_row in gdf_lines.iterrows():
-        c_line_geom = c_line_row['geometry'].simplify(0.5, preserve_topology=True)
-        line_bearing = point_to_point_bearing(c_line_geom.coords[-1],
-                                              c_line_geom.coords[0])
+        start_pts = np.arange(0+start_offset, line.length, split_distance)
+        end_pts = np.roll(start_pts, -1)
 
-        for ea_line in [('left', '{} Strip'.format(deg_to_8_compass_pts(line_bearing - 90))),
-                        ('right', '{} Strip'.format(deg_to_8_compass_pts(line_bearing + 90)))]:
+        seg_lines = [substring(force_2d(line), start_dist=s, end_dist=e, normalized=False)
+                     for s, e in zip(start_pts[:-1], end_pts[:-1])]
 
-            side, value = ea_line
+        return MultiLineString(seg_lines)
 
-            # update the geometry and TrialID.
-            parallel_line = c_line_geom.parallel_offset(offset_distance, side, resolution=16,
-                                                        join_style=1, mitre_limit=5.0)
-            parallel_line = parallel_line.simplify(0.5, preserve_topology=True)
+    def make_paired_segments(line, paired_line):
+        start = paired_line.project(Point(line.coords[0]))
+        end = paired_line.project(Point(line.coords[-1]))
+        return substring(paired_line, start_dist=start, end_dist=end, normalized=False)
 
-            # One of the lines needs to be flipped
-            if side == 'right':
-                parallel_line = LineString(parallel_line.coords[::-1])
+    gdf_lines['seg_s'] = gdf_lines.geometry.apply(split_line_by_distance,
+                                                  split_distance=distance_between_points,
+                                                  center_on_line=True)
 
-            gdf_lrline = gdf_lrline.append({'TrialID'   : c_line_row['TrialID'],
-                                            'Strip_Name': value, 'geometry': parallel_line},
-                                           ignore_index=True)
+    exp_df = gdf_lines.rename_geometry('line_s').set_geometry('seg_s').explode(index_parts=False)
+    exp_df.reset_index(drop=True, inplace=True)
 
-    gdf_lrline['FID'] = gdf_lrline.index
+    exp_df.insert(1, 'PointID', exp_df.groupby('TrialID').cumcount())
+    exp_df['length'] = exp_df.set_geometry('seg_s').length
+    exp_df.insert(3, 'DistOnLine', exp_df.groupby(['TrialID'])['length'].cumsum())
+
+    exp_df['seg_r'] = exp_df.apply(lambda l: make_paired_segments(l['seg_s'], l['line_r']), axis=1)
+    exp_df['seg_l'] = exp_df.apply(lambda l: make_paired_segments(l['seg_s'], l['line_l']), axis=1)
+
+    seg_cols = exp_df.filter(like='seg_').columns.to_list()
+    name_cols = exp_df.filter(like='name_').columns.to_list()
+
+    segs_gdf = pd.wide_to_long(exp_df[['TrialID', 'PointID', 'DistOnLine']+ seg_cols + name_cols],
+                                   stubnames=['seg', 'name'], sep='_',
+                                   i=['TrialID', 'PointID', 'DistOnLine'], j='Strip', suffix=r'\w+')
+    segs_gdf = segs_gdf.reset_index().rename(columns={'name': 'Strip_Name', 'seg': 'geom_seglines'})
+
+    segs_gdf['geometry'] = segs_gdf.set_geometry('geom_seglines').centroid
+    segs_gdf = GeoDataFrame(segs_gdf,crs=gdf_lines.crs)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30}   {:<15} {dur}'.format(
-            'Parallel lines created', '', dur=str(timedelta(seconds=time.time() - step_time))))
+        segs_gdf['length'] = segs_gdf['geom_seglines'].length
+        save_geopandas_tofile(segs_gdf.set_geometry('geom_seglines', drop=True), temp_filename.replace('.shp', '_seglines.shp'), overwrite=True)
 
-    step_time = time.time()
-
-    # Create an empty dataframe to store points in
-    gdf_points = GeoDataFrame(columns=['FID', 'TrialID', 'Strip_Name', 'PointID', 'geometry'],
-                              geometry='geometry',
-                              crs=gdf_lrline.crs)
-
-    # Loop through each centre line
-    for index_c, line_c in gdf_lines.iterrows():
-        distance = line_c['startoffset']
-        ptid = 1
-
-        while distance < line_c['length']:
-            # Add point along the centre line.
-            pt = line_c['geometry'].interpolate(distance)
-
-            # add it to the dataframe
-            gdf_points = gdf_points.append({'geometry'  : pt,
-                                            'TrialID'   : line_c['TrialID'],
-                                            'PointID'   : ptid,
-                                            'Strip_Name': line_c['Strip_Name'],
-                                            'DistOnLine': distance},
-                                           ignore_index=True)
-
-            # To add points to Offset lines, first find corresponding lines.
-            line_subset = gdf_lrline[gdf_lrline['TrialID'] == line_c['TrialID']]
-
-            for index_lr, line_lr in line_subset.iterrows():
-                # find the distance along the L/R line of the corresponding centre line point
-                dist_along_line = line_lr['geometry'].project(pt)
-
-                # Add a new point feature. Interpolate locates the xy based on the distance
-                # along the line.
-                gdf_points = gdf_points.append(
-                    {'geometry'  : line_lr['geometry'].interpolate(dist_along_line),
-                     'TrialID'   : line_c['TrialID'],
-                     'PointID'   : ptid,
-                     'Strip_Name': line_lr['Strip_Name'],
-                     'DistOnLine': distance},
-                    ignore_index=True)
-
-            distance += distance_between_points
-            ptid += 1
-
-    # add a feature identifier
-    gdf_points['FID'] = gdf_points.index
-
-    # combine to original centre line while only keeping common columns and calculate length
-    gdf_lines = pd.concat([gdf_lines, gdf_lrline], join='inner',
-                          axis=0).sort_values(['TrialID', 'Strip_Name'])
-
-    gdf_lines['length'] = gdf_lines['geometry'].length
+    segs_gdf.drop(columns=['Strip','geom_seglines'],inplace=True)
 
     if out_lines_shapefile is not None or config.get_debug_mode():
         if out_lines_shapefile is None:
-            save_geopandas_tofile(gdf_lines, temp_filename.replace('.shp', '_lines.shp'),
-                                  overwrite=True)
+            save_geopandas_tofile(striplines_gdf, temp_filename.replace('.shp', '_lines.shp'), overwrite=True)
         else:
-            save_geopandas_tofile(gdf_lines, out_lines_shapefile, overwrite=True)
+            save_geopandas_tofile(striplines_gdf, out_lines_shapefile, overwrite=True)
 
     if out_points_shapefile is not None or config.get_debug_mode():
         if out_points_shapefile is None:
-            save_geopandas_tofile(gdf_points, temp_filename.replace('.shp', '_points.shp'),
-                                  overwrite=True)
+            save_geopandas_tofile(segs_gdf, temp_filename.replace('.shp', '_points.shp'), overwrite=True)
         else:
-            save_geopandas_tofile(gdf_points, out_points_shapefile, overwrite=True)
+            save_geopandas_tofile(segs_gdf, out_points_shapefile, overwrite=True)
 
     if config.get_debug_mode():
-        LOGGER.info('{:<30} {:>15} {dur}'.format(
-            'Create Points Along Line Completed', '',
-            dur=str(timedelta(seconds=time.time() - start_time))))
+        LOGGER.info('{:<30} {:>15} {dur}'.format('Create Points Along Line Completed', '',
+                                                 dur=str(timedelta(seconds=time.time() - start_time))))
 
-    return gdf_points, points_crs, gdf_lines
+    return segs_gdf, points_crs, striplines_gdf
 
 
 def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
@@ -2177,8 +2127,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     if not isinstance(points_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : inputGeodataFrame')
 
-    if 'POINT' not in ','.join(
-            list(points_geodataframe.dropna(subset=['geometry'], axis=0).geom_type.unique())).upper():
+    if not any("POINT" in g.upper() for g in points_geodataframe.geom_type.unique()):
         raise GeometryError('Invalid input data : a points geopandas dataframe is required')
 
     if not isinstance(points_crs, pyprecag_crs.crs):
@@ -2239,7 +2188,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                     min_img_window = from_bounds(*min_bbox, transform=src.transform)
 
                     # find the intersection of the windows.
-                    min_window = intersection(min_img_window, data_window).round_lengths('ceil')
+                    min_window = intersection(min_img_window, data_window).round_lengths()
 
                 # convert the window co coordinates
                 min_bbox = src.window_bounds(min_window)
@@ -2262,8 +2211,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     gdf_points, points_crs = extract_pixel_statistics_for_points(points_geodataframe, points_crs,
                                                                  raster_files, 'extract_pixels.csv',
                                                                  size_list=[1])
-
-    gdf_points.index.name = 'rowID'
+    gdf_points.index.name = 'FID'
     column_names = {}
 
     # find the columns relating to the rasters
@@ -2368,7 +2316,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
     from collections import OrderedDict
     import matplotlib.patheffects as pe
 
-    for iline, (line_id, gdf_strip) in enumerate(gdf_points.groupby(['TrialID']), start=1):
+    for iline, (line_id, gdf_strip) in enumerate(gdf_points.groupby(by='TrialID'), start=1):
         status = '{} of {}'.format(iline, line_count)
         loop_time = time.time()
         df_subtable = df_table[df_table['TrialID'] == line_id].copy()
@@ -2394,7 +2342,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
         df_subtable.drop(dropcols, axis=1, inplace=True)
 
         # Convert zones to integer - there should be no NAN's
-        df_subtable[column_names['Zone']] = df_subtable[column_names['Zone']].astype(int)
+        df_subtable[column_names['Zone']] = df_subtable[column_names['Zone']].astype(pd.Int64Dtype())
 
         # run loop for the three scenarios. 1) both sides (N+S), 2) North, 3) South
         scenarios = [offset_names] + offset_names
@@ -2421,7 +2369,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                                                                 column_names['Value'][0],
                                                                 control_col, size=size)
 
-            df_statstable.drop(columns=['FID', 'TrialPtID'], axis=1).to_csv(
+            df_statstable.drop(columns=df_statstable.columns.intersection(['FID', 'TrialPtID']), axis=1).to_csv(
                 file_path_noext + '.csv', index=False)
 
             if config.get_debug_mode():
@@ -2439,7 +2387,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
 
             # add plotting parameters to table -----------------------------------------------
             # assign an id to the column
-            df_statstable['zone_UID'] = df_statstable.groupby(zone_column).grouper.group_info[0]
+            df_statstable['zone_UID'] = df_statstable.groupby(zone_column).ngroup()
 
             # assign a marker based on the index from the list
             df_statstable["zone_marker"] = df_statstable['zone_UID'].apply(lambda x: markers[x])
@@ -2448,8 +2396,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
             df_statstable = df_statstable.dropna(subset=['av_treat_dif'], axis=0).copy()
 
             # only get those points geometry with rolling window results.
-            gdf_map = pd.merge(gdf_strip, df_statstable[['RI']],
-                               on='TrialPtID').set_index('FID', drop=False)  # ,'label_angle'
+            gdf_map = pd.merge(gdf_strip, df_statstable[['RI']],on='TrialPtID')
 
             # get y axis limits
             min_ylimit = df_statstable['av_treat_dif'].min(skipna=True)
@@ -2595,7 +2542,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
                     ea_ax.legend(by_label.values(), by_label.keys(), loc='center left',
                                  bbox_to_anchor=(1, 0.5), edgecolor='w')
 
-            plt.savefig(file_path_noext + '_graph.png', index=False)
+            plt.savefig(file_path_noext + '_graph.png')
             plt.close()
             if config.get_debug_mode():
                 LOGGER.info('{:<30}\t{:>10}   {dur:<15} {}'.format(

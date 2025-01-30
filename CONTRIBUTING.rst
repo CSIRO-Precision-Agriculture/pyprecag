@@ -19,12 +19,13 @@ Documentation improvements
 
 pyprecag could always use more documentation, whether as part of the official pyprecag docs, in docstrings, or even on the web in blog posts, articles, and such.
 
-.. note:: This project uses Google-style docstrings.
-   Contributed code should follow the same conventions.
-   For examples, please see the `Napoleon examples
-   <http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html>`_,
-   or the `Google Python Style Guide
-   <https://github.com/google/styleguide/blob/gh-pages/pyguide.md>`_.
+.. note::
+    This project uses Google-style docstrings.
+    Contributed code should follow the same conventions.
+    For examples, please see the `Napoleon examples
+    <http://sphinxcontrib-napoleon.readthedocs.org/en/latest/example_google.html>`_,
+    or the `Google Python Style Guide
+    <https://github.com/google/styleguide/blob/gh-pages/pyguide.md>`_.
 
 
 Feature requests and feedback
@@ -46,23 +47,27 @@ Development
 To set up pyprecag for local development:
 
 1. Fork the `pyprecag` repo on GitHub.
-2. Clone your fork locally::
+2. Clone your fork locally:
 
+.. code-block:: bash
     $ git clone git@github.com:your_name_here/pyprecag.git
 
-3. Create a branch for local development::
+3. Create a branch for local development:
 
+.. code-block:: bash
     git checkout -b name-of-your-bugfix-or-feature
 
    Now you can make your changes locally.
 
 4. When you're done making changes, run all the tests, doc builder and pylint
-   checks using the project makefile::
+   checks using the project makefile:
 
+.. code-block:: bash
     make clean lint test docs
 
-5. Commit your changes and push your branch to GitHub::
+5. Commit your changes and push your branch to GitHub:
 
+.. code-block:: console
     git add .
     git commit -m "Your detailed description of your changes."
     git push origin name-of-your-bugfix-or-feature
@@ -76,7 +81,7 @@ If you need some code review or feedback while you're developing the code just m
 
 For merging, you should:
 
-1. Include passing tests (run ``make test``).
+1. Include passing tests.
 2. Update documentation when there's new API, functionality etc.
 3. Add a note to ``CHANGELOG.rst`` about the changes.
 4. Add yourself to ``AUTHORS.rst``.
