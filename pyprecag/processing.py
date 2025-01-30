@@ -2342,7 +2342,7 @@ def ttest_analysis(points_geodataframe, points_crs, values_raster, out_folder,
         df_subtable.drop(dropcols, axis=1, inplace=True)
 
         # Convert zones to integer - there should be no NAN's
-        df_subtable[column_names['Zone']] = df_subtable[column_names['Zone']].astype(int)
+        df_subtable[column_names['Zone']] = df_subtable[column_names['Zone']].astype(pd.Int64Dtype())
 
         # run loop for the three scenarios. 1) both sides (N+S), 2) North, 3) South
         scenarios = [offset_names] + offset_names
