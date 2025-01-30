@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "0.4.3-rc3"
+current_version = "0.4.3"
 parse = """(?x)
 	(?P<major>\\d+)\\.
 	(?P<minor>\\d+)\\.
@@ -30,7 +30,8 @@ message = "Bump version: {current_version} → {new_version}"
 commit_args = ""
 
 [tool.bumpversion.parts.pre_l]
-values = ["dev", "rc"]
+values = ["dev", "rc","final"]
+optional_value = "final"
 
 [tool.bumpversion.parts.pre_n]
 first_value = "1"
