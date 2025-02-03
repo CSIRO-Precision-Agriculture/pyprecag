@@ -25,7 +25,8 @@ jobs:
     - name: Install local pyprecag module 
       run: |
         pip install .
-    - run: |    
+    - name: Static Analysis of Python Code for Syntax Errors or Undefined names
+      run: |    
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
