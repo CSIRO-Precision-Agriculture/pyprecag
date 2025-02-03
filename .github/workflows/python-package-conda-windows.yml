@@ -16,7 +16,8 @@ jobs:
         miniconda-version: "latest"
         python-version: '3.12'
         activate-environment: pyprecag_up
-    - run: |
+    - name: Install conda packages
+      run: |
         conda install geopandas rasterio                     -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
