@@ -17,13 +17,11 @@ jobs:
         python-version: '3.12'
         activate-environment: pyprecag_up
     - run: |
-        #conda init powershell
         conda install geopandas                              -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
         conda install flake8                                 -c conda-forge -y
         pip install .
-        #conda install -c conda-forge/label/dev rasterio -y
         conda install -c conda-forge rasterio -y        
     - run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -32,8 +30,6 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - run: |
         # Unit Tests
-        #conda list
-        #conda activate pyprecag_up
         python -m unittest pyprecag/tests/test_bandops.py
         python -m unittest pyprecag/tests/test_config.py        
         python -m unittest pyprecag/tests/test_convert.py
