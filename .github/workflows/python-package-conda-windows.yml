@@ -36,4 +36,9 @@ jobs:
         conda list
         conda activate pyprecag_up
         python -m unittest pyprecag/tests/test_bandops.py
+        python -m unittest pyprecag/tests/test_describe.py
+        python -m unittest pyprecag/tests/test_convert.py
+        python -m unittest pyprecag/tests/test_crs.py
+        
+
     
