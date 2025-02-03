@@ -22,6 +22,8 @@ jobs:
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
         conda install flake8                                 -c conda-forge -y
+    - name: Install local pyprecag module 
+      run: |
         pip install .
     - run: |    
         # stop the build if there are Python syntax errors or undefined names
