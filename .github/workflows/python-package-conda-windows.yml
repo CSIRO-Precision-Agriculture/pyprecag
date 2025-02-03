@@ -17,7 +17,7 @@ jobs:
         python-version: '3.12'
         activate-environment: pyprecag_up
     - run: |
-        conda init powershell
+        #conda init powershell
         conda install geopandas                              -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
