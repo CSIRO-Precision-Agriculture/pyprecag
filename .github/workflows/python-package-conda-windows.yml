@@ -24,6 +24,8 @@ jobs:
         conda install gdal -c conda-forge -y
         conda install flake8 -c conda-forge -y
         pip install .
+        pip uninstall rasterio
+        conda install -c conda-forge/label/dev rasterio
         conda list
         python -m unittest pyprecag/tests/test_bandops.py
     - run: |
