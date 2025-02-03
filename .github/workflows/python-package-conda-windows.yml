@@ -33,6 +33,6 @@ jobs:
     - run: |
         # Unit Tests
         conda list
-        conda init pyprecag_up
+        conda activate pyprecag_up
         python -m unittest pyprecag/tests/test_bandops.py
     
