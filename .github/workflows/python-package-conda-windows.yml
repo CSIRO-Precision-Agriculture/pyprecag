@@ -18,10 +18,10 @@ jobs:
         activate-environment: pyprecag_up
     - run: |
         conda install geopandas                              -c conda-forge -y
+        conda install -c conda-forge rasterio -y                
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
         conda install flake8                                 -c conda-forge -y
-        conda install -c conda-forge rasterio -y        
         pip install .
 #        conda install -c conda-forge rasterio -y        
     - run: |
