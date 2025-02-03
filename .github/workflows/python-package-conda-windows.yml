@@ -40,8 +40,8 @@ jobs:
         python -m unittest pyprecag/tests/test_convert.py
         python -m unittest pyprecag/tests/test_crs.py
         python -m unittest pyprecag/tests/test_describe.py
-        python -m unittest pyprecag/tests/test_kridging_ops.py
-        python -m unittest pyprecag/tests/test_raster_ops.py
+        python -m unittest pyprecag/tests/test_kriging_ops.py
+        python -m unittest pyprecag/tests/test_rasterops.py
         python -m unittest pyprecag/tests/test_table_ops.py
 
         
