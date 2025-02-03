@@ -18,14 +18,12 @@ jobs:
         activate-environment: pyprecag_up
     - run: |
         conda init powershell
-        conda install geopandas rasterio -c conda-forge -y
+        conda install geopandas                              -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
-        conda install libsqlite sqlite -c conda-forge -y
-        conda install gdal -c conda-forge -y
-        conda install flake8 -c conda-forge -y
+        conda install gdal                                   -c conda-forge -y
+        conda install flake8                                 -c conda-forge -y
         pip install .
-        pip uninstall rasterio
-        conda install -c conda-forge/label/dev rasterio
+        conda install -c conda-forge/label/dev rasterio -y
         conda list
         python -m unittest pyprecag/tests/test_bandops.py
     - run: |
