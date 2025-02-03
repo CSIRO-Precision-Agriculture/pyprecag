@@ -10,27 +10,23 @@ jobs:
       max-parallel: 5
 
     steps:
+    - name: Set up miniconda environment pyprecag_up with python 3.12
     - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
+    - uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: '3.10'
-
-    - name: Install dependencies
-      run: |
-        C:\Miniconda\condabin\conda.bat env update --file environment.yml --name base
-        C:\Miniconda\condabin\conda.bat init powershell
+        miniconda-version: "latest"
+        python-version: '3.12'
+        activate-environment: pyprecag_up
+    - run: |
+        conda install geopandas rasterio -c conda_forge -y
+        conda install fiona six chardet unidecode scipy pint -c conda_forge -y
+        conda install libsqlite sqlite -c conda_forge -y
+        conda install gdal -c conda_forge -y
+        conda install flake8 -c conda-forge -y
+        pip install .
     - name: Lint with flake8
       run: |
-        # Activate the base environment
-        C:\Miniconda\condabin\conda.bat activate base
-        C:\Miniconda\condabin\conda.bat install flake8
-        C:\Miniconda\condabin\conda.bat install gdal
-        C:\Miniconda\condabin\conda.bat install fiona
-        C:\Miniconda\condabin\conda.bat install geopandas
-        #conda install fiona
-        #conda install geopandas
-        pip install .
+        # Activate the base environment        
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
@@ -38,9 +34,6 @@ jobs:
     - name: Test with unittest
       run: |
         # Activate the base environment
-        C:\Miniconda\condabin\conda.bat activate base
-        #C:\Miniconda\condabin\conda.bat install pytest
-        #pytest
         mv ./pyprecag/tests/test_processing.py ./pyprecag/tests/X_test_processing.py
         mv ./pyprecag/tests/test_vector_ops.py ./pyprecag/tests/X_test_vector_ops.py
         mv ./pyprecag/tests/test_end2end.py ./pyprecag/tests/X_test_end2end.py
