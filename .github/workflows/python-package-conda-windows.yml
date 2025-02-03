@@ -10,7 +10,6 @@ jobs:
       max-parallel: 5
 
     steps:
-    - name: Set up miniconda environment pyprecag_up with python 3.12
     - uses: actions/checkout@v3
     - uses: conda-incubator/setup-miniconda@v3
       with:
