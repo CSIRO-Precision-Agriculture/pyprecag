@@ -16,27 +16,11 @@ jobs:
         python-version: '3.12'
         auto-update-conda: true
         activate-environment: pyprecag_up
-    - name: Bash
-      shell: bash
-      run: |
-        echo HEREMNB-5
-        which conda
-        echo $CONDA
-        conda info
-        echo "Attempt an init"
-        conda init bash
-        echo "Re source .basrch to emulate close and restatrt of terminal"
-        source ~/.bashrc
-        echo "Using $CONDA/bin/conda"
-        conda activate pyprecag_up
-        $CONDA/bin/conda info
-        $CONDA/bin/conda list
-        echo "HERERE"
 
     - name: Install conda packages
       run: |
         # ==========================================================================
-        #            Rigermerole to get conda to activate precag_up
+        #            Rigmarole to get conda to activate precag_up
         # --------------------------------------------------------------------------
         # Note:
         # This is supposed to be setup automatically and it for the windows platform
@@ -51,7 +35,7 @@ jobs:
         # Finally conda activate pyprecag
         conda activate pyprecag_up
         # --------------------------------------------------------------------------
-        # End of Rigermerole to get conda to activate precag_up
+        # End of Rigmarole to get conda to activate precag_up
         # ==========================================================================
 
         echo "Listing conda info"
@@ -67,7 +51,7 @@ jobs:
     - name: Install local pyprecag module
       run: |
         # ==========================================================================
-        #            Rigermerole to get conda to activate precag_up
+        #            Rigmarole to get conda to activate precag_up
         # --------------------------------------------------------------------------
         # Note:
         # This is supposed to be setup automatically and it for the windows platform
@@ -82,25 +66,31 @@ jobs:
         # Finally conda activate pyprecag
         conda activate pyprecag_up
         # --------------------------------------------------------------------------
-        # End of Rigermerole to get conda to activate precag_up
-        # ==========================================================================
-        conda info
-        conda list
-        conda install rasterio
-        conda list
-        echo "Make some pip and python tests"
-        which pip
-        which python
-        echo "Test 1"
-        which python
-        python -c 'import rasterio'
-        echo 'Test 2'
-        python -c 'import osgeo'
-        echo "About to call pip install ."
+        # End of Rigmarole to get conda to activate precag_up
+        # ==========================================================================        
         pip install .
     
     - name: Static Analysis of Python Code for Syntax Errors or Undefined names
       run: |    
+        # ==========================================================================
+        #            Rigmarole to get conda to activate precag_up
+        # --------------------------------------------------------------------------
+        # Note:
+        # This is supposed to be setup automatically and it for the windows platform
+        # conda activate requires a conda init first which then demands a shell
+        # restart to set all the necessary paths. We emulate the restart by
+        # using bash shell and resourcing the .bashrc file
+        # -----------------------------------------------
+        # conda init with bash shell
+        conda init bash
+        # Now source .bashrc to emulate the close and restart of the terminal"
+        source ~/.bashrc
+        # Finally conda activate pyprecag
+        conda activate pyprecag_up
+        # --------------------------------------------------------------------------
+        # End of Rigmarole to get conda to activate precag_up
+        # ==========================================================================        
+
         conda install flake8 -y
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -109,6 +99,25 @@ jobs:
 
     - name: Unit Tests (Ubuntu specific)
       run: |
+        # ==========================================================================
+        #            Rigmarole to get conda to activate precag_up
+        # --------------------------------------------------------------------------
+        # Note:
+        # This is supposed to be setup automatically and it for the windows platform
+        # conda activate requires a conda init first which then demands a shell
+        # restart to set all the necessary paths. We emulate the restart by
+        # using bash shell and resourcing the .bashrc file
+        # -----------------------------------------------
+        # conda init with bash shell
+        conda init bash
+        # Now source .bashrc to emulate the close and restart of the terminal"
+        source ~/.bashrc
+        # Finally conda activate pyprecag
+        conda activate pyprecag_up
+        # --------------------------------------------------------------------------
+        # End of Rigmarole to get conda to activate precag_up
+        # ==========================================================================        
+        
         python -m unittest pyprecag/tests/test_bandops.py
         python -m unittest pyprecag/tests/test_config.py        
         python -m unittest pyprecag/tests/test_convert.py
@@ -122,6 +131,25 @@ jobs:
     
     - name: Build latex help documents
       run: |
+        # ==========================================================================
+        #            Rigmarole to get conda to activate precag_up
+        # --------------------------------------------------------------------------
+        # Note:
+        # This is supposed to be setup automatically and it for the windows platform
+        # conda activate requires a conda init first which then demands a shell
+        # restart to set all the necessary paths. We emulate the restart by
+        # using bash shell and resourcing the .bashrc file
+        # -----------------------------------------------
+        # conda init with bash shell
+        conda init bash
+        # Now source .bashrc to emulate the close and restart of the terminal"
+        source ~/.bashrc
+        # Finally conda activate pyprecag
+        conda activate pyprecag_up
+        # --------------------------------------------------------------------------
+        # End of Rigmarole to get conda to activate precag_up
+        # ==========================================================================        
+      
         echo "======================================"
         echo "       Install sphinx tools  "
         echo "======================================"
