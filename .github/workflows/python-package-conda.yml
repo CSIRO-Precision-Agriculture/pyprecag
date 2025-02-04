@@ -25,6 +25,8 @@ jobs:
         conda info
         echo "Attempt an init"
         conda init bash
+        echo "Re source .basrch to emulate close and restatrt of terminal"
+        source ~/.bashrc
         echo "Using $CONDA/bin/conda"
         conda activate pyprecag_up
         $CONDA/bin/conda info
