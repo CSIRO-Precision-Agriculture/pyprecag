@@ -19,8 +19,9 @@ jobs:
       shell: bash
       run: |
         echo HEREMNB
-        conda info
         conda activate pyprecag_up
+        conda info
+        #conda activate pyprecag_up
         conda info
         conda list
     
