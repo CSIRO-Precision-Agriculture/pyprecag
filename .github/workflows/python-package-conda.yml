@@ -15,6 +15,12 @@ jobs:
         miniconda-version: "latest"
         python-version: '3.12'
         activate-environment: pyprecag_up
+    - name: Bash
+      shell: bash
+      run: |
+        echo HEREMNB
+        conda info
+        conda list
     
     - name: Install conda packages
       run: |
