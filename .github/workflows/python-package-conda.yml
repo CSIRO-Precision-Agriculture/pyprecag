@@ -57,10 +57,12 @@ jobs:
         echo "Listing conda info"
         conda info
         echo "Running conda install"
-        conda install geopandas                              -c conda-forge -y
+        conda install geopandas rasterio                     -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
-
+        
+        # Some extras that rasterio depends on
+        conda install sqlite                                 -c conda-forge -y
 
     - name: Install local pyprecag module
       run: |
