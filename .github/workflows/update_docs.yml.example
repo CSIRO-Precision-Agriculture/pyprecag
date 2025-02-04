@@ -1,3 +1,10 @@
+# ============================================================================
+# Example of copying a textfile from pyprecag to a different branch (mnb-pages)
+# ============================================================================
+
+# Note: This example is currently disabled as mike-birchall-csiro is now a ghost
+# and this causes an authentication error.
+
 name: Push File
 
 on: push
@@ -9,7 +16,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Pushes test file
+    - name: Pushes test file to mnb_pages
       uses: dmnemec/copy_file_to_another_repo_action@main
       env:
         API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
@@ -19,5 +26,5 @@ jobs:
         destination_branch: 'mnb_pages'
         destination_folder: 'test-dir'
         user_email: 'mike.birchall@csiro.au'
-        user_name: 'mike-birchall-csiro1'
+        user_name: 'mike-birchall-csiro'
         commit_message: 'A custom message for the commit'
