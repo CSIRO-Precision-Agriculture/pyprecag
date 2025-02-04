@@ -27,6 +27,7 @@ jobs:
         $CONDA/bin/conda info
         $CONDA/bin/conda list
         echo "HERERE"
+        source activate base
         $CONDA/bin/conda activate pyprecag_up
     
     - name: Install conda packages
