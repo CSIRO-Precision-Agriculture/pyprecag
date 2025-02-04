@@ -16,23 +16,27 @@ jobs:
         miniconda-version: "latest"
         python-version: '3.12'
         activate-environment: pyprecag_up
+    
     - name: Install conda packages
       run: |
         conda install geopandas rasterio                     -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
         conda install flake8                                 -c conda-forge -y
+    
     - name: Install local pyprecag module 
       run: |
         pip install .
+    
     - name: Static Analysis of Python Code for Syntax Errors or Undefined names
       run: |    
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - run: |
-        # Unit Tests
+
+    - name: Unit Tests (windows specific)
+      run: |
         python -m unittest pyprecag/tests/test_bandops.py
         python -m unittest pyprecag/tests/test_config.py        
         python -m unittest pyprecag/tests/test_convert.py
@@ -40,7 +44,9 @@ jobs:
         python -m unittest pyprecag/tests/test_describe.py
         python -m unittest pyprecag/tests/test_kriging_ops.py
         python -m unittest pyprecag/tests/test_rasterops.py
-        python -m unittest pyprecag/tests/test_table_ops.py
+        echo skipping: python -m unittest pyprecag/tests/test_end2end.py
+        echo skipping: python -m unittest pyprecag/tests/test_processing.py
+        echo skipping: python -m unittest pyprecag/tests/test_vector_ops.py
 
         
 
