@@ -57,7 +57,7 @@ jobs:
         echo "Listing conda info"
         conda info
         echo "Running conda install"
-        conda install geopandas rasterio                     -c conda-forge -y
+        conda install geopandas                              -c conda-forge -y
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
 
@@ -83,6 +83,8 @@ jobs:
         # End of Rigermerole to get conda to activate precag_up
         # ==========================================================================
         conda info
+        conda list
+        conda install rasterio
         conda list
         echo "Make some pip and python tests"
         which pip
