@@ -19,10 +19,12 @@ jobs:
     - name: Bash
       shell: bash
       run: |
-        echo HEREMNB-4
+        echo HEREMNB-5
         which conda
         echo $CONDA
         conda info
+        echo "Attempt an init
+        conda init bash
         echo "Using $CONDA/bin/conda"
         conda activate pyprecag_up
         $CONDA/bin/conda info
