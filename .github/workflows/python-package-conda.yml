@@ -35,6 +35,13 @@ jobs:
 
     - name: Install conda packages
       run: |
+        # Rigermerole to get conda to activate precag_up
+        # This is supposed to be setup automatically and it for the windows platform
+        conda init bash
+        echo "Re source .bashrc to emulate the close and restart of the terminal"
+        source ~/.bashrc
+        conda activate pyprecag_up
+
         echo "Listing conda info"
         conda info
         echo "Running conda install"
