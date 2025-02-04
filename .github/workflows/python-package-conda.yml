@@ -20,6 +20,8 @@ jobs:
       run: |
         echo HEREMNB
         conda info
+        conda activate pyprecag_ip
+        conda info
         conda list
     
     - name: Install conda packages
