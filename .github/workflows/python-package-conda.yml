@@ -170,6 +170,7 @@ jobs:
         sudo apt-get -y install latexmk
         sudo apt-get -y install texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra
 
+        pushd .
         cd ./pyprecag_docs/latex/; latexmk -pdf -dvi- -ps- -f pyprecag.tex
         echo "======================================"
         echo "  Finished build of PDF from Latex"
@@ -177,6 +178,7 @@ jobs:
         echo "Latex Directory:"
         echo "Here:"
         ls
+        popd
         
         echo "======================================"
         echo "Use sphinx-build to create html files"
