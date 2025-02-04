@@ -1,4 +1,4 @@
-name: Github Actions in Windows
+name: Build and Test of pyprecag on Windows Platform
 
 on: push
 
@@ -44,9 +44,9 @@ jobs:
         python -m unittest pyprecag/tests/test_describe.py
         python -m unittest pyprecag/tests/test_kriging_ops.py
         python -m unittest pyprecag/tests/test_rasterops.py
-        echo skipping: python -m unittest pyprecag/tests/test_end2end.py
-        echo skipping: python -m unittest pyprecag/tests/test_processing.py
-        echo skipping: python -m unittest pyprecag/tests/test_vector_ops.py
+        echo "skipping: python -m unittest pyprecag/tests/test_end2end.py"
+        echo "skipping: python -m unittest pyprecag/tests/test_processing.py"
+        echo "skipping: python -m unittest pyprecag/tests/test_vector_ops.py"
 
         
 
