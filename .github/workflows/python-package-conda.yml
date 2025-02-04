@@ -28,6 +28,7 @@ jobs:
         conda list
         echo "About to call pip install ."
         which pip
+        conda init
         conda activate pyprecag_up
         which pip
         pip install .
