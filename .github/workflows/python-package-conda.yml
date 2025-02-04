@@ -28,6 +28,8 @@ jobs:
         conda list
         echo "About to call pip install ."
         which pip
+        conda activate pyprecag_up
+        which pip
         pip install .
     
     - name: Static Analysis of Python Code for Syntax Errors or Undefined names
