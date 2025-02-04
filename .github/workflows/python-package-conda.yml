@@ -35,12 +35,24 @@ jobs:
 
     - name: Install conda packages
       run: |
-        # Rigermerole to get conda to activate precag_up
+        # ==========================================================================
+        #            Rigermerole to get conda to activate precag_up
+        # --------------------------------------------------------------------------
+        # Note:
         # This is supposed to be setup automatically and it for the windows platform
+        # conda activate requires a conda init first which then demands a shell
+        # restart to set all the necessary paths. We emulate the restart by
+        # using bash shell and resourcing the .bashrc file
+        # -----------------------------------------------
+        # conda init with bash shell
         conda init bash
-        echo "Re source .bashrc to emulate the close and restart of the terminal"
+        # Now source .bashrc to emulate the close and restart of the terminal"
         source ~/.bashrc
+        # Finally conda activate pyprecag
         conda activate pyprecag_up
+        # --------------------------------------------------------------------------
+        # End of Rigermerole to get conda to activate precag_up
+        # ==========================================================================
 
         echo "Listing conda info"
         conda info
@@ -49,11 +61,6 @@ jobs:
         conda install fiona six chardet unidecode scipy pint -c conda-forge -y
         conda install gdal                                   -c conda-forge -y
     
-    - name: Install local pyprecag module 
-      run: |
-        echo "Here with conda"
-        conda info
-        conda list
         echo "About to call pip install ."
         which pip
         echo "Test 1"
@@ -61,9 +68,6 @@ jobs:
         python -c 'import rasterio'
         echo 'Test 2'
         python -c 'import osgeo'
-        conda init
-        conda activate pyprecag_up
-        which pip
         pip install .
     
     - name: Static Analysis of Python Code for Syntax Errors or Undefined names
