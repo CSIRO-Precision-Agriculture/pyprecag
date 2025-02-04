@@ -43,6 +43,11 @@ jobs:
         conda list
         echo "About to call pip install ."
         which pip
+        echo "Test 1"
+        which python
+        python -c 'import rasterio'
+        echo 'Test 2'
+        python -c 'import osgeo'
         conda init
         conda activate pyprecag_up
         which pip
