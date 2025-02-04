@@ -14,6 +14,7 @@ jobs:
       with:
         miniconda-version: "latest"
         python-version: '3.12'
+        auto-update-conda: true
         activate-environment: pyprecag_up
     - name: Bash
       shell: bash
@@ -23,7 +24,7 @@ jobs:
         echo $CONDA
         conda info
         echo "Using $CONDA/bin/conda"
-        #conda activate pyprecag_up
+        conda activate pyprecag_up
         $CONDA/bin/conda info
         $CONDA/bin/conda list
         echo "HERERE"
