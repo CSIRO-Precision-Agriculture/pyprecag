@@ -18,7 +18,7 @@ jobs:
     - name: Bash
       shell: bash
       run: |
-        echo HEREMNB-2
+        echo HEREMNB-3
         which conda
         echo $CONDA
         conda info
@@ -26,6 +26,7 @@ jobs:
         #conda activate pyprecag_up
         $CONDA/bin/conda info
         $CONDA/bin/conda list
+        $CONDA/bin conda activate pyprecag_up
     
     - name: Install conda packages
       run: |
