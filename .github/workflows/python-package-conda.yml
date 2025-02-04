@@ -23,7 +23,7 @@ jobs:
         which conda
         echo $CONDA
         conda info
-        echo "Attempt an init
+        echo "Attempt an init"
         conda init bash
         echo "Using $CONDA/bin/conda"
         conda activate pyprecag_up
