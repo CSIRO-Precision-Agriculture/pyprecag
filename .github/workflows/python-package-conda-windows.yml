@@ -44,7 +44,6 @@ jobs:
         python -m unittest pyprecag/tests/test_describe.py
         python -m unittest pyprecag/tests/test_kriging_ops.py
         python -m unittest pyprecag/tests/test_rasterops.py
-       #python -m unittest pyprecag/tests/test_end2end.py
         echo "skipping: python -m unittest pyprecag/tests/test_end2end.py"
         python -m unittest pyprecag/tests/test_processing.py
         echo "skipping: python -m unittest pyprecag/tests/test_vector_ops.py"
