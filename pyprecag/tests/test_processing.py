@@ -63,12 +63,12 @@ class Test_BlockGrid(unittest.TestCase):
         poly = os.path.realpath(os.path.join(THIS_DIR, "area2_onebox_94mga54.shp"))
 
         file_sub_name = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(poly))[0])
-        vect_desc = VectorDescribe(poly)
-        output_files = block_grid(in_shapefilename=poly,
+        gdf = gpd.read_file(poly)
+        output_files = block_grid(poly_geodataframe=gdf,
                                   pixel_size=5,
                                   out_rasterfilename=file_sub_name + '_block.tif',
                                   out_vesperfilename=file_sub_name + '_block_v.txt',
-                                  out_epsg=vect_desc.crs.epsg_number,
+                                  out_epsg=gdf.crs.to_epsg(),
                                   snap=True,
                                   overwrite=True)
 
@@ -82,14 +82,15 @@ class Test_BlockGrid(unittest.TestCase):
             self.assertEqual(66, src.height, 'Incorrect image height')
             self.assertEqual((-9999.0,), src.nodatavals, 'Incorrect image nodata value')
             self.assertEqual(('int16',), src.dtypes, 'Incorrect data type')
-            self.assertEqual(28354, src.crs.to_epsg(), 'Incorrect EPSG')
+            self.assertEqual(gdf.crs.to_epsg(), src.crs.to_epsg(), 'Incorrect EPSG')
 
     def test_BlockGrid_GrpBy(self):
         poly = os.path.realpath(os.path.join(THIS_DIR, "PolyMZ_wgs84_MixedPartFieldsTypes.shp"))
+        gdf = gpd.read_file(poly)
 
         file_sub_name = os.path.join(self.test_outdir, os.path.splitext(os.path.basename(poly))[0])
-
-        output_files = block_grid(in_shapefilename=poly,
+        
+        output_files = block_grid(poly_geodataframe=gdf,
                                   pixel_size=5,
                                   out_rasterfilename=file_sub_name + '_block.tif',
                                   out_vesperfilename=file_sub_name + '_block_v.txt',
@@ -153,7 +154,7 @@ class Test_CleanTrim(unittest.TestCase):
         poly_gdf = gpd.read_file(in_poly)
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
                                                                 out_epsg=28354)
-        out_gdf, out_crs = clean_trim_points(gdf_points, None, 'Yield',
+        out_gdf, out_crs = clean_trim_points(gdf_points, 'Yield',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
                                              poly_geodataframe=poly_gdf, thin_dist_m=2.5)
@@ -189,7 +190,7 @@ class Test_CleanTrim(unittest.TestCase):
         out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
 
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326, out_epsg=28354)
-        out_gdf, out_crs = clean_trim_points(gdf_points, gdf_pts_crs, 'Yld Mass(Dry)(tonne/ha)',
+        out_gdf, out_crs = clean_trim_points(gdf_points, 'Yld Mass(Dry)(tonne/ha)',
                                              out_csv, out_keep_shapefile=out_shp,
                                              out_removed_shapefile=out_rm_shp,
                                              boundary_polyfile=in_poly, thin_dist_m=2.5)
@@ -253,7 +254,7 @@ class Test_Processing(unittest.TestCase):
         gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, None,
                                                                 coord_columns_epsg=4326, out_epsg=28354)
 
-        create_polygon_from_point_trail(gdf_points, None, out_polyfile,
+        create_polygon_from_point_trail(gdf_points, out_polyfile,
                                         thin_dist_m=2.5,
                                         aggregate_dist_m=25,
                                         buffer_dist_m=10,
