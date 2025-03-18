@@ -446,9 +446,10 @@ def clean_trim_points(points_geodataframe, points_crs, process_column, output_cs
 
     if poly_geodataframe is not None and not isinstance(poly_geodataframe, GeoDataFrame):
         raise TypeError('Invalid input data : poly_geodataframe')
-
-    if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
-        raise GeometryError('Invalid geometry. Input poly_geodataframe or boundary_polyfile should be polygon'
+    
+    if poly_geodataframe is not None:
+        if not any("POLY" in g.upper() for g in poly_geodataframe.geom_type.unique()):
+            raise GeometryError('Invalid geometry. Input poly_geodataframe or boundary_polyfile should be polygon'
                             ' or multipolygon')
 
     start_time = time.time()
