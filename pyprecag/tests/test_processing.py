@@ -210,7 +210,39 @@ class Test_CleanTrim(unittest.TestCase):
 
         res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
         pdts.assert_frame_equal(tmp, res_stats)
+    
+    def test_cleanTrimPoints_noclip(self):
+        in_csv = os.path.join(THIS_DIR, "area1_yield_ascii_wgs84.csv")
+        
+        out_csv = os.path.join(self.test_outdir, os.path.basename(in_csv))
+        out_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '.shp'))
+        out_rm_shp = os.path.join(self.test_outdir, os.path.basename(in_csv).replace('.csv', '_remove.shp'))
+        
+        gdf_points, gdf_pts_crs = convert.convert_csv_to_points(in_csv, coord_columns_epsg=4326,
+                                                                out_epsg=28354)
+        
+        out_gdf, out_crs = clean_trim_points(gdf_points, None, 'Flow_Rate',
+                                             out_csv, out_keep_shapefile=out_shp,
+                                             out_removed_shapefile=out_rm_shp,
+                                             poly_geodataframe=None,stdevs=2, thin_dist_m=5,iterative=False)
 
+        self.assertIsInstance(out_gdf, GeoDataFrame)
+        self.assertTrue(os.path.exists(out_csv))
+
+        self.assertEqual(28354, out_gdf.crs.to_epsg())  # {'init': 'EPSG:28354', 'no_defs': True})
+        self.assertIn('EN_EPSG', out_gdf.columns)
+        self.assertEqual( 6_574, len(out_gdf))
+        
+        tmp = pd.DataFrame.from_records(data=[{'filter': '01 Duplicate XY', 'count': 1001},
+                                              {'filter': '02 2 std iter 1', 'count': 523}, 
+                                              {'filter': '04 pointXY (5m)', 'count': 6579},
+                                              {'filter': '05 pointX (5m)', 'count': 76},
+                                              {'filter': '06 pointY (5m)', 'count': 3}], index='filter')
+
+        res_df = gpd.read_file(out_rm_shp)
+
+        res_stats = res_df.value_counts('filter', sort=False).to_frame('count')
+        pdts.assert_frame_equal(tmp, res_stats)
 
 class Test_Processing(unittest.TestCase):
     failedTests = []
