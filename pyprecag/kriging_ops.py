@@ -12,6 +12,7 @@ import time
 import warnings
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
 from rasterio import features
@@ -159,7 +160,7 @@ class VesperControl(collections.abc.MutableMapping, dict):
                 if key in ['title', 'datfil', 'gridfile', 'outdir', 'repfil', 'outfil', 'parfil']:
                     w_out.write("{}='{}'\n".format(key, self[key]))
                 else:
-                    w_out.write('{}={}\n'.format(key, self[key]))
+                    w_out.write('{}={}\n'.format(key, np.format_float_positional(self[key], trim='-')))
             w_out.write('$end\n')
 
 
